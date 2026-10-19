@@ -2948,6 +2948,19 @@
                 <i class="fas fa-chevron-right text-gray-400"></i>
               </button>
 
+              <button id="quickClaimToil" onclick="openTOILClaimModal()" class="w-full flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-amber-50 hover:border-amber-200 transition-colors">
+                <div class="flex items-center">
+                  <div class="h-10 w-10 rounded-lg bg-amber-100 flex items-center justify-center mr-3">
+                    <i class="fas fa-business-time text-amber-600"></i>
+                  </div>
+                  <div class="text-left">
+                    <p class="font-medium text-gray-900">Claim TOIL</p>
+                    <p class="text-sm text-gray-600">Claim time-off in lieu for extra hours worked</p>
+                  </div>
+                </div>
+                <i class="fas fa-chevron-right text-gray-400"></i>
+              </button>
+
               <button id="quickViewApplications" class="w-full flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                 <div class="flex items-center">
                   <div class="h-10 w-10 rounded-lg bg-green-100 flex items-center justify-center mr-3">
@@ -6826,6 +6839,14 @@
                     e.preventDefault();
                     e.stopPropagation();
                     navigateToPage('myBalance');
+                }
+
+                if (target.closest('#quickClaimToil')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (typeof openTOILClaimModal === 'function') {
+                        openTOILClaimModal();
+                    }
                 }
 
                 if (target.closest('#quickViewApplications') || target.closest('#viewAllApplications')) {
