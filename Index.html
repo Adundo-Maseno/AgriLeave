@@ -3093,8 +3093,8 @@
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <button class="text-primary-600 hover:text-primary-900 mr-3 view-application-btn" data-id="${app.ID || ''}">View</button>
-                      ${app.Status === 'Pending' ? `
-                      <button class="text-red-600 hover:text-red-900 cancel-application-btn" data-id="${app.ID || ''}">Cancel</button>
+                      ${(app.Status === 'Pending' || app.Status === 'Approved') ? `
+                      <button class="text-red-600 hover:text-red-900 cancel-application-btn" data-id="${app.ID || ''}" title="${app.Status === 'Approved' ? 'Cancel approved leave and restore balance' : 'Cancel pending leave'}">Cancel</button>
                       ` : ''}
                     </td>
                   </tr>
@@ -5555,24 +5555,7 @@
 
             showToast('success', 'Export Successful', `Report downloaded as ${filename}`);
         }
-        // Helper function to format dates
-        function formatDate(dateString) {
-            if (!dateString) return 'N/A';
-            const date = new Date(dateString);
-            return date.toLocaleDateString('en-GB', {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric'
-            });
-        }
 
-        // Helper function to escape HTML
-        function escapeHtml(text) {
-            if (!text) return '';
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
 
         // Make functions globally available
         window.loadReportsPage = loadReportsPage;
@@ -6031,65 +6014,115 @@
             document.getElementById('applyLeaveModal').classList.add('hidden');
         }
 
-        function updateBusinessDaysDisplay() {
-            const startDate = document.getElementById('startDate').value;
-            const endDate = document.getElementById('endDate').value;
+        function calculateEasterDate(year) {
+            const a = year % 19;
+            const b = Math.floor(year / 100);
+            const c = year % 100;
+            const d = Math.floor(b / 4);
+            const e = b % 4;
+            const f = Math.floor((b + 8) / 25);
+            const g = Math.floor((b - f + 1) / 3);
+            const h = (19 * a + b - d - g + 15) % 30;
+            const i = Math.floor(c / 4);
+            const k = c % 4;
+            const l = (32 + 2 * e + 2 * i - h - k) % 7;
+            const m = Math.floor((a + 11 * h + 22 * l) / 451);
+            const month = Math.floor((h + l - 7 * m + 114) / 31);
+            const day = ((h + l - 7 * m + 114) % 31) + 1;
+            return new Date(year, month - 1, day);
+        }
 
-            if (!startDate || !endDate) return;
+        function isPublicHoliday(date) {
+            const d = new Date(date);
+            d.setHours(0, 0, 0, 0);
+            const year = d.getFullYear();
 
-            const start = new Date(startDate);
-            const end = new Date(endDate);
+            const fixedHolidays = [
+                { month: 0, day: 1 },   // New Year's Day
+                { month: 4, day: 1 },   // Labour Day
+                { month: 5, day: 1 },   // Madaraka Day
+                { month: 9, day: 10 },  // Utamaduni / Mazigira Day
+                { month: 9, day: 20 },  // Mashujaa Day
+                { month: 11, day: 12 }, // Jamhuri Day
+                { month: 11, day: 25 }, // Christmas Day
+                { month: 11, day: 26 }  // Boxing Day
+            ];
 
-            if (start > end) {
-                document.getElementById('businessDaysInfo').textContent = 'Business days: 0 (End date must be after start date)';
-                return;
+            const easter = calculateEasterDate(year);
+            easter.setHours(0, 0, 0, 0);
+            const goodFriday = new Date(easter);
+            goodFriday.setDate(easter.getDate() - 2);
+            const easterMonday = new Date(easter);
+            easterMonday.setDate(easter.getDate() + 1);
+
+            if (d.getTime() === goodFriday.getTime() || d.getTime() === easterMonday.getTime()) {
+                return true;
             }
+
+            for (const h of fixedHolidays) {
+                const hDate = new Date(year, h.month, h.day);
+                hDate.setHours(0, 0, 0, 0);
+                if (d.getTime() === hDate.getTime()) return true;
+                if (hDate.getDay() === 0) {
+                    const observedMonday = new Date(hDate);
+                    observedMonday.setDate(hDate.getDate() + 1);
+                    if (d.getTime() === observedMonday.getTime()) return true;
+                }
+            }
+
+            return false;
+        }
+
+        function calculateBusinessDays(startDateStr, endDateStr) {
+            if (!startDateStr || !endDateStr) return 0;
+            const start = new Date(startDateStr);
+            const end = new Date(endDateStr);
+            if (start > end) return 0;
 
             let count = 0;
             const current = new Date(start);
-
             current.setHours(0, 0, 0, 0);
             end.setHours(0, 0, 0, 0);
 
             while (current <= end) {
                 const day = current.getDay();
-                if (day !== 0 && day !== 6) {
+                if (day !== 0 && day !== 6 && !isPublicHoliday(current)) {
                     count++;
                 }
                 current.setDate(current.getDate() + 1);
             }
+            return count;
+        }
 
+        function updateBusinessDaysDisplay() {
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            if (!startDate || !endDate) return;
+
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            if (start > end) {
+                document.getElementById('businessDaysInfo').textContent = 'Business days: 0 (End date must be after start date)';
+                return;
+            }
+
+            const count = calculateBusinessDays(startDate, endDate);
             document.getElementById('businessDaysInfo').textContent = `Business days: ${count}`;
         }
 
         function updateBusinessDaysDisplayForPage() {
             const startDate = document.getElementById('pageStartDate').value;
             const endDate = document.getElementById('pageEndDate').value;
-
             if (!startDate || !endDate) return;
 
             const start = new Date(startDate);
             const end = new Date(endDate);
-
             if (start > end) {
                 document.getElementById('pageBusinessDaysInfo').textContent = 'Business days: 0 (End date must be after start date)';
                 return;
             }
 
-            let count = 0;
-            const current = new Date(start);
-
-            current.setHours(0, 0, 0, 0);
-            end.setHours(0, 0, 0, 0);
-
-            while (current <= end) {
-                const day = current.getDay();
-                if (day !== 0 && day !== 6) {
-                    count++;
-                }
-                current.setDate(current.getDate() + 1);
-            }
-
+            const count = calculateBusinessDays(startDate, endDate);
             document.getElementById('pageBusinessDaysInfo').textContent = `Business days: ${count}`;
         }
         // Modal balance check
@@ -6606,12 +6639,17 @@
                 return;
             }
 
-            if (application.Status !== 'Pending') {
-                showToast('warning', 'Cannot Cancel', 'Only pending applications can be cancelled');
+            if (application.Status !== 'Pending' && application.Status !== 'Approved') {
+                showToast('warning', 'Cannot Cancel', 'Only pending or approved applications can be cancelled');
                 return;
             }
 
-            if (!confirm('Are you sure you want to cancel this leave application? This action cannot be undone.')) {
+            const isApproved = application.Status === 'Approved';
+            const confirmMsg = isApproved
+                ? 'Are you sure you want to cancel this APPROVED leave application? Deducted days will be restored to your leave balance.'
+                : 'Are you sure you want to cancel this leave application? This action cannot be undone.';
+
+            if (!confirm(confirmMsg)) {
                 return;
             }
 
@@ -6619,13 +6657,16 @@
 
             callGoogleScriptFunction('apiCancelApplication', {
                 appId: appId,
-                reason: 'Cancelled by applicant'
+                reason: isApproved ? 'Approved leave cancelled & balance restored' : 'Cancelled by applicant'
             })
                 .then(result => {
                     hideLoading();
 
                     if (result.success) {
-                        showToast('success', 'Application Cancelled', 'Your leave application has been cancelled');
+                        const msg = isApproved
+                            ? 'Approved application cancelled and leave balance restored successfully'
+                            : 'Your leave application has been cancelled';
+                        showToast('success', 'Application Cancelled', msg);
 
                         // Refresh applications list
                         if (AppState.currentPage === 'myApplications') {
@@ -7382,7 +7423,7 @@
             if (canTakeAction) {
                 actionButtons.classList.remove('hidden');
                 actionButtons.innerHTML = `
-      <button class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50" id="cancelActionBtn">Cancel</button>
+      <button class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50" id="cancelActionBtn">Close</button>
       <button class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 decline-action-btn" data-id="${appId}">Decline</button>
       <button class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 approve-action-btn" data-id="${appId}">Approve</button>
     `;
@@ -7400,6 +7441,21 @@
                 document.querySelector('.approve-action-btn')?.addEventListener('click', (e) => {
                     const id = e.target.getAttribute('data-id');
                     processApplicationDecision(id, 'approve');
+                });
+            } else if (!isTeamView && (application.Status === 'Pending' || application.Status === 'Approved')) {
+                actionButtons.classList.remove('hidden');
+                actionButtons.innerHTML = `
+      <button class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50" id="cancelActionBtn">Close</button>
+      <button class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 modal-cancel-btn" data-id="${appId}">Cancel Application</button>
+    `;
+
+                document.getElementById('cancelActionBtn')?.addEventListener('click', () => {
+                    document.getElementById('applicationDetailsModal').classList.add('hidden');
+                });
+
+                document.querySelector('.modal-cancel-btn')?.addEventListener('click', (e) => {
+                    const id = e.target.getAttribute('data-id');
+                    cancelApplication(id);
                 });
             } else {
                 actionButtons.classList.add('hidden');

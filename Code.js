@@ -12,6 +12,7 @@ const SYSTEM = {
     NAME: 'Agri Experience Leave Management System',
     VERSION: '3.4.0',
     ORGANIZATION: 'Agri Experience',
+    ADMIN_EMAIL: 'info@agri-experience.com',
     FOLDER_NAME: 'Agri Experience Leave System',
 
     ROLES: {
@@ -155,6 +156,54 @@ const Utils = {
         });
     },
 
+    isPublicHoliday: function (date) {
+        const d = new Date(date);
+        d.setHours(0, 0, 0, 0);
+        const year = d.getFullYear();
+
+        // 1. Fixed Kenya Public Holidays [month (0-11), day (1-31)]
+        const fixedHolidays = [
+            { month: 0, day: 1, name: "New Year's Day" },
+            { month: 4, day: 1, name: "Labour Day" },
+            { month: 5, day: 1, name: "Madaraka Day" },
+            { month: 9, day: 10, name: "Utamaduni / Mazigira Day" },
+            { month: 9, day: 20, name: "Mashujaa Day" },
+            { month: 11, day: 12, name: "Jamhuri Day" },
+            { month: 11, day: 25, name: "Christmas Day" },
+            { month: 11, day: 26, name: "Boxing Day" }
+        ];
+
+        // 2. Dynamic Easter Holidays (Good Friday = Easter - 2 days, Easter Monday = Easter + 1 day)
+        const easter = this.calculateEasterDate(year);
+        easter.setHours(0, 0, 0, 0);
+        const goodFriday = new Date(easter);
+        goodFriday.setDate(easter.getDate() - 2);
+        const easterMonday = new Date(easter);
+        easterMonday.setDate(easter.getDate() + 1);
+
+        if (d.getTime() === goodFriday.getTime() || d.getTime() === easterMonday.getTime()) {
+            return true;
+        }
+
+        // Check fixed holidays & Sunday observed rule (if holiday falls on Sunday, following Monday is observed)
+        for (const h of fixedHolidays) {
+            const hDate = new Date(year, h.month, h.day);
+            hDate.setHours(0, 0, 0, 0);
+            if (d.getTime() === hDate.getTime()) {
+                return true;
+            }
+            if (hDate.getDay() === 0) {
+                const observedMonday = new Date(hDate);
+                observedMonday.setDate(hDate.getDate() + 1);
+                if (d.getTime() === observedMonday.getTime()) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    },
+
     getBusinessDays: function (startDate, endDate) {
         let count = 0;
         const current = new Date(startDate);
@@ -163,7 +212,9 @@ const Utils = {
         end.setHours(0, 0, 0, 0);
         while (current <= end) {
             const day = current.getDay();
-            if (day !== 0 && day !== 6) count++;
+            if (day !== 0 && day !== 6 && !this.isPublicHoliday(current)) {
+                count++;
+            }
             current.setDate(current.getDate() + 1);
         }
         return count;
@@ -803,20 +854,61 @@ const ConfigManager = {
 const DataManager = {
     getSystemFolder: function () {
         try {
+            const scriptProps = PropertiesService.getScriptProperties();
+            const cachedId = scriptProps.getProperty('SYSTEM_FOLDER_ID');
+            if (cachedId) {
+                try {
+                    const f = DriveApp.getFolderById(cachedId);
+                    if (f && !f.isTrashed()) return f;
+                } catch (e) {
+                    console.warn('Cached folder ID invalid, falling back to search');
+                }
+            }
             const folderName = SYSTEM.FOLDER_NAME;
             const folders = DriveApp.getFoldersByName(folderName);
+            let folder;
             if (folders.hasNext()) {
-                const folder = folders.next();
-                return folder;
+                folder = folders.next();
+            } else {
+                folder = DriveApp.createFolder(folderName);
+                folder.setDescription(`Leave Management System for ${SYSTEM.ORGANIZATION}`);
             }
-            const newFolder = DriveApp.createFolder(folderName);
-            newFolder.setDescription(`Leave Management System for ${SYSTEM.ORGANIZATION}`);
-            return newFolder;
+            if (folder) {
+                scriptProps.setProperty('SYSTEM_FOLDER_ID', folder.getId());
+            }
+            return folder;
         } catch (error) {
             console.error('Error in getSystemFolder:', error);
             const folders = DriveApp.getFoldersByName('Agri Experience Leave System');
             if (folders.hasNext()) return folders.next();
             return DriveApp.createFolder('Agri Experience Leave System');
+        }
+    },
+
+    getDataFileObject: function (filename) {
+        try {
+            const scriptProps = PropertiesService.getScriptProperties();
+            const propKey = 'DATA_FILE_ID_' + filename;
+            const cachedId = scriptProps.getProperty(propKey);
+            if (cachedId) {
+                try {
+                    const f = DriveApp.getFileById(cachedId);
+                    if (f && !f.isTrashed()) return f;
+                } catch (e) {
+                    console.warn(`Cached ID for ${filename} invalid, falling back to search`);
+                }
+            }
+            const folder = this.getSystemFolder();
+            const files = folder.getFilesByName(filename);
+            if (files.hasNext()) {
+                const f = files.next();
+                scriptProps.setProperty(propKey, f.getId());
+                return f;
+            }
+            return null;
+        } catch (err) {
+            console.error(`Error resolving file object for ${filename}:`, err);
+            return null;
         }
     },
 
@@ -828,10 +920,8 @@ const DataManager = {
             return cached;
         }
         try {
-            const folder = this.getSystemFolder();
-            const files = folder.getFilesByName(filename);
-            if (files.hasNext()) {
-                const file = files.next();
+            const file = this.getDataFileObject(filename);
+            if (file) {
                 const content = file.getBlob().getDataAsString();
                 const data = JSON.parse(content);
                 EnhancedCacheManager.setFileCache(filename, data);
@@ -851,7 +941,14 @@ const DataManager = {
 
     writeDataFile: function (filename, data) {
         const startTime = Date.now();
+        const lock = LockService.getScriptLock();
+        let hasLock = false;
         try {
+            hasLock = lock.tryLock(20000); // Wait up to 20 seconds for concurrency safety
+            if (!hasLock) {
+                console.warn(`Lock timeout waiting to write ${filename}. Proceeding with caution.`);
+            }
+
             // Merge metadata — preserve any fields callers set (e.g. recordCount)
             // before calling writeDataFile. Do NOT replace the whole object.
             data.metadata = Object.assign({}, data.metadata || {}, {
@@ -867,15 +964,14 @@ const DataManager = {
             EnhancedCacheManager.setFileCache(filename, data);
             this.clearCacheForFile(filename);
 
-            // Write to Google Drive
-            const folder = this.getSystemFolder();
-            const files = folder.getFilesByName(filename);
-
-            if (files.hasNext()) {
-                const file = files.next();
+            // Write to Google Drive using cached file ID or search
+            const file = this.getDataFileObject(filename);
+            if (file) {
                 file.setContent(jsonContent);
             } else {
-                folder.createFile(filename, jsonContent);
+                const folder = this.getSystemFolder();
+                const newFile = folder.createFile(filename, jsonContent);
+                PropertiesService.getScriptProperties().setProperty('DATA_FILE_ID_' + filename, newFile.getId());
             }
 
             // CRITICAL: Always rebuild indexes for applications immediately
@@ -898,6 +994,14 @@ const DataManager = {
         } catch (error) {
             console.error(`❌ Error writing ${filename}:`, error);
             throw error;
+        } finally {
+            if (hasLock) {
+                try {
+                    lock.releaseLock();
+                } catch (e) {
+                    console.warn('Error releasing script lock:', e);
+                }
+            }
         }
     },
     clearCacheForFile: function (filename) {
@@ -2080,15 +2184,13 @@ const ApplicationsManager = {
             const today = new Date();
             const isBroughtForwardExpired = user.LeaveBroughtForward?.isExpired || (today > easterDate);
             if (user.LeaveBroughtForward && !isBroughtForwardExpired) {
-                const bfBalance = user.LeaveBroughtForward.daysCarriedFromPreviousYear || 0;
-                const bfUsed = yearHistory.broughtForwardUsed || 0;
-                availableBroughtForward = Math.max(0, bfBalance - bfUsed);
+                // daysCarriedFromPreviousYear is the remaining available balance in the brought forward pool
+                availableBroughtForward = Math.max(0, user.LeaveBroughtForward.daysCarriedFromPreviousYear || 0);
             }
 
             // ── Compensation leave pool ───────────────────────────────────────
-            const compensationBalance = Math.max(0, user.CompensationLeave?.balance || 0);
-            const compensationUsed = yearHistory.compensationUsed || 0;
-            const availableCompensation = Math.max(0, compensationBalance - compensationUsed);
+            // balance is the remaining available balance in the compensation pool
+            const availableCompensation = Math.max(0, user.CompensationLeave?.balance || 0);
 
             const isSickLeave = leaveType === SYSTEM.LEAVE_TYPES.SICK;
             const isCompensationLeave = leaveType === SYSTEM.LEAVE_TYPES.COMPENSATION;
@@ -2276,25 +2378,33 @@ const ApplicationsManager = {
 
             const application = applicationsFile.data[applicationIndex];
 
-            // Only the applicant or an admin can cancel
+            // Only the applicant, an admin, or HR can cancel
             const isOwner = application.Email.toLowerCase() === currentUser.toLowerCase();
             const isAdmin = user.Role === SYSTEM.ROLES.ADMIN;
-            if (!isOwner && !isAdmin) {
+            const isHR = user.Role === SYSTEM.ROLES.HR;
+            if (!isOwner && !isAdmin && !isHR) {
                 return Utils.createErrorResponse('You are not authorised to cancel this application');
             }
 
-            // Only Pending applications can be cancelled
-            if (application.Status !== SYSTEM.STATUS.PENDING) {
+            // Allowed to cancel Pending or Approved applications
+            if (application.Status !== SYSTEM.STATUS.PENDING && application.Status !== SYSTEM.STATUS.APPROVED) {
                 return Utils.createErrorResponse(
-                    `Cannot cancel a ${application.Status} application. Only Pending applications can be cancelled.`
+                    `Cannot cancel a ${application.Status} application. Only Pending or Approved applications can be cancelled.`
                 );
+            }
+
+            const wasApproved = application.Status === SYSTEM.STATUS.APPROVED;
+
+            // If it was already approved, roll back all deductions from staff balances
+            if (wasApproved) {
+                this.rollbackStaffLeaveBalances(application);
             }
 
             // Mark as cancelled
             applicationsFile.data[applicationIndex].Status = SYSTEM.STATUS.CANCELLED;
             applicationsFile.data[applicationIndex].ProcessedDate = new Date().toISOString();
             applicationsFile.data[applicationIndex].ProcessedBy = currentUser;
-            applicationsFile.data[applicationIndex].Comment = reason || 'Cancelled by applicant';
+            applicationsFile.data[applicationIndex].Comment = reason || (wasApproved ? 'Approved leave cancelled & balance restored' : 'Cancelled by applicant');
 
             DataManager.writeDataFile(SYSTEM.DATA_FILES.APPLICATIONS, applicationsFile);
             EnhancedCacheManager.buildIndexes();
@@ -2305,12 +2415,13 @@ const ApplicationsManager = {
                 applicationId: appId,
                 cancelledBy: currentUser,
                 applicant: application.Email,
+                wasApproved: wasApproved,
                 reason: reason || 'Cancelled by applicant'
             });
 
             return Utils.createSuccessResponse(
-                { applicationId: appId, status: SYSTEM.STATUS.CANCELLED },
-                'Application cancelled successfully'
+                { applicationId: appId, status: SYSTEM.STATUS.CANCELLED, wasApproved: wasApproved, balanceRestored: wasApproved },
+                wasApproved ? 'Approved application cancelled and leave balances restored successfully' : 'Application cancelled successfully'
             );
 
         } catch (error) {
@@ -2418,6 +2529,103 @@ const ApplicationsManager = {
         } catch (error) {
             console.error('Error updating staff leave balances:', error);
             EnhancedCacheManager.logOperation('updateStaffLeaveBalances(error)', startTime, { error: error.message });
+        }
+    },
+
+    rollbackStaffLeaveBalances: function (application) {
+        const startTime = Date.now();
+        try {
+            const staffFile = DataManager.readDataFile(SYSTEM.DATA_FILES.STAFF);
+            const staffIndex = staffFile.data.findIndex(staff =>
+                staff.Email.toLowerCase().trim() === application.Email.toLowerCase().trim()
+            );
+
+            if (staffIndex === -1) {
+                console.error('Staff not found to rollback balance:', application.Email);
+                return;
+            }
+
+            const staff = staffFile.data[staffIndex];
+            const currentYear = Utils.getCurrentYear().toString();
+            if (!staff.LeaveHistory) staff.LeaveHistory = {};
+            if (!staff.LeaveHistory[currentYear]) {
+                staff.LeaveHistory[currentYear] = { annualUsed: 0, sickUsed: 0, broughtForwardUsed: 0, compensationUsed: 0, totalUsed: 0 };
+            }
+            const yearHistory = staff.LeaveHistory[currentYear];
+
+            // Rollback annual leave
+            if (application.DeductFromAnnual > 0) {
+                yearHistory.annualUsed = Math.max(0, (yearHistory.annualUsed || 0) - application.DeductFromAnnual);
+                if (staff.LeaveAccrual) {
+                    staff.LeaveAccrual.usedYearToDate = Math.max(0, (staff.LeaveAccrual.usedYearToDate || 0) - application.DeductFromAnnual);
+                    const accrued = staff.LeaveAccrual.accruedYearToDate || 0;
+                    const used = staff.LeaveAccrual.usedYearToDate;
+                    const deficit = staff.LeaveAccrual.annualDeficit?.amount || 0;
+                    staff.LeaveAccrual.availableBalance = Math.max(0, accrued - used + deficit);
+                    if (deficit < 0 && staff.LeaveAccrual.annualDeficit) {
+                        const rawAnnualBalance = accrued - used;
+                        staff.LeaveAccrual.annualDeficit.amount = Math.min(0, rawAnnualBalance);
+                    }
+                }
+            }
+
+            // Rollback brought forward
+            if (application.DeductFromBroughtForward > 0) {
+                yearHistory.broughtForwardUsed = Math.max(0, (yearHistory.broughtForwardUsed || 0) - application.DeductFromBroughtForward);
+                if (staff.LeaveBroughtForward) {
+                    staff.LeaveBroughtForward.daysCarriedFromPreviousYear = (staff.LeaveBroughtForward.daysCarriedFromPreviousYear || 0) + application.DeductFromBroughtForward;
+                } else {
+                    staff.LeaveBroughtForward = {
+                        daysCarriedFromPreviousYear: application.DeductFromBroughtForward,
+                        yearEarned: Utils.getCurrentYear() - 1,
+                        expiryDate: Utils.getEasterExpiryDate().toISOString().split('T')[0],
+                        isExpired: false,
+                        note: 'Restored from cancelled leave application'
+                    };
+                }
+            }
+
+            // Rollback sick leave
+            if (application.DeductFromSick > 0) {
+                yearHistory.sickUsed = Math.max(0, (yearHistory.sickUsed || 0) - application.DeductFromSick);
+                if (staff.SickLeave) {
+                    staff.SickLeave.used = Math.max(0, (staff.SickLeave.used || 0) - application.DeductFromSick);
+                }
+            }
+
+            // Rollback compensation leave
+            if (application.DeductFromCompensation > 0) {
+                yearHistory.compensationUsed = Math.max(0, (yearHistory.compensationUsed || 0) - application.DeductFromCompensation);
+                if (staff.CompensationLeave) {
+                    staff.CompensationLeave.balance = (staff.CompensationLeave.balance || 0) + application.DeductFromCompensation;
+                    staff.CompensationLeave.used = Math.max(0, (staff.CompensationLeave.used || 0) - application.DeductFromCompensation);
+                }
+            }
+
+            yearHistory.totalUsed = Math.max(0, (yearHistory.totalUsed || 0) - (application.Duration || 0));
+            DataManager.writeDataFile(SYSTEM.DATA_FILES.STAFF, staffFile);
+            EnhancedCacheManager.clearBalance(application.Email);
+            EnhancedCacheManager.clear(`${SYSTEM.CACHE_KEYS.DASHBOARD_PREFIX}${application.Email}`);
+
+            Utils.logAction('ROLLBACK_STAFF_BALANCE', {
+                email: application.Email,
+                applicationId: application.ID,
+                restoredDeductions: {
+                    annual: application.DeductFromAnnual,
+                    broughtForward: application.DeductFromBroughtForward,
+                    sick: application.DeductFromSick,
+                    compensation: application.DeductFromCompensation
+                }
+            });
+
+            EnhancedCacheManager.logOperation('rollbackStaffLeaveBalances', startTime, {
+                email: application.Email,
+                applicationId: application.ID
+            });
+
+        } catch (error) {
+            console.error('Error rolling back staff leave balances:', error);
+            EnhancedCacheManager.logOperation('rollbackStaffLeaveBalances(error)', startTime, { error: error.message });
         }
     }
 };
@@ -3683,8 +3891,8 @@ const SetupManager = {
         try {
             const currentUser = Session.getActiveUser().getEmail();
 
-            // Always use info@agri-experience.com as the system admin
-            const adminEmail = "info@agri-experience.com";
+            // Use configured admin email
+            const adminEmail = SYSTEM.ADMIN_EMAIL;
             const currentYear = Utils.getCurrentYear();
             const today = new Date();
             const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -3773,8 +3981,7 @@ const SystemManager = {
     resetAndInitializeSystem: function (freshStart = false) {
         try {
             const currentUser = Session.getActiveUser().getEmail();
-            // Force system admin to be info@agri-experience.com
-            const systemAdminEmail = "info@agri-experience.com";
+            const systemAdminEmail = SYSTEM.ADMIN_EMAIL;
 
             const currentYear = Utils.getCurrentYear();
             const today = new Date();
@@ -4646,38 +4853,75 @@ function processMonthlyAccrualAutomatically() {
 
 function doGet(e) {
     try {
-        // 1. Initialise cache first so all subsequent reads/writes are indexed correctly
+        // 1. Initialise cache
         EnhancedCacheManager.initialize();
         EnhancedCacheManager.buildIndexes();
 
-        // 2. Run monthly accrual check AFTER cache is ready (once per calendar day)
-        const lastAccrualCheck = PropertiesService.getScriptProperties().getProperty('lastAccrualCheck');
-        const today = new Date().toDateString();
-        if (lastAccrualCheck !== today) {
-            AccrualManager.processMonthlyAccrual();
-            // Rebuild indexes after accrual writes staff data
-            EnhancedCacheManager.buildIndexes();
-            PropertiesService.getScriptProperties().setProperty('lastAccrualCheck', today);
-        }
-
         const currentUser = Session.getActiveUser().getEmail();
 
+        // 2. Handle initial setup redirect parameter cleanly
         if (e && e.parameter && e.parameter.setup === 'true') {
+            const allStaff = StaffManager.getAllStaffData();
+            if (!allStaff || allStaff.length === 0) {
+                SetupManager.createFirstAdminUser();
+            }
             const html = HtmlService.createHtmlOutput(
                 '<script>window.location.href="' + ScriptApp.getService().getUrl() + '";</script>'
             );
             return html.setTitle('Redirecting...');
         }
 
+        // 3. Check if current user is registered
         const user = StaffManager.getUserData(currentUser);
         if (!user) {
-            const result = SetupManager.createFirstAdminUser();
-            if (result.success) {
-                const html = HtmlService.createHtmlOutput(
-                    '<script>window.location.href="' + ScriptApp.getService().getUrl() + '";</script>'
-                );
-                return html.setTitle('Redirecting...');
+            const allStaff = StaffManager.getAllStaffData();
+            if (!allStaff || allStaff.length === 0) {
+                // First ever initialization: create system admin
+                const result = SetupManager.createFirstAdminUser();
+                if (result.success && currentUser.toLowerCase() === SYSTEM.ADMIN_EMAIL.toLowerCase()) {
+                    const html = HtmlService.createHtmlOutput(
+                        '<script>window.location.href="' + ScriptApp.getService().getUrl() + '";</script>'
+                    );
+                    return html.setTitle('Redirecting...');
+                }
             }
+
+            // User is not enrolled in the system: render a clear, helpful access page without infinite redirect
+            const html = HtmlService.createHtmlOutput(
+                `<!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Access Required - ${SYSTEM.NAME}</title>
+                    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+                    <style>
+                        body { font-family: 'Inter', -apple-system, sans-serif; background-color: #f9fafb; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; color: #1f2937; padding: 24px; box-sizing: border-box; }
+                        .card { background: white; border-radius: 16px; padding: 40px; max-width: 480px; width: 100%; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05); text-align: center; border: 1px solid #e5e7eb; }
+                        .icon-circle { width: 64px; height: 64px; background: #ecfdf5; color: #059669; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 28px; }
+                        h1 { font-size: 20px; font-weight: 700; margin: 0 0 8px; color: #111827; }
+                        p { font-size: 14px; line-height: 1.6; color: #6b7280; margin: 0 0 20px; }
+                        .user-badge { background: #f3f4f6; padding: 8px 14px; border-radius: 8px; font-family: ui-monospace, monospace; font-size: 13px; color: #374151; display: inline-block; margin-bottom: 24px; word-break: break-all; }
+                        .info-box { background: #fefce8; border: 1px solid #fef08a; border-radius: 8px; padding: 14px; text-align: left; font-size: 13px; color: #854d0e; margin-bottom: 24px; }
+                        .footer { font-size: 12px; color: #9ca3af; border-top: 1px solid #f3f4f6; padding-top: 16px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="card">
+                        <div class="icon-circle">🌿</div>
+                        <h1>Staff Profile Required</h1>
+                        <div class="user-badge">${currentUser || 'Signed in user'}</div>
+                        <p>Welcome to <strong>${SYSTEM.NAME}</strong>. Your Google account has not yet been registered in the staff directory.</p>
+                        <div class="info-box">
+                            <strong>Next Steps:</strong> Please notify Human Resources or your System Administrator to create your staff profile. Once added, refresh this page to access your dashboard.
+                        </div>
+                        <div class="footer">${SYSTEM.ORGANIZATION} &bull; Version ${SYSTEM.VERSION}</div>
+                    </div>
+                </body>
+                </html>`
+            );
+            return html.setTitle('Access Required - ' + SYSTEM.NAME)
+                .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
         }
 
         try {
@@ -5121,19 +5365,30 @@ function fixStaffLeaveData(email) {
 
         const history = staff.LeaveHistory[currentYear];
 
-        // 2. Calculate total used from history
-        const totalUsedFromHistory = (history.annualUsed || 0) +
-            (history.sickUsed || 0) +
-            (history.broughtForwardUsed || 0);
+        // 2. Calculate annual used from history (LeaveAccrual is strictly for Annual leave)
+        const annualUsedFromHistory = history.annualUsed || 0;
 
         // 3. Update usedYearToDate in LeaveAccrual
-        if (staff.LeaveAccrual.usedYearToDate !== totalUsedFromHistory) {
+        if (Math.abs((staff.LeaveAccrual.usedYearToDate || 0) - annualUsedFromHistory) > 0.01) {
             changes.push({
                 field: 'LeaveAccrual.usedYearToDate',
                 old: staff.LeaveAccrual.usedYearToDate,
-                new: totalUsedFromHistory
+                new: annualUsedFromHistory
             });
-            staff.LeaveAccrual.usedYearToDate = totalUsedFromHistory;
+            staff.LeaveAccrual.usedYearToDate = annualUsedFromHistory;
+        }
+
+        // 3b. Update SickLeave.used from history if out of sync
+        if (staff.SickLeave) {
+            const sickUsedFromHistory = history.sickUsed || 0;
+            if (Math.abs((staff.SickLeave.used || 0) - sickUsedFromHistory) > 0.01) {
+                changes.push({
+                    field: 'SickLeave.used',
+                    old: staff.SickLeave.used,
+                    new: sickUsedFromHistory
+                });
+                staff.SickLeave.used = sickUsedFromHistory;
+            }
         }
 
         // 4. Update brought forward balance based on usage
@@ -5156,13 +5411,11 @@ function fixStaffLeaveData(email) {
 
         // 5. Recalculate available balance correctly
         const accrued = staff.LeaveAccrual.accruedYearToDate || 0;
-        const used = staff.LeaveAccrual.usedYearToDate || 0;
-        const broughtForward = staff.LeaveBroughtForward?.daysCarriedFromPreviousYear || 0;
+        const annualUsed = staff.LeaveAccrual.usedYearToDate || 0;
         const deficit = staff.LeaveAccrual.annualDeficit?.amount || 0;
-
-        // Available = (accrued - annual used) + (brought forward - brought forward used) + deficit
-        // But since usedYearToDate includes all usage, simpler formula:
-        const correctAvailable = Math.max(0, accrued - used + broughtForward + deficit);
+        const annualAvailable = Math.max(0, accrued - annualUsed + deficit);
+        const broughtForward = staff.LeaveBroughtForward?.daysCarriedFromPreviousYear || 0;
+        const correctAvailable = annualAvailable + broughtForward;
 
         if (Math.abs((staff.LeaveAccrual.availableBalance || 0) - correctAvailable) > 0.01) {
             changes.push({
