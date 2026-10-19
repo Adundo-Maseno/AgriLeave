@@ -4895,6 +4895,132 @@ function apiGetAllCompensationRecords() {
     }
 }
 
+// ── Batch Process Decisions on Multiple Applications (Supervisor/Admin/HR) ─────
+function apiBatchProcessDecisions(params) {
+    try {
+        if (typeof params !== 'object' || !params) {
+            return Utils.createErrorResponse('params object required: { appIds, decision, comment }');
+        }
+        const { appIds, decision, comment } = params;
+        if (!Array.isArray(appIds) || appIds.length === 0) {
+            return Utils.createErrorResponse('appIds must be a non-empty array of application IDs');
+        }
+        if (decision !== 'approve' && decision !== 'decline') {
+            return Utils.createErrorResponse('decision must be either "approve" or "decline"');
+        }
+
+        const currentUser = Session.getActiveUser().getEmail();
+        const userRole = StaffManager.getUserRole(currentUser);
+        if (userRole !== SYSTEM.ROLES.SUPERVISOR && userRole !== SYSTEM.ROLES.ADMIN && userRole !== SYSTEM.ROLES.HR) {
+            return Utils.createErrorResponse('Only Supervisors, Admins, or HR can process applications');
+        }
+
+        const results = [];
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const appId of appIds) {
+            const res = ApplicationsManager.processApplicationDecision(appId, decision, comment || `Batch ${decision}d by ${currentUser}`);
+            if (res.success) {
+                successCount++;
+                results.push({ appId, success: true });
+            } else {
+                failCount++;
+                results.push({ appId, success: false, error: res.error });
+            }
+        }
+
+        return Utils.createSuccessResponse({
+            total: appIds.length,
+            successCount,
+            failCount,
+            decision,
+            results
+        }, `Processed ${successCount} of ${appIds.length} application(s)`);
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to batch process applications: ' + error.message);
+    }
+}
+
+// ── Get upcoming public holidays & long weekend / bridge opportunities ────────
+function apiGetUpcomingHolidays() {
+    try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const year = today.getFullYear();
+        const holidays = [];
+
+        // Fixed holidays
+        const fixed = [
+            { month: 0, day: 1, name: "New Year's Day" },
+            { month: 4, day: 1, name: "Labour Day" },
+            { month: 5, day: 1, name: "Madaraka Day" },
+            { month: 9, day: 10, name: "Utamaduni / Mazigira Day" },
+            { month: 9, day: 20, name: "Mashujaa Day" },
+            { month: 11, day: 12, name: "Jamhuri Day" },
+            { month: 11, day: 25, name: "Christmas Day" },
+            { month: 11, day: 26, name: "Boxing Day" }
+        ];
+
+        [year, year + 1].forEach(y => {
+            const easter = Utils.calculateEasterDate(y);
+            easter.setHours(0, 0, 0, 0);
+            const goodFriday = new Date(easter);
+            goodFriday.setDate(easter.getDate() - 2);
+            const easterMonday = new Date(easter);
+            easterMonday.setDate(easter.getDate() + 1);
+
+            holidays.push({ date: goodFriday, name: 'Good Friday' });
+            holidays.push({ date: easterMonday, name: 'Easter Monday' });
+
+            fixed.forEach(h => {
+                const hd = new Date(y, h.month, h.day);
+                hd.setHours(0, 0, 0, 0);
+                holidays.push({ date: hd, name: h.name });
+                if (hd.getDay() === 0) {
+                    const obs = new Date(hd);
+                    obs.setDate(hd.getDate() + 1);
+                    holidays.push({ date: obs, name: `${h.name} (Observed)` });
+                }
+            });
+        });
+
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const futureHolidays = holidays
+            .filter(h => h.date >= today)
+            .sort((a, b) => a.date.getTime() - b.date.getTime())
+            .slice(0, 5)
+            .map(h => {
+                const diffTime = h.date.getTime() - today.getTime();
+                const daysAway = Math.round(diffTime / (1000 * 60 * 60 * 24));
+                const dayOfWeek = dayNames[h.date.getDay()];
+                let bridgeTip = null;
+
+                if (dayOfWeek === 'Tuesday') {
+                    bridgeTip = 'Bridge Opportunity: Take Monday off for a 4-day weekend!';
+                } else if (dayOfWeek === 'Thursday') {
+                    bridgeTip = 'Bridge Opportunity: Take Friday off for a 4-day weekend!';
+                } else if (dayOfWeek === 'Friday' || dayOfWeek === 'Monday') {
+                    bridgeTip = 'Long weekend!';
+                }
+
+                return {
+                    name: h.name,
+                    date: h.date.toISOString().split('T')[0],
+                    displayDate: Utils.formatDateForDisplay(h.date.toISOString().split('T')[0]),
+                    dayOfWeek: dayOfWeek,
+                    daysAway: daysAway,
+                    countdown: daysAway === 0 ? 'Today' : daysAway === 1 ? 'Tomorrow' : `In ${daysAway} days`,
+                    bridgeTip: bridgeTip
+                };
+            });
+
+        return Utils.createSuccessResponse(futureHolidays);
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to get upcoming holidays: ' + error.message);
+    }
+}
+
 // ── HR dashboard: all staff balances + all applications ──────────────────
 function apiGetHRDashboard() {
     try {

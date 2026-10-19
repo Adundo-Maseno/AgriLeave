@@ -1084,11 +1084,134 @@
             max-height: 90vh;
         }
 
-        /* On very small screens modals take almost full height */
-        @media (max-height: 600px) {
-            .max-h-\[90vh\] {
-                max-height: 95vh;
-            }
+        /* ── Modern Premium UI/UX Additions ──────────────────────────── */
+        /* Enhanced glassmorphic modal overlay */
+        .modal-overlay {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            transition: all 0.25s ease-out;
+        }
+
+        /* Interactive quick chips for remarks/comments */
+        .quick-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.35rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+            user-select: none;
+        }
+
+        .quick-chip:hover {
+            border-color: #cbd5e1;
+            background: #f1f5f9;
+            color: #0f172a;
+            transform: translateY(-1px);
+        }
+
+        .quick-chip.active {
+            border-color: #059669;
+            background: #ecfdf5;
+            color: #065f46;
+            font-weight: 600;
+            box-shadow: 0 0 0 1px #059669;
+        }
+
+        /* Elevated stat cards */
+        .stat-card-elevated {
+            transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .stat-card-elevated:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.08);
+        }
+
+        /* Application details status timeline */
+        .timeline-track {
+            position: relative;
+            padding-left: 2rem;
+        }
+
+        .timeline-track::before {
+            content: '';
+            position: absolute;
+            left: 0.65rem;
+            top: 0.75rem;
+            bottom: 0.75rem;
+            width: 2px;
+            background: #e2e8f0;
+        }
+
+        .timeline-node {
+            position: relative;
+            margin-bottom: 1.25rem;
+        }
+
+        .timeline-node:last-child {
+            margin-bottom: 0;
+        }
+
+        .timeline-node::before {
+            content: '';
+            position: absolute;
+            left: -2rem;
+            top: 0.25rem;
+            width: 0.875rem;
+            height: 0.875rem;
+            border-radius: 50%;
+            background: #fff;
+            border: 2px solid #cbd5e1;
+            box-shadow: 0 0 0 2px #fff;
+            z-index: 2;
+        }
+
+        .timeline-node.completed::before {
+            border-color: #10b981;
+            background: #10b981;
+        }
+
+        .timeline-node.current::before {
+            border-color: #f59e0b;
+            background: #fef3c7;
+        }
+
+        .timeline-node.declined::before {
+            border-color: #ef4444;
+            background: #ef4444;
+        }
+
+        /* Floating batch action bar */
+        .batch-action-bar {
+            position: sticky;
+            bottom: 1.5rem;
+            z-index: 40;
+            animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Holiday planner card styling */
+        .holiday-planner-card {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border-left: 4px solid #10b981;
+        }
+
+        .holiday-planner-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.08);
+        }
+
+        .holiday-planner-card.has-bridge {
+            border-left-color: #8b5cf6;
+            background: linear-gradient(to right, #faf5ff, #ffffff);
         }
     </style>
 
@@ -1480,6 +1603,66 @@
                     <button id="closeDetailsModal"
                         class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">Close</button>
                     <div id="applicationActionButtons" class="hidden space-x-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Confirmation & Decision Modal (Replaces browser prompt/confirm) -->
+    <div id="actionConfirmModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="fixed inset-0 modal-overlay" id="actionConfirmModalBackdrop"></div>
+            <div class="relative bg-white rounded-2xl text-left shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh] overflow-hidden">
+                <!-- Header -->
+                <div class="p-6 border-b border-gray-100 flex items-start justify-between flex-none">
+                    <div class="flex items-center space-x-3">
+                        <div id="actionModalIconContainer" class="h-12 w-12 rounded-xl flex items-center justify-center text-xl bg-emerald-100 text-emerald-600 flex-shrink-0">
+                            <i id="actionModalIcon" class="fas fa-check"></i>
+                        </div>
+                        <div>
+                            <h3 id="actionModalTitle" class="text-lg font-bold text-gray-900 leading-tight">Confirm Action</h3>
+                            <p id="actionModalSubtitle" class="text-xs text-gray-500 mt-0.5">Please review the details below</p>
+                        </div>
+                    </div>
+                    <button id="closeActionConfirmModal" class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
+                        <i class="fas fa-times text-base"></i>
+                    </button>
+                </div>
+
+                <!-- Body -->
+                <div class="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
+                    <!-- Context Card -->
+                    <div id="actionModalContextCard" class="p-4 bg-gray-50 rounded-xl border border-gray-100 text-sm hidden"></div>
+
+                    <!-- Warning / Info Alert -->
+                    <div id="actionModalAlert" class="p-3.5 rounded-xl text-xs flex items-start space-x-2.5 hidden">
+                        <i id="actionModalAlertIcon" class="fas fa-info-circle text-sm mt-0.5 flex-shrink-0"></i>
+                        <span id="actionModalAlertText" class="leading-relaxed"></span>
+                    </div>
+
+                    <!-- Quick Chips Preset Remarks -->
+                    <div id="actionModalQuickChipsContainer" class="space-y-1.5 hidden">
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500">Quick Remarks</label>
+                        <div id="actionModalQuickChips" class="flex flex-wrap gap-1.5"></div>
+                    </div>
+
+                    <!-- Comment Input -->
+                    <div id="actionModalCommentSection" class="space-y-1.5">
+                        <div class="flex justify-between items-center">
+                            <label id="actionModalCommentLabel" class="block text-xs font-semibold uppercase tracking-wider text-gray-600">Comment / Note</label>
+                            <span id="actionModalCommentOptional" class="text-xs text-gray-400 font-normal">Optional</span>
+                        </div>
+                        <textarea id="actionModalCommentInput" rows="3" class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-gray-300 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all placeholder-gray-400" placeholder="Add an optional comment or note..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="bg-gray-50 px-6 py-4 border-t border-gray-100 flex items-center justify-end space-x-3 flex-none">
+                    <button id="cancelActionConfirmModalBtn" class="px-4 py-2 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-white hover:border-gray-400 transition-all shadow-sm">Cancel</button>
+                    <button id="executeActionConfirmModalBtn" class="px-5 py-2 rounded-xl text-sm font-semibold text-white shadow-md transition-all flex items-center space-x-2">
+                        <span id="actionConfirmModalBtnText">Confirm</span>
+                        <i id="actionConfirmModalBtnIcon" class="fas fa-arrow-right text-xs"></i>
+                    </button>
                 </div>
             </div>
         </div>
@@ -2364,7 +2547,7 @@
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-        <div class="stat-card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div class="flex items-center">
             <div class="h-12 w-12 rounded-lg bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center mr-4">
               <i class="fas fa-calendar-alt text-white text-xl"></i>
@@ -2386,7 +2569,7 @@
         </div>
 
         <!-- Dashboard BFW Card - FINAL CORRECT VERSION -->
-            <div class="stat-card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <div class="flex items-center">
                 <div class="h-12 w-12 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center mr-4">
                   <i class="fas fa-forward text-white text-xl"></i>
@@ -2408,7 +2591,7 @@
               </div>
               ` : ''}
             </div>
-        <div class="stat-card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div class="flex items-center">
             <div class="h-12 w-12 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mr-4">
               <i class="fas fa-heartbeat text-white text-xl"></i>
@@ -2427,7 +2610,7 @@
           </div>
         </div>
 
-        <div class="stat-card bg-white rounded-xl shadow-sm border border-indigo-100 p-6">
+        <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-indigo-100 p-6">
           <div class="flex items-center">
             <div class="h-12 w-12 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center mr-4">
               <i class="fas fa-star text-white text-xl"></i>
@@ -2449,7 +2632,7 @@
           </div>
         </div>
 
-        <div class="stat-card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div class="flex items-center">
             <div class="h-12 w-12 rounded-lg bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center mr-4">
               <i class="fas fa-chart-line text-white text-xl"></i>
@@ -2638,14 +2821,109 @@
           ` : ''}
         </div>
       </div>
+
+      <!-- Upcoming Public Holidays & Long Weekend Planner Widget -->
+      <div id="upcomingHolidaysDashboardWidget" class="mt-8"></div>
     `;
             }
 
             dashboardPage.innerHTML = dashboardHTML;
-
-            // We don't need to call attachDashboardEventListeners here anymore
-            // since we're using event delegation
+            loadUpcomingHolidaysWidget();
             console.log('Dashboard UI updated');
+        }
+
+        // ── Upcoming Public Holidays & Long Weekend Planner Widget ───────────
+        async function loadUpcomingHolidaysWidget() {
+            const container = document.getElementById('upcomingHolidaysDashboardWidget');
+            if (!container) return;
+
+            // Display loading skeleton
+            container.innerHTML = `
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center space-x-3">
+                            <div class="h-10 w-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                                <i class="fas fa-calendar-check text-lg"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-bold text-gray-900">Upcoming Public Holidays & Long Weekend Planner</h3>
+                                <p class="text-xs text-gray-500">Official Kenyan statutory holidays & smart bridge leave opportunities</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 animate-pulse">
+                        ${[1, 2, 3, 4, 5].map(() => `<div class="p-4 bg-gray-50 rounded-xl border border-gray-100 h-28"></div>`).join('')}
+                    </div>
+                </div>
+            `;
+
+            try {
+                const res = await callGoogleScriptFunction('apiGetUpcomingHolidays');
+                if (!res.success || !Array.isArray(res.data) || res.data.length === 0) {
+                    container.classList.add('hidden');
+                    return;
+                }
+
+                const holidays = res.data;
+                const html = `
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+                            <div class="flex items-center space-x-3">
+                                <div class="h-10 w-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-lg shadow-sm">
+                                    <i class="fas fa-calendar-check"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-base font-bold text-gray-900 leading-tight">Upcoming Public Holidays & Long Weekend Planner</h3>
+                                    <p class="text-xs text-gray-500 mt-0.5">Kenyan statutory holidays with smart bridge day suggestions</p>
+                                </div>
+                            </div>
+                            <button onclick="navigateToPage('applyLeave')" class="text-xs font-semibold text-primary-600 hover:text-primary-700 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-primary-200 hover:bg-primary-50 transition-colors">
+                                <i class="fas fa-plus-circle text-xs"></i> Plan Leave Ahead
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3.5">
+                            ${holidays.map(h => {
+                                const hasBridge = !!h.bridgeTip;
+                                const isSoon = h.daysAway <= 14;
+                                return `
+                                    <div class="holiday-planner-card ${hasBridge ? 'has-bridge' : ''} bg-white rounded-xl border border-gray-200 p-4 flex flex-col justify-between">
+                                        <div>
+                                            <div class="flex items-center justify-between mb-2">
+                                                <span class="text-[11px] font-bold uppercase tracking-wider text-gray-500">${escapeHtml(h.dayOfWeek)}</span>
+                                                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${isSoon ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'}">
+                                                    ${escapeHtml(h.countdown)}
+                                                </span>
+                                            </div>
+                                            <h4 class="font-bold text-gray-900 text-sm leading-snug mb-1">${escapeHtml(h.name)}</h4>
+                                            <p class="text-xs text-gray-500 mb-3">${escapeHtml(h.displayDate)}</p>
+                                        </div>
+
+                                        <div>
+                                            ${hasBridge ? `
+                                                <div class="p-2 bg-purple-50 rounded-lg border border-purple-100 text-[11px] font-medium text-purple-800 leading-tight flex items-start gap-1.5">
+                                                    <i class="fas fa-lightbulb text-purple-600 text-xs mt-0.5 flex-shrink-0"></i>
+                                                    <span>${escapeHtml(h.bridgeTip)}</span>
+                                                </div>
+                                            ` : `
+                                                <div class="text-[11px] text-gray-400 flex items-center gap-1">
+                                                    <i class="fas fa-check-circle text-emerald-500 text-[10px]"></i>
+                                                    <span>Standard Holiday</span>
+                                                </div>
+                                            `}
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+
+                container.innerHTML = html;
+            } catch (err) {
+                console.warn('Failed to load upcoming holidays widget:', err);
+                container.classList.add('hidden');
+            }
         }
         // Navigation function
         function navigateToPage(page) {
@@ -3370,16 +3648,25 @@
                     declined: allTeamApps.filter(a => a.Status === 'Declined').length,
                 };
 
-                // ── Page header + summary cards ────────────────────────────────
+                // ── Page header + search + summary cards ──────────────────────
                 let pageHTML = `
       <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 class="text-2xl font-bold text-gray-900">Team Applications</h1>
           <p class="text-gray-600">Review and manage your team's leave applications</p>
         </div>
-        <button onclick="loadTeamApplicationsPage()" class="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50">
-          <i class="fas fa-sync-alt"></i> Refresh
-        </button>
+        <div class="flex items-center gap-3 flex-wrap">
+          <div class="relative w-64 md:w-80">
+            <i class="fas fa-search absolute left-3.5 top-3 text-gray-400 text-xs"></i>
+            <input type="text" id="teamSearchInput" placeholder="Search member, ID, type, reason..." class="w-full pl-9 pr-8 py-2 bg-white border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all placeholder-gray-400 shadow-sm" />
+            <button id="clearTeamSearchBtn" class="hidden absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 text-xs">
+              <i class="fas fa-times-circle"></i>
+            </button>
+          </div>
+          <button onclick="loadTeamApplicationsPage()" class="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-all shadow-sm">
+            <i class="fas fa-sync-alt"></i> Refresh
+          </button>
+        </div>
       </div>
 
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -3402,7 +3689,7 @@
       </div>
 
       <!-- Filter tabs -->
-      <div class="flex gap-2 mb-6 border-b border-gray-200 pb-0 overflow-x-auto">
+      <div class="flex gap-2 mb-4 border-b border-gray-200 pb-0 overflow-x-auto">
         ${[
                         { key: 'all', label: 'All', count: counts.all },
                         { key: 'pending', label: 'Pending', count: counts.pending },
@@ -3420,6 +3707,17 @@
           </button>
         `).join('')}
       </div>
+
+      ${counts.pending > 0 ? `
+      <!-- Batch Selection Controls for Pending Requests -->
+      <div id="batchControlToolbar" class="flex items-center justify-between p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl mb-4 text-xs">
+        <label class="flex items-center gap-2 cursor-pointer font-semibold text-amber-900 select-none">
+          <input type="checkbox" id="selectAllPendingCheckbox" class="h-4 w-4 rounded border-amber-300 text-primary-600 focus:ring-primary-500 cursor-pointer">
+          <span>Select All Pending (<span id="pendingSelectableCount">${counts.pending}</span>)</span>
+        </label>
+        <span class="text-amber-700 hidden sm:inline"><i class="fas fa-check-double mr-1"></i>Select requests below for batch approval or decline</span>
+      </div>
+      ` : ''}
     `;
 
                 // ── Application cards ─────────────────────────────────────────
@@ -3444,17 +3742,23 @@
                         };
                         const sc = statusColors[app.Status] || statusColors['Pending'];
                         const isPending = app.Status === 'Pending';
+                        const searchTokens = `${app.Name || ''} ${app.ID || ''} ${app.LeaveType || ''} ${app.Department || ''} ${app.Role || ''} ${app.Reason || ''}`.toLowerCase();
 
                         pageHTML += `
         <div class="team-app-card bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
-             data-status="${(app.Status || 'Pending').toLowerCase()}">
+             data-status="${(app.Status || 'Pending').toLowerCase()}"
+             data-id="${app.ID}"
+             data-search="${escapeHtml(searchTokens)}">
           <!-- Left accent bar -->
           <div class="flex">
-            <div class="w-1 flex-shrink-0 ${sc.bar}"></div>
+            <div class="w-1.5 flex-shrink-0 ${sc.bar}"></div>
             <div class="flex-1 p-5">
               <!-- Top row: avatar + name + badges -->
               <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
                 <div class="flex items-center gap-3">
+                  ${isPending ? `
+                    <input type="checkbox" class="team-app-checkbox h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer" data-id="${app.ID}">
+                  ` : ''}
                   <div class="h-10 w-10 rounded-full bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                     ${app.Name ? app.Name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) : 'TM'}
                   </div>
@@ -3535,31 +3839,211 @@
                     });
 
                     pageHTML += `</div>`;
+
+                    // Add Floating Batch Action Bar
+                    pageHTML += `
+                      <div id="floatingBatchActionBar" class="batch-action-bar hidden bg-gray-900 text-white rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 border border-gray-700 shadow-2xl mt-6">
+                        <div class="flex items-center gap-3">
+                          <div class="h-9 w-9 rounded-xl bg-primary-600 flex items-center justify-center font-bold text-sm text-white">
+                            <span id="batchSelectedCount">0</span>
+                          </div>
+                          <div>
+                            <p class="font-semibold text-sm text-white"><span id="batchSelectedCountText">0 applications</span> selected</p>
+                            <p class="text-xs text-gray-400">Batch decisions will apply to all checked requests</p>
+                          </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                          <button id="batchDeselectBtn" class="px-3 py-2 rounded-xl text-xs text-gray-400 hover:text-white hover:bg-gray-800 transition-colors">
+                            Deselect All
+                          </button>
+                          <button id="batchDeclineBtn" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5">
+                            <i class="fas fa-times-circle text-xs"></i> Batch Decline
+                          </button>
+                          <button id="batchApproveBtn" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5">
+                            <i class="fas fa-check-circle text-xs"></i> Batch Approve
+                          </button>
+                        </div>
+                      </div>
+                    `;
                 }
 
                 pageElement.innerHTML = pageHTML;
 
-                // ── Wire up filter tabs ───────────────────────────────────────
+                // ── Filtering & Live Search Logic ─────────────────────────────
+                let activeStatusFilter = counts.pending > 0 ? 'pending' : 'all';
+                let activeSearchQuery = '';
+
+                function applyFiltersAndSearch() {
+                    const cards = pageElement.querySelectorAll('.team-app-card');
+                    let visibleCount = 0;
+
+                    cards.forEach(card => {
+                        const cardStatus = card.getAttribute('data-status');
+                        const cardSearch = card.getAttribute('data-search') || '';
+                        const matchesStatus = (activeStatusFilter === 'all' || cardStatus === activeStatusFilter);
+                        const matchesSearch = !activeSearchQuery || cardSearch.includes(activeSearchQuery);
+
+                        if (matchesStatus && matchesSearch) {
+                            card.style.display = '';
+                            visibleCount++;
+                        } else {
+                            card.style.display = 'none';
+                        }
+                    });
+
+                    // Update selectable count for pending
+                    const visiblePendingBoxes = pageElement.querySelectorAll('.team-app-card[data-status="pending"]:not([style*="display: none"]) .team-app-checkbox');
+                    const pendingCounter = document.getElementById('pendingSelectableCount');
+                    if (pendingCounter) pendingCounter.textContent = visiblePendingBoxes.length;
+
+                    updateBatchSelectionUI();
+                }
+
+                // Wire up filter tabs
                 pageElement.querySelectorAll('.team-filter-tab, .tab-summary-card').forEach(tab => {
                     tab.addEventListener('click', function () {
-                        const filter = this.getAttribute('data-filter');
+                        activeStatusFilter = this.getAttribute('data-filter') || 'all';
 
                         // Update active tab styling
                         pageElement.querySelectorAll('.team-filter-tab').forEach(t => {
                             const isPending = t.getAttribute('data-filter') === 'pending' && counts.pending > 0;
-                            t.className = `team-filter-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${t.getAttribute('data-filter') === filter
+                            t.className = `team-filter-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${t.getAttribute('data-filter') === activeStatusFilter
                                     ? 'border-primary-500 text-primary-600'
                                     : isPending ? 'border-amber-500 text-amber-600' : 'border-transparent text-gray-500 hover:text-gray-700'
                                 }`;
                         });
 
-                        // Show/hide cards
-                        pageElement.querySelectorAll('.team-app-card').forEach(card => {
-                            const cardStatus = card.getAttribute('data-status');
-                            card.style.display = (filter === 'all' || cardStatus === filter) ? '' : 'none';
-                        });
+                        applyFiltersAndSearch();
                     });
                 });
+
+                // Wire up Live Search Input
+                const searchInput = pageElement.querySelector('#teamSearchInput');
+                const clearSearchBtn = pageElement.querySelector('#clearTeamSearchBtn');
+
+                if (searchInput) {
+                    searchInput.addEventListener('input', function () {
+                        activeSearchQuery = this.value.trim().toLowerCase();
+                        if (clearSearchBtn) clearSearchBtn.classList.toggle('hidden', !activeSearchQuery);
+                        applyFiltersAndSearch();
+                    });
+                }
+
+                if (clearSearchBtn) {
+                    clearSearchBtn.addEventListener('click', function () {
+                        if (searchInput) searchInput.value = '';
+                        activeSearchQuery = '';
+                        clearSearchBtn.classList.add('hidden');
+                        applyFiltersAndSearch();
+                    });
+                }
+
+                // ── Batch Selection UI & Handlers ─────────────────────────────
+                function updateBatchSelectionUI() {
+                    const checkedBoxes = pageElement.querySelectorAll('.team-app-checkbox:checked');
+                    const count = checkedBoxes.length;
+                    const batchBar = document.getElementById('floatingBatchActionBar');
+                    const countEl = document.getElementById('batchSelectedCount');
+                    const countTextEl = document.getElementById('batchSelectedCountText');
+
+                    if (countEl) countEl.textContent = count;
+                    if (countTextEl) countTextEl.textContent = `${count} application${count === 1 ? '' : 's'}`;
+
+                    if (batchBar) {
+                        batchBar.classList.toggle('hidden', count === 0);
+                    }
+
+                    // Sync "Select All Pending" checkbox state
+                    const selectAllBox = document.getElementById('selectAllPendingCheckbox');
+                    const visiblePendingBoxes = pageElement.querySelectorAll('.team-app-card[data-status="pending"]:not([style*="display: none"]) .team-app-checkbox');
+                    if (selectAllBox && visiblePendingBoxes.length > 0) {
+                        const allChecked = Array.from(visiblePendingBoxes).every(cb => cb.checked);
+                        selectAllBox.checked = allChecked;
+                    }
+                }
+
+                pageElement.querySelectorAll('.team-app-checkbox').forEach(cb => {
+                    cb.addEventListener('change', updateBatchSelectionUI);
+                });
+
+                const selectAllPendingCheckbox = document.getElementById('selectAllPendingCheckbox');
+                if (selectAllPendingCheckbox) {
+                    selectAllPendingCheckbox.addEventListener('change', function () {
+                        const checked = this.checked;
+                        const visiblePendingBoxes = pageElement.querySelectorAll('.team-app-card[data-status="pending"]:not([style*="display: none"]) .team-app-checkbox');
+                        visiblePendingBoxes.forEach(cb => { cb.checked = checked; });
+                        updateBatchSelectionUI();
+                    });
+                }
+
+                document.getElementById('batchDeselectBtn')?.addEventListener('click', function () {
+                    pageElement.querySelectorAll('.team-app-checkbox').forEach(cb => { cb.checked = false; });
+                    const selectAllBox = document.getElementById('selectAllPendingCheckbox');
+                    if (selectAllBox) selectAllBox.checked = false;
+                    updateBatchSelectionUI();
+                });
+
+                function handleBatchDecision(decision) {
+                    const checkedBoxes = pageElement.querySelectorAll('.team-app-checkbox:checked');
+                    const selectedIds = Array.from(checkedBoxes).map(cb => cb.getAttribute('data-id'));
+                    if (selectedIds.length === 0) {
+                        showToast('warning', 'No Selection', 'Please select at least one pending application.');
+                        return;
+                    }
+
+                    const isApprove = decision === 'approve';
+                    openActionConfirmDialog({
+                        title: isApprove ? 'Batch Approve Applications' : 'Batch Decline Applications',
+                        subtitle: `${selectedIds.length} application(s) selected`,
+                        icon: isApprove ? 'fas fa-check-double' : 'fas fa-times-circle',
+                        theme: isApprove ? 'emerald' : 'rose',
+                        actionBtnText: isApprove ? `Approve ${selectedIds.length} Applications` : `Decline ${selectedIds.length} Applications`,
+                        actionBtnIcon: isApprove ? 'fas fa-check-double text-xs' : 'fas fa-times text-xs',
+                        contextHtml: `
+                            <div class="p-3 bg-gray-100 rounded-xl text-xs text-gray-700 max-h-36 overflow-y-auto space-y-1">
+                                <p class="font-bold text-gray-900 mb-1.5">Selected Application IDs (${selectedIds.length}):</p>
+                                <div class="flex flex-wrap gap-1">
+                                    ${selectedIds.map(id => `<span class="bg-white border border-gray-200 px-2 py-0.5 rounded font-mono text-[11px]">${escapeHtml(id)}</span>`).join('')}
+                                </div>
+                            </div>
+                        `,
+                        quickChips: isApprove
+                            ? ['Batch approved with coverage confirmed', 'All requirements verified', 'Approved per departmental schedule']
+                            : ['Staffing constraints during period', 'High volume overlap during dates', 'Please reschedule with supervisor'],
+                        requireComment: !isApprove,
+                        commentLabel: isApprove ? 'Batch Approval Note (Optional)' : 'Batch Decline Reason (Required *)',
+                        commentPlaceholder: isApprove ? 'Add an optional note to all approved records...' : 'Please specify reason for declining selected requests...',
+                        onConfirm: async (comment) => {
+                            showLoading(`Batch ${decision}ing ${selectedIds.length} application(s)...`);
+
+                            try {
+                                const res = await callGoogleScriptFunction('apiBatchProcessDecisions', {
+                                    appIds: selectedIds,
+                                    decision: decision,
+                                    comment: comment || `Batch ${decision}d by supervisor`
+                                });
+                                hideLoading();
+
+                                if (res.success) {
+                                    const successCount = res.data?.successCount ?? selectedIds.length;
+                                    showToast('success', 'Batch Completed', `Successfully ${decision}d ${successCount} application(s)`);
+                                    loadTeamApplicationsPage();
+                                    if (AppState.currentPage === 'dashboard') {
+                                        loadDashboardData();
+                                    }
+                                } else {
+                                    showToast('error', 'Batch Failed', res.error || `Failed to batch ${decision} applications`);
+                                }
+                            } catch (err) {
+                                hideLoading();
+                                showToast('error', 'Batch Failed', err.message);
+                            }
+                        }
+                    });
+                }
+
+                document.getElementById('batchApproveBtn')?.addEventListener('click', () => handleBatchDecision('approve'));
+                document.getElementById('batchDeclineBtn')?.addEventListener('click', () => handleBatchDecision('decline'));
 
                 // Auto-select "pending" tab if there are any pending
                 if (counts.pending > 0) {
@@ -5794,6 +6278,11 @@
             // STATIC ELEMENTS (always present)
             // =============================================
 
+            // Action Confirmation Modal events
+            if (typeof initActionConfirmModalEvents === 'function') {
+                initActionConfirmModalEvents();
+            }
+
             // Sidebar navigation
             document.querySelectorAll('.sidebar-link').forEach(link => {
                 link.addEventListener('click', function (e) {
@@ -6792,77 +7281,218 @@
                 showToast('error', 'Balance Check Failed', 'Unable to check leave balance. Please try again.');
             }
         }
-        function processApplicationDecision(appId, decision) {
-            const comment = prompt(`Please enter a comment for ${decision}ing this application:`, '');
+        // ── Modern Action Confirmation Dialog System ────────────────────────
+        let activeActionConfirmConfig = null;
 
-            if (comment === null) return;
+        function openActionConfirmDialog(config) {
+            activeActionConfirmConfig = config;
+            const modal = document.getElementById('actionConfirmModal');
+            if (!modal) return;
 
-            showLoading(`${decision === 'approve' ? 'Approving' : 'Declining'} application...`);
+            const titleEl = document.getElementById('actionModalTitle');
+            const subtitleEl = document.getElementById('actionModalSubtitle');
+            const iconContainer = document.getElementById('actionModalIconContainer');
+            const iconEl = document.getElementById('actionModalIcon');
+            const contextCard = document.getElementById('actionModalContextCard');
+            const alertBox = document.getElementById('actionModalAlert');
+            const alertText = document.getElementById('actionModalAlertText');
+            const quickChipsContainer = document.getElementById('actionModalQuickChipsContainer');
+            const quickChipsBox = document.getElementById('actionModalQuickChips');
+            const commentLabel = document.getElementById('actionModalCommentLabel');
+            const commentOptional = document.getElementById('actionModalCommentOptional');
+            const commentInput = document.getElementById('actionModalCommentInput');
+            const executeBtn = document.getElementById('executeActionConfirmModalBtn');
+            const btnText = document.getElementById('actionConfirmModalBtnText');
+            const btnIcon = document.getElementById('actionConfirmModalBtnIcon');
 
-            callGoogleScriptFunction('apiProcessApplicationDecision', {
-                appId: appId,
-                decision: decision,
-                comment: comment
-            })
-                .then(result => {
-                    hideLoading();
+            if (titleEl) titleEl.textContent = config.title || 'Confirm Action';
+            if (subtitleEl) subtitleEl.textContent = config.subtitle || '';
 
-                    if (result.success) {
-                        showToast('success', `Application ${decision}d`, `Application has been ${decision}d successfully`);
-                        loadMyApplicationsPage();
-                        loadTeamApplicationsPage();
-                        if (AppState.currentPage === 'dashboard') {
-                            loadDashboardData();
-                        }
-                    } else {
-                        showToast('error', 'Action Failed', result.error || `Failed to ${decision} application`);
+            const theme = config.theme || 'primary';
+            const themeMap = {
+                emerald: { container: 'bg-emerald-100 text-emerald-600', btn: 'bg-emerald-600 hover:bg-emerald-700' },
+                rose: { container: 'bg-rose-100 text-rose-600', btn: 'bg-rose-600 hover:bg-rose-700' },
+                amber: { container: 'bg-amber-100 text-amber-600', btn: 'bg-amber-600 hover:bg-amber-700' },
+                indigo: { container: 'bg-indigo-100 text-indigo-600', btn: 'bg-indigo-600 hover:bg-indigo-700' },
+                primary: { container: 'bg-primary-100 text-primary-600', btn: 'bg-primary-600 hover:bg-primary-700' }
+            };
+            const t = themeMap[theme] || themeMap.primary;
+            if (iconContainer) iconContainer.className = `h-12 w-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0 ${t.container}`;
+            if (iconEl) iconEl.className = config.icon || 'fas fa-check';
+
+            if (executeBtn) executeBtn.className = `px-5 py-2.5 rounded-xl text-sm font-semibold text-white shadow-md transition-all flex items-center space-x-2 ${t.btn}`;
+            if (btnText) btnText.textContent = config.actionBtnText || 'Confirm';
+            if (btnIcon) btnIcon.className = config.actionBtnIcon || 'fas fa-arrow-right text-xs';
+
+            if (contextCard) {
+                if (config.contextHtml) {
+                    contextCard.innerHTML = config.contextHtml;
+                    contextCard.classList.remove('hidden');
+                } else {
+                    contextCard.classList.add('hidden');
+                }
+            }
+
+            if (alertBox && alertText) {
+                if (config.alertText) {
+                    alertText.textContent = config.alertText;
+                    alertBox.className = `p-3.5 rounded-xl text-xs flex items-start space-x-2.5 ${config.alertClass || 'bg-amber-50 border border-amber-200 text-amber-800'}`;
+                    alertBox.classList.remove('hidden');
+                } else {
+                    alertBox.classList.add('hidden');
+                }
+            }
+
+            if (quickChipsContainer && quickChipsBox) {
+                if (config.quickChips && config.quickChips.length > 0) {
+                    quickChipsBox.innerHTML = config.quickChips.map(chip =>
+                        `<button type="button" class="quick-chip" data-chip="${escapeHtml(chip)}">${escapeHtml(chip)}</button>`
+                    ).join('');
+                    quickChipsContainer.classList.remove('hidden');
+
+                    quickChipsBox.querySelectorAll('.quick-chip').forEach(btn => {
+                        btn.addEventListener('click', () => {
+                            const val = btn.getAttribute('data-chip');
+                            if (commentInput) commentInput.value = val;
+                            quickChipsBox.querySelectorAll('.quick-chip').forEach(c => c.classList.remove('active'));
+                            btn.classList.add('active');
+                        });
+                    });
+                } else {
+                    quickChipsContainer.classList.add('hidden');
+                }
+            }
+
+            if (commentInput) {
+                if (config.hideComment) {
+                    document.getElementById('actionModalCommentSection')?.classList.add('hidden');
+                } else {
+                    document.getElementById('actionModalCommentSection')?.classList.remove('hidden');
+                    if (commentLabel) commentLabel.textContent = config.commentLabel || 'Comment / Note';
+                    if (commentOptional) {
+                        commentOptional.textContent = config.requireComment ? 'Required *' : 'Optional';
+                        commentOptional.className = config.requireComment ? 'text-xs text-rose-500 font-semibold' : 'text-xs text-gray-400 font-normal';
                     }
-                })
-                .catch(error => {
-                    hideLoading();
-                    showToast('error', 'Action Failed', `Unable to ${decision} application. Please try again.`);
-                });
+                    commentInput.placeholder = config.commentPlaceholder || 'Add an optional comment or note...';
+                    commentInput.value = config.initialComment || '';
+                }
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeActionConfirmDialog() {
+            const modal = document.getElementById('actionConfirmModal');
+            if (modal) modal.classList.add('hidden');
+            activeActionConfirmConfig = null;
+        }
+
+        function initActionConfirmModalEvents() {
+            document.getElementById('closeActionConfirmModal')?.addEventListener('click', closeActionConfirmDialog);
+            document.getElementById('cancelActionConfirmModalBtn')?.addEventListener('click', closeActionConfirmDialog);
+            document.getElementById('actionConfirmModalBackdrop')?.addEventListener('click', closeActionConfirmDialog);
+
+            document.getElementById('executeActionConfirmModalBtn')?.addEventListener('click', async () => {
+                if (!activeActionConfirmConfig) return;
+                const commentInput = document.getElementById('actionModalCommentInput');
+                const commentVal = commentInput ? commentInput.value.trim() : '';
+
+                if (activeActionConfirmConfig.requireComment && !commentVal) {
+                    showToast('warning', 'Comment Required', 'Please provide a comment before proceeding.');
+                    if (commentInput) commentInput.focus();
+                    return;
+                }
+
+                const handler = activeActionConfirmConfig.onConfirm;
+                closeActionConfirmDialog();
+                if (typeof handler === 'function') {
+                    await handler(commentVal);
+                }
+            });
+        }
+
+        // ── Process Application Decision (Single) ─────────────────────────
+        function processApplicationDecision(appId, decision, fromModal = false) {
+            let app = AppState.allTeamApplications?.find(a => a.ID === appId)
+                || AppState.teamApplications?.find(a => a.ID === appId)
+                || AppState.applications?.find(a => a.ID === appId);
+
+            const isApprove = decision === 'approve';
+            const applicantName = app?.Name || 'Staff Member';
+            const leaveType = app?.LeaveType || 'Leave';
+            const durationStr = app?.LeaveMode === 'Hourly' ? `${app.Hours || 0} hrs` : `${app.Duration || 0} days`;
+            const dateStr = app ? `${formatDate(app.StartDate)}${app.EndDate && app.StartDate !== app.EndDate ? ' to ' + formatDate(app.EndDate) : ''}` : '';
+
+            openActionConfirmDialog({
+                title: isApprove ? 'Approve Leave Application' : 'Decline Leave Application',
+                subtitle: `Application ID: ${appId}`,
+                icon: isApprove ? 'fas fa-check-circle' : 'fas fa-times-circle',
+                theme: isApprove ? 'emerald' : 'rose',
+                actionBtnText: isApprove ? 'Confirm Approval' : 'Confirm Decline',
+                actionBtnIcon: isApprove ? 'fas fa-check text-xs' : 'fas fa-times text-xs',
+                contextHtml: `
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="font-bold text-gray-900">${escapeHtml(applicantName)}</p>
+                            <p class="text-xs text-gray-500">${escapeHtml(leaveType)} • ${durationStr}${dateStr ? ' • ' + dateStr : ''}</p>
+                        </div>
+                        <span class="px-2.5 py-1 rounded-full text-xs font-semibold ${isApprove ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
+                            ${decision.toUpperCase()}
+                        </span>
+                    </div>
+                `,
+                quickChips: isApprove
+                    ? ['Approved with handover noted', 'Standard approval', 'Coverage confirmed', 'Approved - enjoy your leave']
+                    : ['Staffing shortage during dates', 'Insufficient leave balance', 'Please reschedule with supervisor', 'Overlaps with project milestone'],
+                requireComment: !isApprove,
+                commentLabel: isApprove ? 'Approval Notes (Optional)' : 'Decline Reason (Required *)',
+                commentPlaceholder: isApprove ? 'Add an optional note or remarks...' : 'Please explain why this leave request is declined...',
+                onConfirm: async (comment) => {
+                    showLoading(`${isApprove ? 'Approving' : 'Declining'} application...`);
+
+                    try {
+                        const result = await callGoogleScriptFunction('apiProcessApplicationDecision', {
+                            appId: appId,
+                            decision: decision,
+                            comment: comment
+                        });
+                        hideLoading();
+
+                        if (fromModal || !document.getElementById('applicationDetailsModal')?.classList.contains('hidden')) {
+                            document.getElementById('applicationDetailsModal')?.classList.add('hidden');
+                        }
+
+                        if (result.success) {
+                            showToast('success', `Application ${decision}d`, `Application ${appId} has been ${decision}d successfully`);
+                            loadMyApplicationsPage();
+                            loadTeamApplicationsPage();
+                            if (AppState.currentPage === 'dashboard') {
+                                loadDashboardData();
+                            }
+                        } else {
+                            showToast('error', 'Action Failed', result.error || `Failed to ${decision} application`);
+                        }
+                    } catch (error) {
+                        hideLoading();
+                        showToast('error', 'Action Failed', `Unable to ${decision} application: ${error.message}`);
+                    }
+                }
+            });
         }
 
         function processApplicationDecisionFromModal(appId, decision) {
-            const comment = prompt(`Please enter a comment for ${decision}ing this application:`, '');
-
-            if (comment === null) return;
-
-            showLoading(`${decision === 'approve' ? 'Approving' : 'Declining'} application...`);
-
-            callGoogleScriptFunction('apiProcessApplicationDecision', {
-                appId: appId,
-                decision: decision,
-                comment: comment
-            })
-                .then(result => {
-                    hideLoading();
-
-                    document.getElementById('closeApplicationDetailsModal').click();
-
-                    if (result.success) {
-                        showToast('success', `Application ${decision}d`, `Application has been ${decision}d successfully`);
-                        loadTeamApplicationsPage();
-                    } else {
-                        showToast('error', 'Action Failed', result.error || `Failed to ${decision} application`);
-                    }
-                })
-                .catch(error => {
-                    hideLoading();
-                    showToast('error', 'Action Failed', `Unable to ${decision} application. Please try again.`);
-                });
+            processApplicationDecision(appId, decision, true);
         }
 
-        // Cancel application
+        // ── Cancel Application ──────────────────────────────────────────────
         function cancelApplication(appId) {
             if (!appId) {
                 showToast('error', 'Error', 'Application ID not found');
                 return;
             }
 
-            // Find the application
-            const application = AppState.applications?.find(app => app.ID === appId);
+            const application = AppState.applications?.find(app => app.ID === appId)
+                || AppState.allTeamApplications?.find(app => app.ID === appId);
 
             if (!application) {
                 showToast('error', 'Not Found', 'Application not found');
@@ -6875,51 +7505,73 @@
             }
 
             const isApproved = application.Status === 'Approved';
-            const confirmMsg = isApproved
-                ? 'Are you sure you want to cancel this APPROVED leave application? Deducted days will be restored to your leave balance.'
-                : 'Are you sure you want to cancel this leave application? This action cannot be undone.';
+            const durationStr = application.LeaveMode === 'Hourly' ? `${application.Hours || 0} hrs` : `${application.Duration || 0} days`;
 
-            if (!confirm(confirmMsg)) {
-                return;
-            }
+            openActionConfirmDialog({
+                title: 'Cancel Leave Application',
+                subtitle: `Application ID: ${appId}`,
+                icon: 'fas fa-ban',
+                theme: 'amber',
+                actionBtnText: 'Confirm Cancellation',
+                actionBtnIcon: 'fas fa-ban text-xs',
+                contextHtml: `
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="font-bold text-gray-900">${escapeHtml(application.LeaveType || 'Leave')}</p>
+                            <p class="text-xs text-gray-500">${durationStr} • ${formatDate(application.StartDate)}</p>
+                        </div>
+                        <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
+                            Status: ${application.Status}
+                        </span>
+                    </div>
+                `,
+                alertText: isApproved
+                    ? 'This approved leave application will be cancelled, and all deducted days will be immediately restored to your balance.'
+                    : 'This leave application will be cancelled and removed from active processing.',
+                alertClass: isApproved ? 'bg-amber-50 border border-amber-200 text-amber-800' : 'bg-gray-100 border border-gray-200 text-gray-700',
+                quickChips: ['Change of plans', 'Personal reasons', 'Dates shifted', 'Emergency cancelled'],
+                requireComment: false,
+                commentLabel: 'Reason for Cancellation (Optional)',
+                commentPlaceholder: 'Add optional reason for cancellation...',
+                onConfirm: async (comment) => {
+                    showLoading('Cancelling application...');
 
-            showLoading('Cancelling application...');
+                    try {
+                        const reasonText = comment || (isApproved ? 'Approved leave cancelled & balance restored' : 'Cancelled by applicant');
+                        const result = await callGoogleScriptFunction('apiCancelApplication', {
+                            appId: appId,
+                            reason: reasonText
+                        });
+                        hideLoading();
 
-            callGoogleScriptFunction('apiCancelApplication', {
-                appId: appId,
-                reason: isApproved ? 'Approved leave cancelled & balance restored' : 'Cancelled by applicant'
-            })
-                .then(result => {
-                    hideLoading();
+                        if (result.success) {
+                            const msg = isApproved
+                                ? 'Approved application cancelled and leave balance restored successfully'
+                                : 'Your leave application has been cancelled';
+                            showToast('success', 'Application Cancelled', msg);
 
-                    if (result.success) {
-                        const msg = isApproved
-                            ? 'Approved application cancelled and leave balance restored successfully'
-                            : 'Your leave application has been cancelled';
-                        showToast('success', 'Application Cancelled', msg);
+                            if (AppState.currentPage === 'myApplications') {
+                                loadMyApplicationsPage();
+                            } else {
+                                loadDashboardData();
+                            }
 
-                        // Refresh applications list
-                        if (AppState.currentPage === 'myApplications') {
-                            loadMyApplicationsPage();
+                            document.getElementById('applicationDetailsModal')?.classList.add('hidden');
                         } else {
-                            // Just refresh the data
-                            loadDashboardData();
+                            showToast('error', 'Cancellation Failed', result.error || 'Failed to cancel application');
                         }
-
-                        // Close modal if open
-                        document.getElementById('applicationDetailsModal')?.classList.add('hidden');
-                    } else {
-                        showToast('error', 'Cancellation Failed', result.error || 'Failed to cancel application');
+                    } catch (error) {
+                        hideLoading();
+                        showToast('error', 'Cancellation Failed', error.message);
                     }
-                })
-                .catch(error => {
-                    hideLoading();
-                    showToast('error', 'Cancellation Failed', error.message);
-                });
+                }
+            });
         }
 
         // Make globally available
         window.cancelApplication = cancelApplication;
+        window.openActionConfirmDialog = openActionConfirmDialog;
+        window.closeActionConfirmDialog = closeActionConfirmDialog;
         // Show Add Staff Modal
         function showAddStaffModal() {
             const modal = document.getElementById('addStaffModal');
@@ -7607,38 +8259,66 @@
       </div>
       
       <!-- Deductions -->
-      ${application.DeductFromAnnual > 0 || application.DeductFromBroughtForward > 0 || application.DeductFromSick > 0 ? `
+      ${application.DeductFromAnnual > 0 || application.DeductFromBroughtForward > 0 || application.DeductFromSick > 0 || application.DeductFromCompensation > 0 ? `
       <div>
-        <p class="text-sm text-gray-600 mb-3">Leave Deductions</p>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          ${application.DeductFromAnnual > 0 ? `
-          <div class="p-4 bg-green-50 rounded-lg">
-            <p class="text-xs text-green-700 font-medium">Annual Leave</p>
-            <p class="text-xl font-bold text-green-900">${application.DeductFromAnnual} days</p>
+        <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Leave Deductions Breakdown</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+          ${application.DeductFromCompensation > 0 ? `
+          <div class="p-3.5 bg-indigo-50 border border-indigo-100 rounded-xl">
+            <div class="flex items-center justify-between">
+              <p class="text-xs text-indigo-700 font-semibold uppercase tracking-wider">Compensation</p>
+              <i class="fas fa-star text-indigo-400 text-xs"></i>
+            </div>
+            <p class="text-xl font-bold text-indigo-900 mt-1">${application.DeductFromCompensation} days</p>
           </div>
           ` : ''}
           ${application.DeductFromBroughtForward > 0 ? `
-          <div class="p-4 bg-amber-50 rounded-lg">
-            <p class="text-xs text-amber-700 font-medium">Brought Forward</p>
-            <p class="text-xl font-bold text-amber-900">${application.DeductFromBroughtForward} days</p>
+          <div class="p-3.5 bg-amber-50 border border-amber-100 rounded-xl">
+            <p class="text-xs text-amber-700 font-semibold uppercase tracking-wider">Brought Fwd</p>
+            <p class="text-xl font-bold text-amber-900 mt-1">${application.DeductFromBroughtForward} days</p>
+          </div>
+          ` : ''}
+          ${application.DeductFromAnnual > 0 ? `
+          <div class="p-3.5 bg-emerald-50 border border-emerald-100 rounded-xl">
+            <p class="text-xs text-emerald-700 font-semibold uppercase tracking-wider">Annual Leave</p>
+            <p class="text-xl font-bold text-emerald-900 mt-1">${application.DeductFromAnnual} days</p>
           </div>
           ` : ''}
           ${application.DeductFromSick > 0 ? `
-          <div class="p-4 bg-blue-50 rounded-lg">
-            <p class="text-xs text-blue-700 font-medium">Sick Leave</p>
-            <p class="text-xl font-bold text-blue-900">${application.DeductFromSick} days</p>
+          <div class="p-3.5 bg-blue-50 border border-blue-100 rounded-xl">
+            <p class="text-xs text-blue-700 font-semibold uppercase tracking-wider">Sick Leave</p>
+            <p class="text-xl font-bold text-blue-900 mt-1">${application.DeductFromSick} days</p>
           </div>
           ` : ''}
         </div>
       </div>
       ` : ''}
+
+      <!-- Status Progression Timeline -->
+      <div class="p-4 bg-gray-50 border border-gray-100 rounded-xl">
+        <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Status Progression</p>
+        <div class="timeline-track text-xs">
+          <div class="timeline-node completed">
+            <p class="font-semibold text-gray-900">Application Submitted</p>
+            <p class="text-gray-500">${formatDate(application.DateApplied)}</p>
+          </div>
+          <div class="timeline-node ${application.Status === 'Pending' ? 'current' : application.Status === 'Approved' ? 'completed' : application.Status === 'Declined' ? 'declined' : 'completed'}">
+            <p class="font-semibold text-gray-900">${application.Status === 'Pending' ? 'Awaiting Review' : 'Status: ' + application.Status}</p>
+            <p class="text-gray-500">
+              ${application.ProcessedBy 
+                ? `Processed by ${escapeHtml(application.ProcessedBy)}${application.ProcessedDate ? ' on ' + formatDate(application.ProcessedDate) : ''}`
+                : `Supervisor: ${escapeHtml(application.Supervisor || 'Pending Assignment')}`}
+            </p>
+          </div>
+        </div>
+      </div>
       
       <!-- Comments -->
       ${application.Comment ? `
       <div>
-        <p class="text-sm text-gray-600 mb-2">Comments</p>
-        <div class="p-4 bg-blue-50 rounded-lg">
-          <p class="text-gray-900">${application.Comment}</p>
+        <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Reviewer Remarks</p>
+        <div class="p-4 bg-blue-50 border border-blue-100 rounded-xl">
+          <p class="text-gray-900 text-sm">${escapeHtml(application.Comment)}</p>
           ${application.ProcessedDate ? `<p class="text-xs text-gray-500 mt-2">${formatDate(application.ProcessedDate)}</p>` : ''}
         </div>
       </div>
@@ -7665,12 +8345,12 @@
 
                 document.querySelector('.decline-action-btn')?.addEventListener('click', (e) => {
                     const id = e.target.getAttribute('data-id');
-                    processApplicationDecision(id, 'decline');
+                    processApplicationDecision(id, 'decline', true);
                 });
 
                 document.querySelector('.approve-action-btn')?.addEventListener('click', (e) => {
                     const id = e.target.getAttribute('data-id');
-                    processApplicationDecision(id, 'approve');
+                    processApplicationDecision(id, 'approve', true);
                 });
             } else if (!isTeamView && (application.Status === 'Pending' || application.Status === 'Approved')) {
                 actionButtons.classList.remove('hidden');
@@ -8328,52 +9008,66 @@
         }
 
         async function handleRevokeCompensationAward(email, awardIndex) {
-            const reason = prompt('Please enter the reason for revoking this compensation award:');
-            if (reason === null) return; // User cancelled
-            if (!reason.trim()) {
-                showToast('error', 'Validation Error', 'Revocation reason is required');
-                return;
-            }
+            openActionConfirmDialog({
+                title: 'Revoke Compensation Award',
+                subtitle: `Staff: ${email} • Award Record #${awardIndex + 1}`,
+                icon: 'fas fa-undo-alt',
+                theme: 'rose',
+                actionBtnText: 'Revoke Award',
+                actionBtnIcon: 'fas fa-undo-alt text-xs',
+                alertText: 'Revoking this compensation award will deduct the granted days from the staff member balance.',
+                alertClass: 'bg-rose-50 border border-rose-200 text-rose-800',
+                requireComment: true,
+                commentLabel: 'Revocation Reason (Required *)',
+                commentPlaceholder: 'Explain reason for revoking this award...',
+                quickChips: ['Entered in error', 'Adjusted per mutual agreement', 'Duplicate award record', 'Date discrepancy corrected'],
+                onConfirm: async (reason) => {
+                    if (!reason || !reason.trim()) {
+                        showToast('error', 'Validation Error', 'Revocation reason is required');
+                        return;
+                    }
 
-            showLoading('Revoking compensation award...');
+                    showLoading('Revoking compensation award...');
 
-            try {
-                const res = await callGoogleScriptFunction('apiRevokeCompensationAward', {
-                    email: email,
-                    awardIndex: awardIndex,
-                    reason: reason.trim()
-                });
+                    try {
+                        const res = await callGoogleScriptFunction('apiRevokeCompensationAward', {
+                            email: email,
+                            awardIndex: awardIndex,
+                            reason: reason.trim()
+                        });
 
-                hideLoading();
+                        hideLoading();
 
-                if (res.success) {
-                    showToast('success', 'Award Revoked', `Award revoked. New balance: ${res.data?.newBalance ?? '-'}`);
-                    
-                    if (window.AppState && window.AppState.allStaff) {
-                        const s = window.AppState.allStaff.find(st => (st.Email || st.email || '').toLowerCase() === email.toLowerCase());
-                        if (s && s.CompensationLeave) {
-                            s.CompensationLeave.balance = res.data?.newBalance ?? s.CompensationLeave.balance;
-                            if (s.CompensationLeave.awards && s.CompensationLeave.awards[awardIndex]) {
-                                s.CompensationLeave.awards[awardIndex].revoked = true;
+                        if (res.success) {
+                            showToast('success', 'Award Revoked', `Award revoked. New balance: ${res.data?.newBalance ?? '-'}`);
+                            
+                            if (window.AppState && window.AppState.allStaff) {
+                                const s = window.AppState.allStaff.find(st => (st.Email || st.email || '').toLowerCase() === email.toLowerCase());
+                                if (s && s.CompensationLeave) {
+                                    s.CompensationLeave.balance = res.data?.newBalance ?? s.CompensationLeave.balance;
+                                    if (s.CompensationLeave.awards && s.CompensationLeave.awards[awardIndex]) {
+                                        s.CompensationLeave.awards[awardIndex].revoked = true;
+                                    }
+                                }
                             }
+
+                            loadStaffCompensationHistory(email);
+
+                            if (window.AppState?.currentPage === 'staffManagement' && typeof loadStaffList === 'function') {
+                                loadStaffList();
+                            } else if (window.AppState?.currentPage === 'myBalance' && typeof loadBalancePage === 'function') {
+                                loadBalancePage();
+                            }
+                        } else {
+                            showToast('error', 'Revocation Failed', res.error || 'Failed to revoke award');
                         }
+                    } catch (err) {
+                        hideLoading();
+                        console.error('Revocation error:', err);
+                        showToast('error', 'Revocation Failed', err.message);
                     }
-
-                    loadStaffCompensationHistory(email);
-
-                    if (window.AppState?.currentPage === 'staffManagement' && typeof loadStaffList === 'function') {
-                        loadStaffList();
-                    } else if (window.AppState?.currentPage === 'myBalance' && typeof loadBalancePage === 'function') {
-                        loadBalancePage();
-                    }
-                } else {
-                    showToast('error', 'Revocation Failed', res.error || 'Failed to revoke award');
                 }
-            } catch (err) {
-                hideLoading();
-                console.error('Revocation error:', err);
-                showToast('error', 'Revocation Failed', err.message);
-            }
+            });
         }
 
         async function viewAllCompensationRecords() {
@@ -8399,6 +9093,7 @@
         window.loadStaffCompensationHistory = loadStaffCompensationHistory;
         window.handleRevokeCompensationAward = handleRevokeCompensationAward;
         window.viewAllCompensationRecords = viewAllCompensationRecords;
+        window.loadUpcomingHolidaysWidget = loadUpcomingHolidaysWidget;
     </script>
 
     <!-- ── Mobile Bottom Navigation Bar ─────────────────────────── -->
