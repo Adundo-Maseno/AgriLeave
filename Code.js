@@ -295,7 +295,26 @@ const Utils = {
         return new Date(year, month - 1, day);
     },
 
-    getEasterExpiryDate: function () {
+    getEasterExpiryDate: function (bfOrYear) {
+        if (typeof bfOrYear === 'number') {
+            return this.calculateEasterDate(bfOrYear);
+        }
+        if (bfOrYear && typeof bfOrYear === 'object') {
+            if (bfOrYear instanceof Date) {
+                return new Date(bfOrYear.getFullYear(), bfOrYear.getMonth(), bfOrYear.getDate());
+            }
+            // Year of acquisition is yearEarned. Easter of next year after year of acquisition:
+            if (bfOrYear.yearEarned) {
+                return this.calculateEasterDate(parseInt(bfOrYear.yearEarned, 10) + 1);
+            }
+            if (bfOrYear.yearExpires) {
+                return this.calculateEasterDate(parseInt(bfOrYear.yearExpires, 10));
+            }
+            if (bfOrYear.expiryDate) {
+                const parsed = this.parseLocalDate(bfOrYear.expiryDate);
+                if (parsed && !isNaN(parsed.getTime())) return parsed;
+            }
+        }
         const currentYear = new Date().getFullYear();
         return this.calculateEasterDate(currentYear);
     },
@@ -2277,9 +2296,11 @@ const ApplicationsManager = {
 
             // ── Brought-forward pool (expires at Easter) ─────────────────────
             let availableBroughtForward = 0;
-            const easterDate = Utils.getEasterExpiryDate();
+            const easterDate = Utils.getEasterExpiryDate(user.LeaveBroughtForward);
+            easterDate.setHours(0, 0, 0, 0);
             const today = new Date();
-            const isBroughtForwardExpired = user.LeaveBroughtForward?.isExpired || (today > easterDate);
+            today.setHours(0, 0, 0, 0);
+            const isBroughtForwardExpired = Boolean(user.LeaveBroughtForward?.isExpired) || (today > easterDate);
             if (user.LeaveBroughtForward && !isBroughtForwardExpired) {
                 // daysCarriedFromPreviousYear is the remaining available balance in the brought forward pool
                 availableBroughtForward = Math.max(0, user.LeaveBroughtForward.daysCarriedFromPreviousYear || 0);
@@ -2491,6 +2512,22 @@ const ApplicationsManager = {
             }
 
             const wasApproved = application.Status === SYSTEM.STATUS.APPROVED;
+
+            // Rule: Approved leave beyond the leave's end date cannot be cancelled
+            if (wasApproved) {
+                const endInput = application.EndDate || application.StartDate || application.HourlyDate;
+                if (endInput) {
+                    const leaveEnd = Utils.parseLocalDate(endInput);
+                    if (leaveEnd) {
+                        leaveEnd.setHours(0, 0, 0, 0);
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        if (today > leaveEnd) {
+                            return Utils.createErrorResponse('Approved leave cannot be cancelled after the leave end date has passed');
+                        }
+                    }
+                }
+            }
 
             // If it was already approved, roll back all deductions from staff balances
             if (wasApproved) {
@@ -2829,28 +2866,40 @@ const DashboardManager = {
                 broughtForwardTotal = broughtForwardRemaining + broughtForwardUsed;  // Original total
                 availableBroughtForward = broughtForwardRemaining;
 
-                const easterDate = Utils.getEasterExpiryDate();
+                const easterDate = Utils.getEasterExpiryDate(user.LeaveBroughtForward);
+                easterDate.setHours(0, 0, 0, 0);
                 const today = new Date();
-                const isExpired = user.LeaveBroughtForward.isExpired || (today > easterDate);
+                today.setHours(0, 0, 0, 0);
+                const isExpired = Boolean(user.LeaveBroughtForward.isExpired) || (today > easterDate);
 
+                const rawRemaining = broughtForwardRemaining;
                 if (isExpired) {
                     availableBroughtForward = 0;
+                    broughtForwardRemaining = 0;
                 }
 
                 broughtForwardPercentage = broughtForwardTotal > 0 ?
                     Math.min(100, Math.round((broughtForwardUsed / broughtForwardTotal) * 100)) : 0;
 
+                const easterStr = Utils.formatDateForDisplay(easterDate.toISOString().split('T')[0]);
+                const acqYear = user.LeaveBroughtForward.yearEarned || (today.getFullYear() - 1);
+
                 broughtForwardData = {
                     // Complete information
-                    total: broughtForwardTotal,                    // Original total (3.0)
-                    remaining: broughtForwardRemaining,             // Current balance (2.5)
-                    used: broughtForwardUsed,                        // Used so far (0.5)
-                    daysCarriedFromPreviousYear: broughtForwardRemaining, // For backward compatibility
-                    available: availableBroughtForward,
-                    expiryDate: user.LeaveBroughtForward.expiryDate,
+                    total: broughtForwardTotal,                    // Original total (e.g. 5.0)
+                    remaining: broughtForwardRemaining,             // 0 when forfeited
+                    used: broughtForwardUsed,                        // Used so far
+                    forfeited: isExpired ? rawRemaining : (user.LeaveBroughtForward.forfeitedDays || 0),
+                    daysCarriedFromPreviousYear: broughtForwardRemaining, // 0 when forfeited
+                    available: availableBroughtForward,            // 0 when forfeited
+                    expiryDate: user.LeaveBroughtForward.expiryDate || easterDate.toISOString().split('T')[0],
                     yearEarned: user.LeaveBroughtForward.yearEarned,
+                    yearExpires: user.LeaveBroughtForward.yearExpires || (user.LeaveBroughtForward.yearEarned ? user.LeaveBroughtForward.yearEarned + 1 : today.getFullYear()),
                     isExpired: isExpired,
-                    note: user.LeaveBroughtForward.note || '',
+                    isForfeited: isExpired,
+                    note: isExpired
+                        ? `${rawRemaining} day(s) carried forward from ${acqYear} forfeited after Easter (${easterStr})`
+                        : (user.LeaveBroughtForward.note || ''),
                     percentage: broughtForwardPercentage,
                     usagePercentage: broughtForwardPercentage
                 };
@@ -5519,11 +5568,13 @@ function scheduledEasterWarning() {
             const bfDays = staff.LeaveBroughtForward.daysCarriedFromPreviousYear || 0;
             if (bfDays <= 0) return;
 
-            // Check the BF leave belongs to the current year's Easter expiry
-            const bfExpiry = new Date(staff.LeaveBroughtForward.expiryDate);
-            if (bfExpiry.getFullYear() !== today.getFullYear()) return;
+            // Check the BF leave belongs to this warning window
+            const bfExpiry = Utils.getEasterExpiryDate(staff.LeaveBroughtForward);
+            bfExpiry.setHours(0, 0, 0, 0);
+            const daysUntil = Math.round((bfExpiry - today) / msPerDay);
+            if (daysUntil > 14 || daysUntil <= 0) return;
 
-            NotificationManager.notifyBFWarning(staff, easterDate);
+            NotificationManager.notifyBFWarning(staff, bfExpiry);
             warnedCount++;
         });
 
@@ -5575,16 +5626,21 @@ function scheduledEasterExpiry() {
             const bfDays = member.LeaveBroughtForward.daysCarriedFromPreviousYear || 0;
             if (bfDays <= 0) return;
 
-            // Only expire BF leave that belongs to this year
-            const bfExpiry = new Date(member.LeaveBroughtForward.expiryDate);
+            // Check if today is on or after the Easter expiry date of this brought forward leave
+            const bfExpiry = Utils.getEasterExpiryDate(member.LeaveBroughtForward);
             bfExpiry.setHours(0, 0, 0, 0);
-            if (bfExpiry.getFullYear() !== today.getFullYear()) return;
+            if (today < bfExpiry) return;
 
             // Expire it
             forfeitLog.push({ email: member.Email, name: member.Name, forfeitedDays: bfDays });
             totalForfeited += bfDays;
 
-            member.LeaveBroughtForward = null;
+            member.LeaveBroughtForward.daysCarriedFromPreviousYear = 0;
+            member.LeaveBroughtForward.isExpired = true;
+            member.LeaveBroughtForward.isForfeited = true;
+            member.LeaveBroughtForward.forfeitedDays = bfDays;
+            member.LeaveBroughtForward.forfeitedDate = today.toISOString().split('T')[0];
+            member.LeaveBroughtForward.note = `${bfDays} days carried forward from ${member.LeaveBroughtForward.yearEarned || 'previous year'} forfeited at Easter (${bfExpiry.toISOString().split('T')[0]})`;
 
             // Recalculate available balance — remove the now-expired BF days
             const accrued = member.LeaveAccrual.accruedYearToDate || 0;
@@ -5593,7 +5649,7 @@ function scheduledEasterExpiry() {
             member.LeaveAccrual.availableBalance = Math.max(0, accrued - used + deficit);
 
             // Notify individual + HR
-            NotificationManager.notifyBFExpired(member, bfDays, easterDate);
+            NotificationManager.notifyBFExpired(member, bfDays, bfExpiry);
             expiredCount++;
         });
 
@@ -5753,8 +5809,9 @@ function fixAccruedDaysForAllStaff() {
                 // Recalculate available balance. BF is a separate pool — add it explicitly
                 // since calculateAvailableBalance only covers the annual pool.
                 const used = staff.LeaveAccrual.usedYearToDate || 0;
-                const deficit = staff.LeaveAccrual.annualDeficit?.amount || 0;
-                const broughtForward = staff.LeaveBroughtForward?.daysCarriedFromPreviousYear || 0;
+                const bfEaster = Utils.getEasterExpiryDate(staff.LeaveBroughtForward);
+                const isBfExpired = Boolean(staff.LeaveBroughtForward?.isExpired) || (new Date() > bfEaster);
+                const broughtForward = (!isBfExpired && staff.LeaveBroughtForward) ? (staff.LeaveBroughtForward.daysCarriedFromPreviousYear || 0) : 0;
 
                 staff.LeaveAccrual.availableBalance = Math.max(0,
                     correctAccrued - used + deficit + broughtForward
@@ -5868,7 +5925,9 @@ function fixStaffLeaveData(email) {
         const annualUsed = staff.LeaveAccrual.usedYearToDate || 0;
         const deficit = staff.LeaveAccrual.annualDeficit?.amount || 0;
         const annualAvailable = Math.max(0, accrued - annualUsed + deficit);
-        const broughtForward = staff.LeaveBroughtForward?.daysCarriedFromPreviousYear || 0;
+        const bfEaster = Utils.getEasterExpiryDate(staff.LeaveBroughtForward);
+        const isBfExpired = Boolean(staff.LeaveBroughtForward?.isExpired) || (new Date() > bfEaster);
+        const broughtForward = (!isBfExpired && staff.LeaveBroughtForward) ? (staff.LeaveBroughtForward.daysCarriedFromPreviousYear || 0) : 0;
         const correctAvailable = annualAvailable + broughtForward;
 
         if (Math.abs((staff.LeaveAccrual.availableBalance || 0) - correctAvailable) > 0.01) {
