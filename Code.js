@@ -146,14 +146,25 @@ const Utils = {
         return emailRegex.test(email);
     },
 
-    formatDateForDisplay: function (dateString) {
-        if (!dateString) return '';
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-GB', {
+    formatDateForDisplay: function (dateInput) {
+        if (!dateInput) return '';
+        const d = this.parseLocalDate(dateInput);
+        if (!d || isNaN(d.getTime())) return '';
+        return d.toLocaleDateString('en-GB', {
             day: '2-digit',
             month: 'short',
             year: 'numeric'
         });
+    },
+
+    formatLocalDate: function (dateInput) {
+        if (!dateInput) return '';
+        const d = this.parseLocalDate(dateInput);
+        if (!d || isNaN(d.getTime())) return '';
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
     },
 
     parseLocalDate: function (dateInput) {
@@ -162,13 +173,14 @@ const Utils = {
             return new Date(dateInput.getFullYear(), dateInput.getMonth(), dateInput.getDate());
         }
         if (typeof dateInput === 'string') {
-            const str = dateInput.split('T')[0];
-            const parts = str.split(/[-/]/);
-            if (parts.length === 3) {
-                const y = parseInt(parts[0], 10);
-                const m = parseInt(parts[1], 10) - 1;
-                const d = parseInt(parts[2], 10);
-                return new Date(y, m, d);
+            if (!dateInput.includes('T')) {
+                const parts = dateInput.split(/[-/]/);
+                if (parts.length === 3) {
+                    const y = parseInt(parts[0], 10);
+                    const m = parseInt(parts[1], 10) - 1;
+                    const d = parseInt(parts[2], 10);
+                    return new Date(y, m, d);
+                }
             }
         }
         const d = new Date(dateInput);
@@ -248,7 +260,7 @@ const Utils = {
             if (hol) {
                 const day = current.getDay();
                 holidays.push({
-                    date: current.toISOString().split('T')[0],
+                    date: this.formatLocalDate(current),
                     name: hol.name,
                     dayOfWeek: day,
                     isWeekend: day === 0 || day === 6
@@ -2881,7 +2893,7 @@ const DashboardManager = {
                 broughtForwardPercentage = broughtForwardTotal > 0 ?
                     Math.min(100, Math.round((broughtForwardUsed / broughtForwardTotal) * 100)) : 0;
 
-                const easterStr = Utils.formatDateForDisplay(easterDate.toISOString().split('T')[0]);
+                const easterStr = Utils.formatDateForDisplay(easterDate);
                 const acqYear = user.LeaveBroughtForward.yearEarned || (today.getFullYear() - 1);
 
                 broughtForwardData = {
@@ -2892,7 +2904,7 @@ const DashboardManager = {
                     forfeited: isExpired ? rawRemaining : (user.LeaveBroughtForward.forfeitedDays || 0),
                     daysCarriedFromPreviousYear: broughtForwardRemaining, // 0 when forfeited
                     available: availableBroughtForward,            // 0 when forfeited
-                    expiryDate: user.LeaveBroughtForward.expiryDate || easterDate.toISOString().split('T')[0],
+                    expiryDate: user.LeaveBroughtForward.expiryDate || Utils.formatLocalDate(easterDate),
                     yearEarned: user.LeaveBroughtForward.yearEarned,
                     yearExpires: user.LeaveBroughtForward.yearExpires || (user.LeaveBroughtForward.yearEarned ? user.LeaveBroughtForward.yearEarned + 1 : today.getFullYear()),
                     isExpired: isExpired,
@@ -3266,11 +3278,11 @@ const AdminManager = {
                     newBFDays = Math.min(netPosition, maxCarryForward);
                     member.LeaveBroughtForward = {
                         daysCarriedFromPreviousYear: newBFDays,
-                        expiryDate: expiryDate.toISOString().split('T')[0],
+                        expiryDate: Utils.formatLocalDate(expiryDate),
                         yearEarned: sourceYear,
                         yearExpires: targetYear,
                         isExpired: false,
-                        note: `${newBFDays} days unused ${sourceYear} annual leave — expires Easter ${targetYear} (${expiryDate.toISOString().split('T')[0]})`
+                        note: `${newBFDays} days unused ${sourceYear} annual leave — expires Easter ${targetYear} (${Utils.formatLocalDate(expiryDate)})`
                     };
                     member.LeaveAccrual.annualDeficit = { amount: 0, fromYear: null, recoveryHistory: [] };
 
@@ -5162,8 +5174,8 @@ function apiGetUpcomingHolidays() {
 
                 return {
                     name: h.name,
-                    date: h.date.toISOString().split('T')[0],
-                    displayDate: Utils.formatDateForDisplay(h.date.toISOString().split('T')[0]),
+                    date: Utils.formatLocalDate(h.date),
+                    displayDate: Utils.formatDateForDisplay(h.date),
                     dayOfWeek: dayOfWeek,
                     daysAway: daysAway,
                     countdown: daysAway === 0 ? 'Today' : daysAway === 1 ? 'Tomorrow' : `In ${daysAway} days`,

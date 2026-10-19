@@ -2337,7 +2337,8 @@
 
         function formatDate(dateString) {
             if (!dateString) return 'N/A';
-            const date = new Date(dateString);
+            const date = parseLocalDate(dateString);
+            if (!date || isNaN(date.getTime())) return 'N/A';
             return date.toLocaleDateString('en-GB', {
                 day: '2-digit',
                 month: 'short',
@@ -6909,17 +6910,28 @@
                 return new Date(dateInput.getFullYear(), dateInput.getMonth(), dateInput.getDate());
             }
             if (typeof dateInput === 'string') {
-                const str = dateInput.split('T')[0];
-                const parts = str.split(/[-/]/);
-                if (parts.length === 3) {
-                    const y = parseInt(parts[0], 10);
-                    const m = parseInt(parts[1], 10) - 1;
-                    const d = parseInt(parts[2], 10);
-                    return new Date(y, m, d);
+                if (!dateInput.includes('T')) {
+                    const parts = dateInput.split(/[-/]/);
+                    if (parts.length === 3) {
+                        const y = parseInt(parts[0], 10);
+                        const m = parseInt(parts[1], 10) - 1;
+                        const d = parseInt(parts[2], 10);
+                        return new Date(y, m, d);
+                    }
                 }
             }
             const d = new Date(dateInput);
             return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        }
+
+        function formatLocalDate(dateInput) {
+            if (!dateInput) return '';
+            const d = parseLocalDate(dateInput);
+            if (!d || isNaN(d.getTime())) return '';
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
         }
 
         function calculateEasterDate(year) {
@@ -7013,7 +7025,7 @@
                 if (hol) {
                     const day = current.getDay();
                     holidays.push({
-                        date: current.toISOString().split('T')[0],
+                        date: formatLocalDate(current),
                         name: hol.name,
                         dayOfWeek: day,
                         isWeekend: day === 0 || day === 6
@@ -9385,6 +9397,8 @@
         window.callGoogleScriptFunction = callGoogleScriptFunction;
         window.loadHRDashboardPage = loadHRDashboardPage;
         window.formatDate = formatDate;
+        window.formatLocalDate = formatLocalDate;
+        window.parseLocalDate = parseLocalDate;
         window.escapeHtml = escapeHtml;
         window.showToast = showToast;
         window.showLoading = showLoading;
