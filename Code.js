@@ -211,10 +211,17 @@ const Utils = {
             if (month === h.month && dateNum === h.day) {
                 return { name: h.name, isHoliday: true };
             }
-            // Sunday observed rule (if holiday falls on Sunday, following Monday is observed)
+            // Sunday carryover rule: in Kenya (Public Holidays Act, Cap 110, Section 4),
+            // if a public holiday falls on a Sunday, it is carried forward to Monday.
+            // If Christmas Day (Dec 25) falls on Sunday, then Boxing Day is Monday Dec 26,
+            // and Christmas Day is observed on the next succeeding business day: Tuesday Dec 27.
             const hDate = new Date(year, h.month, h.day);
             if (hDate.getDay() === 0) {
-                const obsDate = new Date(year, h.month, h.day + 1);
+                let carryDays = 1;
+                if (h.month === 11 && h.day === 25) {
+                    carryDays = 2; // Tuesday Dec 27 because Monday Dec 26 is already Boxing Day
+                }
+                const obsDate = new Date(year, h.month, h.day + carryDays);
                 if (month === obsDate.getMonth() && dateNum === obsDate.getDate()) {
                     return { name: `${h.name} (Observed)`, isHoliday: true };
                 }
@@ -5068,8 +5075,12 @@ function apiGetUpcomingHolidays() {
                 hd.setHours(0, 0, 0, 0);
                 holidays.push({ date: hd, name: h.name });
                 if (hd.getDay() === 0) {
+                    let carryDays = 1;
+                    if (h.month === 11 && h.day === 25) {
+                        carryDays = 2; // Tuesday Dec 27
+                    }
                     const obs = new Date(hd);
-                    obs.setDate(hd.getDate() + 1);
+                    obs.setDate(hd.getDate() + carryDays);
                     holidays.push({ date: obs, name: `${h.name} (Observed)` });
                 }
             });

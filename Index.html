@@ -762,13 +762,12 @@
 
         /* ── Shared UI components ────────────────────────────────────── */
         .stat-card {
-            transition: all 0.3s ease;
-            border: 1px solid #e5e7eb;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .stat-card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
         }
 
         .btn-primary {
@@ -1466,115 +1465,133 @@
     <div id="applyLeaveModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="fixed inset-0 modal-overlay" id="applyLeaveModalBackdrop"></div>
-            <div class="relative bg-white rounded-xl text-left shadow-xl w-full max-w-lg flex flex-col max-h-[90vh]">
-                <div class="bg-white px-6 pt-6 pb-4 flex-none">
-                    <div class="flex justify-between items-center">
-                        <h3 class="text-lg font-bold text-gray-900">Apply for Leave</h3>
-                        <button id="closeApplyLeaveModal" class="text-gray-500 hover:text-gray-700">
-                            <i class="fas fa-times text-lg"></i>
-                        </button>
+            <div class="relative bg-white rounded-2xl text-left shadow-2xl w-full max-w-lg flex flex-col max-h-[92vh] border border-gray-100 overflow-hidden">
+                <!-- Modal Header -->
+                <div class="bg-gradient-to-r from-emerald-700 to-emerald-800 px-6 py-4.5 rounded-t-2xl text-white flex justify-between items-center flex-none shadow-sm">
+                    <div class="flex items-center space-x-3">
+                        <div class="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-sm border border-white/20 shadow-inner">
+                            <i class="fas fa-calendar-plus text-white text-lg"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold tracking-tight text-white">Apply for Leave</h3>
+                            <p class="text-xs text-emerald-100/90 font-normal">Submit a new leave application</p>
+                        </div>
                     </div>
-                    <p class="text-sm text-gray-600 mt-1">Submit a new leave application</p>
+                    <button id="closeApplyLeaveModal" type="button" class="text-white/80 hover:text-white hover:bg-white/10 rounded-lg p-1.5 transition-colors">
+                        <i class="fas fa-times text-lg"></i>
+                    </button>
                 </div>
 
-                <div class="px-6 py-4 overflow-y-auto flex-1 min-h-0">
-                    <form id="leaveApplicationForm">
-                        <div class="space-y-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Leave Type</label>
-                                <select id="leaveType" name="leaveType"
-                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
-                                    <option value="">Select leave type</option>
-                                    <option value="Annual Leave">Annual Leave</option>
-                                    <option value="Sick Leave">Sick Leave</option>
-                                    <option value="Compensation Leave">Compensation Leave</option>
-                                    <option value="Maternity Leave">Maternity Leave</option>
-                                    <option value="Paternity Leave">Paternity Leave</option>
-                                    <option value="Compassionate Leave">Compassionate Leave</option>
-                                    <option value="Study Leave">Study Leave</option>
-                                </select>
-                            </div>
+                <div class="px-6 py-5 overflow-y-auto flex-1 min-h-0 space-y-4">
+                    <form id="leaveApplicationForm" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1.5">Leave Type *</label>
+                            <select id="leaveType" name="leaveType"
+                                class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white" required>
+                                <option value="">Select leave type</option>
+                                <option value="Annual Leave">Annual Leave</option>
+                                <option value="Sick Leave">Sick Leave</option>
+                                <option value="Compensation Leave">Compensation Leave</option>
+                                <option value="Maternity Leave">Maternity Leave</option>
+                                <option value="Paternity Leave">Paternity Leave</option>
+                                <option value="Compassionate Leave">Compassionate Leave</option>
+                                <option value="Study Leave">Study Leave</option>
+                            </select>
+                        </div>
 
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Leave Mode</label>
-                                <div class="flex space-x-4">
-                                    <label class="inline-flex items-center">
-                                        <input type="radio" name="leaveMode" value="Daily" checked
-                                            class="text-primary-600 focus:ring-primary-500">
-                                        <span class="ml-2 text-sm text-gray-700">Daily</span>
-                                    </label>
-                                    <label class="inline-flex items-center">
-                                        <input type="radio" name="leaveMode" value="Hourly"
-                                            class="text-primary-600 focus:ring-primary-500">
-                                        <span class="ml-2 text-sm text-gray-700">Hourly</span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div id="dailyLeaveSection">
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
-                                        <input type="date" id="startDate" name="startDate"
-                                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Leave Mode</label>
+                            <div class="grid grid-cols-2 gap-3">
+                                <label class="relative flex items-center p-3 rounded-xl border border-gray-200 cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/20 transition-all">
+                                    <input type="radio" name="leaveMode" value="Daily" checked
+                                        class="text-emerald-600 focus:ring-emerald-500 h-4 w-4">
+                                    <div class="ml-2.5">
+                                        <span class="block text-sm font-semibold text-gray-900">Daily</span>
+                                        <span class="block text-xs text-gray-500">Full business days</span>
                                     </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">End Date</label>
-                                        <input type="date" id="endDate" name="endDate"
-                                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                                </label>
+                                <label class="relative flex items-center p-3 rounded-xl border border-gray-200 cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/20 transition-all">
+                                    <input type="radio" name="leaveMode" value="Hourly"
+                                        class="text-emerald-600 focus:ring-emerald-500 h-4 w-4">
+                                    <div class="ml-2.5">
+                                        <span class="block text-sm font-semibold text-gray-900">Hourly</span>
+                                        <span class="block text-xs text-gray-500">Partial day (1-8 hrs)</span>
                                     </div>
-                                </div>
-                                <p class="text-xs text-gray-500 mt-2" id="businessDaysInfo">Business days: 0</p>
-                            </div>
-
-                            <div id="hourlyLeaveSection" class="hidden">
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Date</label>
-                                        <input type="date" id="hourlyDate" name="hourlyDate"
-                                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Hours (1-8)</label>
-                                        <input type="number" id="hours" name="hours" min="1" max="8" step="0.001"
-                                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                                            placeholder="e.g., 4">
-                                    </div>
-                                </div>
-                                <p class="text-xs text-gray-500 mt-2">Working hours per day: <span
-                                        id="workingHoursPerDay">8</span></p>
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Reason</label>
-                                <textarea id="reason" name="reason" rows="3"
-                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                                    placeholder="Please provide a detailed reason for your leave request (minimum 10 characters)"></textarea>
-                                <p class="text-xs text-gray-500 mt-1" id="charCount">0 characters</p>
-                            </div>
-
-                            <div id="balanceCheckResult" class="hidden p-4 rounded-lg border border-gray-200">
-                                <div class="flex items-center justify-between">
-                                    <div>
-                                        <p class="font-medium text-gray-900">Balance Check</p>
-                                        <p class="text-sm text-gray-600" id="balanceCheckMessage">Checking balance...
-                                        </p>
-                                    </div>
-                                    <div id="balanceCheckStatusIcon"></div>
-                                </div>
-                                <div class="mt-3 text-sm" id="balanceCheckDetails"></div>
+                                </label>
                             </div>
                         </div>
 
-                        <div class="mt-6 flex justify-end space-x-3">
+                        <div id="dailyLeaveSection" class="p-4 bg-gray-50/70 border border-gray-200/80 rounded-xl space-y-3">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1.5">Start Date *</label>
+                                    <input type="date" id="startDate" name="startDate"
+                                        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white transition-all">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1.5">End Date *</label>
+                                    <input type="date" id="endDate" name="endDate"
+                                        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white transition-all">
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between text-xs text-emerald-800 bg-emerald-50 border border-emerald-100 rounded-lg p-2.5">
+                                <span class="font-medium" id="businessDaysInfo"><i class="fas fa-calendar-check mr-1.5"></i>Business days: 0</span>
+                                <span class="text-[11px] text-gray-500">Excludes weekends & holidays</span>
+                            </div>
+                        </div>
+
+                        <div id="hourlyLeaveSection" class="hidden p-4 bg-gray-50/70 border border-gray-200/80 rounded-xl space-y-3">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1.5">Date *</label>
+                                    <input type="date" id="hourlyDate" name="hourlyDate"
+                                        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white transition-all">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1.5">Hours (1-8) *</label>
+                                    <input type="number" id="hours" name="hours" min="1" max="8" step="0.001"
+                                        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white transition-all"
+                                        placeholder="e.g., 4">
+                                </div>
+                            </div>
+                            <p class="text-xs text-gray-500 flex items-center">
+                                <i class="fas fa-clock mr-1 text-gray-400"></i> Working hours per day: <span id="workingHoursPerDay" class="font-semibold ml-1">8</span>
+                            </p>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <label class="block text-sm font-semibold text-gray-700">Reason *</label>
+                                <span class="text-xs text-gray-400" id="charCount">0 characters</span>
+                            </div>
+                            <textarea id="reason" name="reason" rows="3"
+                                class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+                                placeholder="Please provide a detailed reason for your leave request (minimum 10 characters)"></textarea>
+                        </div>
+
+                        <div id="balanceCheckResult" class="hidden p-4 rounded-xl border border-emerald-100 bg-emerald-50/40">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="font-bold text-gray-900 text-sm">Balance Check</p>
+                                    <p class="text-xs text-gray-600" id="balanceCheckMessage">Checking balance...</p>
+                                </div>
+                                <div id="balanceCheckStatusIcon"></div>
+                            </div>
+                            <div class="mt-3 text-xs" id="balanceCheckDetails"></div>
+                        </div>
+
+                        <div class="bg-gray-50/80 -mx-6 -mb-5 px-6 py-4 border-t border-gray-100 flex justify-end space-x-3 rounded-b-2xl mt-6">
                             <button type="button" id="cancelLeaveApplication"
-                                class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
+                                class="px-4 py-2.5 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors">Cancel</button>
                             <button type="button" id="checkBalanceBtn"
-                                class="px-4 py-2 bg-secondary-600 text-white rounded-lg text-sm font-medium hover:bg-secondary-700">Check
-                                Balance</button>
+                                class="px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm flex items-center">
+                                <i class="fas fa-calculator mr-1.5"></i> Check Balance
+                            </button>
                             <button type="submit" id="submitLeaveApplication"
-                                class="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                                disabled>Submit Application</button>
+                                class="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-xl text-sm font-semibold shadow-sm transition-all flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled>
+                                <i class="fas fa-paper-plane mr-2"></i> Submit Application
+                            </button>
                         </div>
                     </form>
                 </div>
@@ -1586,22 +1603,28 @@
     <div id="applicationDetailsModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="fixed inset-0 modal-overlay" id="applicationDetailsModalBackdrop"></div>
-            <div class="relative bg-white rounded-xl text-left shadow-xl w-full max-w-2xl flex flex-col max-h-[90vh]">
-                <div class="bg-white px-6 pt-6 pb-4 flex-none">
-                    <div class="flex justify-between items-center">
-                        <h3 class="text-lg font-bold text-gray-900">Application Details</h3>
-                        <button id="closeApplicationDetailsModal" class="text-gray-500 hover:text-gray-700">
-                            <i class="fas fa-times text-lg"></i>
-                        </button>
+            <div class="relative bg-white rounded-2xl text-left shadow-2xl w-full max-w-2xl flex flex-col max-h-[92vh] border border-gray-100 overflow-hidden">
+                <!-- Modal Header -->
+                <div class="bg-gradient-to-r from-emerald-700 to-emerald-800 px-6 py-4.5 rounded-t-2xl text-white flex justify-between items-center flex-none shadow-sm">
+                    <div class="flex items-center space-x-3">
+                        <div class="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-sm border border-white/20 shadow-inner">
+                            <i class="fas fa-file-invoice text-white text-lg"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold tracking-tight text-white">Application Details</h3>
+                            <p class="text-xs text-emerald-100/90 font-normal" id="applicationIdTitle">Loading details...</p>
+                        </div>
                     </div>
-                    <p class="text-sm text-gray-600 mt-1" id="applicationIdTitle">Loading details...</p>
+                    <button id="closeApplicationDetailsModal" type="button" class="text-white/80 hover:text-white hover:bg-white/10 rounded-lg p-1.5 transition-colors">
+                        <i class="fas fa-times text-lg"></i>
+                    </button>
                 </div>
 
-                <div class="px-6 py-4 overflow-y-auto flex-1 min-h-0" id="applicationDetailsContent"></div>
+                <div class="px-6 py-5 overflow-y-auto flex-1 min-h-0" id="applicationDetailsContent"></div>
 
-                <div class="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-end space-x-3 flex-none">
+                <div class="bg-gray-50/80 px-6 py-4 border-t border-gray-100 flex justify-end space-x-3 flex-none rounded-b-2xl">
                     <button id="closeDetailsModal"
-                        class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">Close</button>
+                        class="px-4 py-2.5 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors">Close</button>
                     <div id="applicationActionButtons" class="hidden space-x-3"></div>
                 </div>
             </div>
@@ -1672,18 +1695,24 @@
     <div id="addStaffModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="fixed inset-0 modal-overlay" id="addStaffModalBackdrop"></div>
-            <div class="relative bg-white rounded-xl text-left shadow-xl w-full max-w-2xl flex flex-col max-h-[90vh]">
-                <div class="bg-white px-6 pt-6 pb-4 flex-none">
-                    <div class="flex justify-between items-center">
-                        <h3 class="text-lg font-bold text-gray-900">Add New Staff Member</h3>
-                        <button id="closeAddStaffModal" class="text-gray-500 hover:text-gray-700">
-                            <i class="fas fa-times text-lg"></i>
-                        </button>
+            <div class="relative bg-white rounded-2xl text-left shadow-2xl w-full max-w-2xl flex flex-col max-h-[92vh] border border-gray-100 overflow-hidden">
+                <!-- Modal Header -->
+                <div class="bg-gradient-to-r from-emerald-700 to-emerald-800 px-6 py-4.5 rounded-t-2xl text-white flex justify-between items-center flex-none shadow-sm">
+                    <div class="flex items-center space-x-3">
+                        <div class="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-sm border border-white/20 shadow-inner">
+                            <i class="fas fa-user-plus text-white text-lg"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold tracking-tight text-white">Add New Staff Member</h3>
+                            <p class="text-xs text-emerald-100/90 font-normal">Create a new staff account in the system</p>
+                        </div>
                     </div>
-                    <p class="text-sm text-gray-600 mt-1">Create a new staff account in the system</p>
+                    <button id="closeAddStaffModal" type="button" class="text-white/80 hover:text-white hover:bg-white/10 rounded-lg p-1.5 transition-colors">
+                        <i class="fas fa-times text-lg"></i>
+                    </button>
                 </div>
 
-                <div class="px-6 py-4 overflow-y-auto flex-1 min-h-0">
+                <div class="px-6 py-5 overflow-y-auto flex-1 min-h-0">
                     <form id="addStaffForm">
                         <div class="space-y-4">
                             <!-- Basic Information -->
@@ -1835,18 +1864,18 @@
                             </div>
                         </div>
 
-                        <div class="mt-6 flex justify-end space-x-3">
+                        <div class="bg-gray-50/80 -mx-6 -mb-5 px-6 py-4 border-t border-gray-100 flex justify-end space-x-3 rounded-b-2xl mt-6">
                             <button type="button" id="cancelAddStaff"
-                                class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                class="px-4 py-2.5 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors">
                                 Cancel
                             </button>
                             <button type="button" id="previewStaffBtn"
-                                class="px-4 py-2 bg-secondary-600 text-white rounded-lg text-sm font-medium hover:bg-secondary-700">
-                                Preview
+                                class="px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm flex items-center">
+                                <i class="fas fa-eye mr-1.5"></i> Preview
                             </button>
                             <button type="submit" id="submitAddStaff"
-                                class="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700">
-                                Create Staff Member
+                                class="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-xl text-sm font-semibold shadow-sm transition-all flex items-center">
+                                <i class="fas fa-check mr-2"></i> Create Staff Member
                             </button>
                         </div>
                     </form>
@@ -1859,18 +1888,24 @@
     <div id="editStaffModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="fixed inset-0 modal-overlay" id="editStaffModalBackdrop"></div>
-            <div class="relative bg-white rounded-xl text-left shadow-xl w-full max-w-2xl flex flex-col max-h-[90vh]">
-                <div class="bg-white px-6 pt-6 pb-4 flex-none">
-                    <div class="flex justify-between items-center">
-                        <h3 class="text-lg font-bold text-gray-900">Edit Staff Member</h3>
-                        <button id="closeEditStaffModal" class="text-gray-500 hover:text-gray-700">
-                            <i class="fas fa-times text-lg"></i>
-                        </button>
+            <div class="relative bg-white rounded-2xl text-left shadow-2xl w-full max-w-2xl flex flex-col max-h-[92vh] border border-gray-100 overflow-hidden">
+                <!-- Modal Header -->
+                <div class="bg-gradient-to-r from-indigo-700 to-indigo-800 px-6 py-4.5 rounded-t-2xl text-white flex justify-between items-center flex-none shadow-sm">
+                    <div class="flex items-center space-x-3">
+                        <div class="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-sm border border-white/20 shadow-inner">
+                            <i class="fas fa-user-edit text-white text-lg"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold tracking-tight text-white">Edit Staff Member</h3>
+                            <p class="text-xs text-indigo-100/90 font-normal" id="editStaffEmailDisplay">Update staff information</p>
+                        </div>
                     </div>
-                    <p class="text-sm text-gray-600 mt-1" id="editStaffEmailDisplay">Update staff information</p>
+                    <button id="closeEditStaffModal" type="button" class="text-white/80 hover:text-white hover:bg-white/10 rounded-lg p-1.5 transition-colors">
+                        <i class="fas fa-times text-lg"></i>
+                    </button>
                 </div>
 
-                <div class="px-6 py-4 overflow-y-auto flex-1 min-h-0">
+                <div class="px-6 py-5 overflow-y-auto flex-1 min-h-0">
                     <form id="editStaffForm">
                         <input type="hidden" id="editOriginalEmail" name="originalEmail">
 
@@ -2019,18 +2054,18 @@
                             </div>
                         </div>
 
-                        <div class="mt-6 flex justify-end space-x-3">
+                        <div class="bg-gray-50/80 -mx-6 -mb-5 px-6 py-4 border-t border-gray-100 flex justify-end space-x-3 rounded-b-2xl mt-6">
                             <button type="button" id="cancelEditStaff"
-                                class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                class="px-4 py-2.5 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors">
                                 Cancel
                             </button>
                             <button type="button" id="previewEditBtn"
-                                class="px-4 py-2 bg-secondary-600 text-white rounded-lg text-sm font-medium hover:bg-secondary-700">
-                                Preview Changes
+                                class="px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm flex items-center">
+                                <i class="fas fa-eye mr-1.5"></i> Preview Changes
                             </button>
                             <button type="submit" id="submitEditStaff"
-                                class="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700">
-                                Update Staff Member
+                                class="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white rounded-xl text-sm font-semibold shadow-sm transition-all flex items-center">
+                                <i class="fas fa-save mr-2"></i> Update Staff Member
                             </button>
                         </div>
                     </form>
@@ -2043,11 +2078,11 @@
     <div id="compensationModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="fixed inset-0 modal-overlay" id="compensationModalBackdrop"></div>
-            <div class="relative bg-white rounded-xl text-left shadow-2xl w-full max-w-2xl flex flex-col max-h-[92vh] border border-indigo-100">
+            <div class="relative bg-white rounded-2xl text-left shadow-2xl w-full max-w-2xl flex flex-col max-h-[92vh] border border-indigo-100 overflow-hidden">
                 <!-- Modal Header -->
-                <div class="bg-gradient-to-r from-indigo-700 to-indigo-800 px-6 py-4 rounded-t-xl text-white flex justify-between items-center flex-none">
+                <div class="bg-gradient-to-r from-indigo-700 to-indigo-800 px-6 py-4.5 rounded-t-2xl text-white flex justify-between items-center flex-none shadow-sm">
                     <div class="flex items-center space-x-3">
-                        <div class="h-10 w-10 rounded-lg bg-white/10 flex items-center justify-center backdrop-blur-sm">
+                        <div class="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-sm border border-white/20 shadow-inner">
                             <i class="fas fa-award text-white text-lg"></i>
                         </div>
                         <div>
@@ -2547,9 +2582,9 @@
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-        <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-emerald-100 p-6 hover:border-emerald-200">
           <div class="flex items-center">
-            <div class="h-12 w-12 rounded-lg bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center mr-4">
+            <div class="h-12 w-12 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center mr-4 text-white shadow-sm shadow-emerald-200">
               <i class="fas fa-calendar-alt text-white text-xl"></i>
             </div>
             <div>
@@ -2558,42 +2593,55 @@
               <p class="text-xs text-gray-500">${balance?.annual?.accrued?.toFixed(3) || '0.0'} accrued • ${balance?.annual?.used?.toFixed(3) || '0.0'} used</p>
             </div>
           </div>
+          <div class="mt-4">
+            <div class="h-2 bg-emerald-100 rounded-full overflow-hidden">
+              <div class="h-full bg-emerald-500 rounded-full" style="width: ${balance?.annual?.accrued ? Math.min(100, Math.round(((balance?.annual?.used || 0) / balance.annual.accrued) * 100)) : 0}%"></div>
+            </div>
+            <div class="flex justify-between items-center text-xs text-gray-500 mt-1">
+              <span>${balance?.annual?.accrued ? Math.min(100, Math.round(((balance?.annual?.used || 0) / balance.annual.accrued) * 100)) : 0}% used</span>
+              <span class="text-emerald-700 font-medium bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100/70">Annual Accrual</span>
+            </div>
+          </div>
           ${balance?.annual?.hasDeficit ? `
-          <div class="mt-4 p-3 bg-red-50 border border-red-100 rounded-lg">
-            <p class="text-xs font-medium text-red-800 flex items-center">
-              <i class="fas fa-exclamation-triangle mr-2"></i>
-              Deficit: ${Math.abs(balance.annual.annualDeficit || 0).toFixed(3)} days
-            </p>
+          <div class="mt-3 p-2.5 bg-red-50 border border-red-100 rounded-lg text-xs font-medium text-red-800 flex items-center">
+            <i class="fas fa-exclamation-triangle mr-2 text-red-600"></i>
+            Deficit: ${Math.abs(balance.annual.annualDeficit || 0).toFixed(3)} days
           </div>
           ` : ''}
         </div>
 
-        <!-- Dashboard BFW Card - FINAL CORRECT VERSION -->
-            <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div class="flex items-center">
-                <div class="h-12 w-12 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center mr-4">
-                  <i class="fas fa-forward text-white text-xl"></i>
-                </div>
-                <div>
-                  <p class="text-sm text-gray-600">Brought Forward</p>
-                  <p class="text-2xl font-bold text-gray-900">${balance?.broughtForward?.daysCarriedFromPreviousYear?.toFixed(3) || '0.0'}</p>
-                  <p class="text-xs text-gray-500">
-                    <i class="far fa-calendar-alt mr-1"></i>
-                    Expires: ${balance?.broughtForward?.expiryDate ? formatDate(balance.broughtForward.expiryDate) : 'N/A'}
-                  </p>
-                </div>
-              </div>
-              ${balance?.broughtForward?.used ? `
-              <div class="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-500 flex justify-between">
-                <span><span class="font-medium">${balance.broughtForward.used.toFixed(3)}</span> used</span>
-                <span><span class="font-medium">${balance.broughtForward.remaining.toFixed(3)}</span> remaining</span>
-                <span class="text-amber-600">${balance.broughtForward.percentage}%</span>
-              </div>
-              ` : ''}
-            </div>
-        <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <!-- Dashboard BFW Card -->
+        <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-amber-100 p-6 hover:border-amber-200">
           <div class="flex items-center">
-            <div class="h-12 w-12 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mr-4">
+            <div class="h-12 w-12 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center mr-4 text-white shadow-sm shadow-amber-200">
+              <i class="fas fa-forward text-white text-xl"></i>
+            </div>
+            <div>
+              <p class="text-sm text-gray-600">Brought Forward</p>
+              <p class="text-2xl font-bold text-gray-900">${balance?.broughtForward?.daysCarriedFromPreviousYear?.toFixed(3) || '0.0'}</p>
+              <p class="text-xs text-gray-500">
+                <i class="far fa-calendar-alt mr-1"></i>
+                Expires: ${balance?.broughtForward?.expiryDate ? formatDate(balance.broughtForward.expiryDate) : 'N/A'}
+              </p>
+            </div>
+          </div>
+          <div class="mt-4">
+            <div class="h-2 bg-amber-100 rounded-full overflow-hidden">
+              <div class="h-full bg-amber-500 rounded-full" style="width: ${balance?.broughtForward?.percentage || 0}%"></div>
+            </div>
+            <div class="flex justify-between items-center text-xs text-gray-500 mt-1">
+              <span>${balance?.broughtForward?.percentage || 0}% used</span>
+              <span class="text-amber-700 font-medium bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100/70">
+                ${balance?.broughtForward?.remaining != null ? balance.broughtForward.remaining.toFixed(3) + ' remaining' : (balance?.broughtForward?.isExpired ? 'Expired' : 'Active')}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dashboard Sick Leave Card -->
+        <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-blue-100 p-6 hover:border-blue-200">
+          <div class="flex items-center">
+            <div class="h-12 w-12 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mr-4 text-white shadow-sm shadow-blue-200">
               <i class="fas fa-heartbeat text-white text-xl"></i>
             </div>
             <div>
@@ -2603,16 +2651,20 @@
             </div>
           </div>
           <div class="mt-4">
-            <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div class="h-2 bg-blue-100 rounded-full overflow-hidden">
               <div class="h-full bg-blue-500 rounded-full" style="width: ${balance?.sick?.percentage || 0}%"></div>
             </div>
-            <p class="text-xs text-gray-500 mt-1">${balance?.sick?.percentage || 0}% used</p>
+            <div class="flex justify-between items-center text-xs text-gray-500 mt-1">
+              <span>${balance?.sick?.percentage || 0}% used</span>
+              <span class="text-blue-700 font-medium bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100/70">${balance?.sick?.balance ? balance.sick.balance.toFixed(3) + ' left' : '7.0 left'}</span>
+            </div>
           </div>
         </div>
 
-        <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-indigo-100 p-6">
+        <!-- Dashboard Compensation Days Card -->
+        <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-indigo-100 p-6 hover:border-indigo-200">
           <div class="flex items-center">
-            <div class="h-12 w-12 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center mr-4">
+            <div class="h-12 w-12 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center mr-4 text-white shadow-sm shadow-indigo-200">
               <i class="fas fa-star text-white text-xl"></i>
             </div>
             <div>
@@ -2627,25 +2679,31 @@
             </div>
             <div class="flex justify-between items-center text-xs text-gray-500 mt-1">
               <span>${(((balance?.compensation?.total || ((balance?.compensation?.balance || 0) + (balance?.compensation?.used || 0))) > 0) ? Math.min(100, Math.round(((balance?.compensation?.used || 0) / (balance?.compensation?.total || ((balance?.compensation?.balance || 0) + (balance?.compensation?.used || 0)))) * 100)) : 0)}% used</span>
-              <span class="text-indigo-600 font-medium">Never expires</span>
+              <span class="text-indigo-600 font-medium bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100/70">Never expires</span>
             </div>
           </div>
         </div>
 
-        <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <!-- Dashboard Monthly Accrual Card -->
+        <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-teal-100 p-6 hover:border-teal-200">
           <div class="flex items-center">
-            <div class="h-12 w-12 rounded-lg bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center mr-4">
+            <div class="h-12 w-12 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center mr-4 text-white shadow-sm shadow-teal-200">
               <i class="fas fa-chart-line text-white text-xl"></i>
             </div>
             <div>
               <p class="text-sm text-gray-600">Monthly Accrual</p>
               <p class="text-2xl font-bold text-gray-900">${balance?.annual?.monthlyRate || '1.75'}</p>
-              <p class="text-xs text-gray-500" id="nextAccrualInfo">Next accrual: ${balance?.annual?.nextAccrualDate ? formatDate(balance.annual.nextAccrualDate) : 'Calculating...'}</p>
+              <p class="text-xs text-gray-500" id="nextAccrualInfo">Next: ${balance?.annual?.nextAccrualDate ? formatDate(balance.annual.nextAccrualDate) : 'Calculating...'}</p>
             </div>
           </div>
           <div class="mt-4">
-            <p class="text-xs text-gray-600">Accrual system active</p>
-            <p class="text-xs text-gray-500">1.75 days per month</p>
+            <div class="h-2 bg-teal-100 rounded-full overflow-hidden">
+              <div class="h-full bg-teal-500 rounded-full" style="width: 100%"></div>
+            </div>
+            <div class="flex justify-between items-center text-xs text-gray-500 mt-1">
+              <span class="text-teal-700 font-medium flex items-center"><i class="fas fa-check-circle mr-1 text-teal-500"></i> Active</span>
+              <span class="text-teal-700 font-medium bg-teal-50 px-2 py-0.5 rounded-full border border-teal-100/70">1.75d / month</span>
+            </div>
           </div>
         </div>
       </div>
@@ -2872,10 +2930,10 @@
 
                 const holidays = res.data;
                 const html = `
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-emerald-100 p-6 hover:border-emerald-200 transition-all">
                         <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
                             <div class="flex items-center space-x-3">
-                                <div class="h-10 w-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-lg shadow-sm">
+                                <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white flex items-center justify-center text-lg shadow-sm shadow-emerald-200">
                                     <i class="fas fa-calendar-check"></i>
                                 </div>
                                 <div>
@@ -2883,7 +2941,7 @@
                                     <p class="text-xs text-gray-500 mt-0.5">Kenyan statutory holidays with smart bridge day suggestions</p>
                                 </div>
                             </div>
-                            <button onclick="navigateToPage('applyLeave')" class="text-xs font-semibold text-primary-600 hover:text-primary-700 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-primary-200 hover:bg-primary-50 transition-colors">
+                            <button onclick="navigateToPage('applyLeave')" class="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-200 hover:bg-emerald-50 transition-colors shadow-sm">
                                 <i class="fas fa-plus-circle text-xs"></i> Plan Leave Ahead
                             </button>
                         </div>
@@ -2893,7 +2951,7 @@
                                 const hasBridge = !!h.bridgeTip;
                                 const isSoon = h.daysAway <= 14;
                                 return `
-                                    <div class="holiday-planner-card ${hasBridge ? 'has-bridge' : ''} bg-white rounded-xl border border-gray-200 p-4 flex flex-col justify-between">
+                                    <div class="holiday-planner-card ${hasBridge ? 'has-bridge border-purple-200' : 'border-gray-200/80'} stat-card-elevated bg-white rounded-xl border p-4 flex flex-col justify-between shadow-sm hover:shadow-md transition-all">
                                         <div>
                                             <div class="flex items-center justify-between mb-2">
                                                 <span class="text-[11px] font-bold uppercase tracking-wider text-gray-500">${escapeHtml(h.dayOfWeek)}</span>
@@ -3098,7 +3156,7 @@
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
           <div class="lg:col-span-2">
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-emerald-100 p-6 hover:border-emerald-200 transition-all">
               <div class="flex justify-between items-center mb-6">
                 <div>
                   <h3 class="text-lg font-bold text-gray-900">Annual Leave (Accrual System)</h3>
@@ -3106,7 +3164,7 @@
                 </div>
                 <div class="text-right">
                   <p class="text-3xl font-bold text-gray-900">${annualAvailable}</p>
-                  <p class="text-sm text-gray-600">days available</p>
+                  <p class="text-xs text-gray-500">days available</p>
                 </div>
               </div>
 
@@ -3116,8 +3174,8 @@
                     <span>Accrued Year to Date</span>
                     <span class="font-medium">${annualAccrued} days</span>
                   </div>
-                  <div class="h-3 bg-gray-200 rounded-full overflow-hidden">
-                    <div class="h-full bg-green-500 rounded-full" style="width: ${Math.min(100, (parseFloat(annualAccrued) / 21) * 100)}%"></div>
+                  <div class="h-2.5 bg-emerald-100 rounded-full overflow-hidden">
+                    <div class="h-full bg-emerald-500 rounded-full" style="width: ${Math.min(100, (parseFloat(annualAccrued) / 21) * 100)}%"></div>
                   </div>
                 </div>
 
@@ -3126,35 +3184,35 @@
                     <span>Used Year to Date</span>
                     <span class="font-medium">${annualUsed} days</span>
                   </div>
-                  <div class="h-3 bg-gray-200 rounded-full overflow-hidden">
+                  <div class="h-2.5 bg-blue-100 rounded-full overflow-hidden">
                     <div class="h-full bg-blue-500 rounded-full" style="width: ${annualPercentage}%"></div>
                   </div>
                 </div>
 
                 ${annualHasDeficit ? `
-                <div class="p-4 bg-red-50 border border-red-100 rounded-lg">
+                <div class="p-4 bg-red-50 border border-red-100 rounded-xl">
                   <div class="flex items-center">
-                    <div class="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center mr-3">
+                    <div class="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center mr-3 flex-shrink-0">
                       <i class="fas fa-exclamation-triangle text-red-600"></i>
                     </div>
                     <div>
-                      <p class="font-medium text-red-800">Annual Deficit</p>
-                      <p class="text-sm text-red-700">You have a deficit of ${Math.abs(annualDeficit).toFixed(3)} days from previous year(s)</p>
-                      <p class="text-xs text-red-600 mt-1">This deficit will be recovered from future accruals</p>
+                      <p class="font-bold text-red-800 text-sm">Annual Deficit</p>
+                      <p class="text-xs text-red-700">You have a deficit of ${Math.abs(annualDeficit).toFixed(3)} days from previous year(s)</p>
+                      <p class="text-[11px] text-red-600 mt-1">This deficit will be recovered from future accruals</p>
                     </div>
                   </div>
                 </div>
                 ` : ''}
 
-                <div class="p-4 bg-primary-50 border border-primary-100 rounded-lg">
+                <div class="p-4 bg-emerald-50/70 border border-emerald-100 rounded-xl">
                   <div class="flex items-center justify-between">
                     <div>
-                      <p class="font-medium text-primary-900">Next Accrual</p>
-                      <p class="text-sm text-primary-700">${annualNextAccrualDate ? formatDate(annualNextAccrualDate) : 'Calculating...'}</p>
+                      <p class="font-bold text-emerald-900 text-sm">Next Accrual</p>
+                      <p class="text-xs text-emerald-700">${annualNextAccrualDate ? formatDate(annualNextAccrualDate) : 'Calculating...'}</p>
                     </div>
                     <div class="text-right">
-                      <p class="text-lg font-bold text-primary-900">+${annualMonthlyRate}</p>
-                      <p class="text-xs text-primary-700">days</p>
+                      <p class="text-lg font-bold text-emerald-900">+${annualMonthlyRate}</p>
+                      <p class="text-xs text-emerald-700">days</p>
                     </div>
                   </div>
                 </div>
@@ -3165,7 +3223,7 @@
           <div class="space-y-6">
             <!-- BROUGHT FORWARD CARD - WITH NULL CHECK -->
             ${hasBroughtForward ? `
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-amber-100 p-6 hover:border-amber-200 transition-all">
               <div class="flex justify-between items-start mb-4">
                 <div>
                   <h4 class="font-bold text-gray-900">Brought Forward</h4>
@@ -3196,8 +3254,8 @@
                     <span class="text-gray-600">Usage</span>
                     <span class="text-gray-600">${bfPercentage}%</span>
                   </div>
-                  <div class="w-full bg-gray-200 rounded-full h-2.5">
-                    <div class="bg-amber-500 rounded-full h-2.5" style="width: ${bfPercentage}%"></div>
+                  <div class="w-full bg-amber-100 rounded-full h-2 overflow-hidden">
+                    <div class="bg-amber-500 rounded-full h-2" style="width: ${bfPercentage}%"></div>
                   </div>
                 </div>
 
@@ -3209,30 +3267,30 @@
                       Expires: ${bfExpiryDate ? formatDate(bfExpiryDate) : 'N/A'}
                     </span>
                   </div>
-                  <span class="text-xs font-medium px-2 py-1 rounded-full ${bfIsExpired ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">
+                  <span class="text-xs font-medium px-2 py-0.5 rounded-full ${bfIsExpired ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-green-100 text-green-700 border border-green-200'}">
                     ${bfIsExpired ? 'Expired' : 'Active'}
                   </span>
                 </div>
 
-                <!-- Dynamic note - FIXED with null check -->
-                <div class="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-600">
-                  <i class="fas fa-info-circle mr-1 text-gray-400"></i>
+                <!-- Dynamic note -->
+                <div class="mt-2 p-2.5 bg-amber-50/60 border border-amber-100 rounded-lg text-xs text-amber-800">
+                  <i class="fas fa-info-circle mr-1 text-amber-500"></i>
                   ${bfRemaining} days remaining, ${bfUsed} used
                 </div>
               </div>
             </div>
             ` : `
-            <!-- No Brought Forward Card - Optional message -->
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <!-- No Brought Forward Card -->
+            <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-gray-100 p-6">
               <div class="text-center py-4">
                 <i class="fas fa-forward text-gray-300 text-3xl mb-2"></i>
-                <p class="text-gray-500">No brought forward leave</p>
+                <p class="text-gray-500 text-sm">No brought forward leave</p>
               </div>
             </div>
             `}
 
             <!-- Sick Leave Card -->
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-blue-100 p-6 hover:border-blue-200 transition-all">
               <div class="flex justify-between items-start mb-4">
                 <div>
                   <h4 class="font-bold text-gray-900">Sick Leave</h4>
@@ -3257,14 +3315,14 @@
                   <span class="text-gray-600">Used</span>
                   <span class="text-gray-600">${sickPercentage}%</span>
                 </div>
-                <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div class="h-2 bg-blue-100 rounded-full overflow-hidden">
                   <div class="h-full bg-blue-500 rounded-full" style="width: ${sickPercentage}%"></div>
                 </div>
               </div>
             </div>
 
             <!-- Compensation Days Card -->
-            <div class="bg-white rounded-xl shadow-sm border border-indigo-100 p-6">
+            <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-indigo-100 p-6 hover:border-indigo-200 transition-all">
               <div class="flex justify-between items-start mb-4">
                 <div>
                   <h4 class="font-bold text-gray-900">Compensation Days</h4>
@@ -3289,7 +3347,7 @@
                   <span class="text-gray-600">Used</span>
                   <span class="text-gray-600">${compPercentage}%</span>
                 </div>
-                <div class="h-2 bg-indigo-200 rounded-full overflow-hidden">
+                <div class="h-2 bg-indigo-100 rounded-full overflow-hidden">
                   <div class="h-full bg-indigo-500 rounded-full" style="width: ${compPercentage}%"></div>
                 </div>
               </div>
@@ -3682,19 +3740,19 @@
       </div>
 
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div class="bg-white rounded-xl border border-gray-200 p-4 text-center cursor-pointer hover:border-primary-400 tab-summary-card" data-filter="all">
+        <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center cursor-pointer hover:border-emerald-300 transition-all tab-summary-card" data-filter="all">
           <p class="text-2xl font-bold text-gray-900">${counts.all}</p>
-          <p class="text-xs text-gray-500 mt-1">Total</p>
+          <p class="text-xs text-gray-500 mt-1">Total Requests</p>
         </div>
-        <div class="bg-white rounded-xl border border-amber-200 p-4 text-center cursor-pointer hover:border-amber-400 tab-summary-card" data-filter="pending">
+        <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-amber-200 p-4 text-center cursor-pointer hover:border-amber-400 transition-all tab-summary-card" data-filter="pending">
           <p class="text-2xl font-bold text-amber-600">${counts.pending}</p>
           <p class="text-xs text-gray-500 mt-1">Pending</p>
         </div>
-        <div class="bg-white rounded-xl border border-green-200 p-4 text-center cursor-pointer hover:border-green-400 tab-summary-card" data-filter="approved">
-          <p class="text-2xl font-bold text-green-600">${counts.approved}</p>
+        <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-emerald-200 p-4 text-center cursor-pointer hover:border-emerald-400 transition-all tab-summary-card" data-filter="approved">
+          <p class="text-2xl font-bold text-emerald-600">${counts.approved}</p>
           <p class="text-xs text-gray-500 mt-1">Approved</p>
         </div>
-        <div class="bg-white rounded-xl border border-red-200 p-4 text-center cursor-pointer hover:border-red-400 tab-summary-card" data-filter="declined">
+        <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-red-200 p-4 text-center cursor-pointer hover:border-red-400 transition-all tab-summary-card" data-filter="declined">
           <p class="text-2xl font-bold text-red-500">${counts.declined}</p>
           <p class="text-xs text-gray-500 mt-1">Declined</p>
         </div>
@@ -3757,7 +3815,7 @@
                         const searchTokens = `${app.Name || ''} ${app.ID || ''} ${app.LeaveType || ''} ${app.Department || ''} ${app.Role || ''} ${app.Reason || ''}`.toLowerCase();
 
                         pageHTML += `
-        <div class="team-app-card bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
+        <div class="team-app-card stat-card-elevated bg-white rounded-xl shadow-sm border border-gray-200/80 overflow-hidden hover:shadow-md transition-all"
              data-status="${(app.Status || 'Pending').toLowerCase()}"
              data-id="${app.ID}"
              data-search="${escapeHtml(searchTokens)}">
@@ -3771,11 +3829,11 @@
                   ${isPending ? `
                     <input type="checkbox" class="team-app-checkbox h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer" data-id="${app.ID}">
                   ` : ''}
-                  <div class="h-10 w-10 rounded-full bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                  <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0 shadow-sm shadow-emerald-200">
                     ${app.Name ? app.Name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) : 'TM'}
                   </div>
                   <div>
-                    <p class="font-semibold text-gray-900">${escapeHtml(app.Name || 'Unknown')}</p>
+                    <p class="font-bold text-gray-900">${escapeHtml(app.Name || 'Unknown')}</p>
                     <p class="text-xs text-gray-500">${escapeHtml(app.Department || '')}${app.Department && app.Role ? ' • ' : ''}${escapeHtml(app.Role || '')}</p>
                   </div>
                 </div>
@@ -3791,37 +3849,37 @@
 
               <!-- Detail grid -->
               <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                <div class="bg-gray-50 rounded-lg p-3">
-                  <p class="text-xs text-gray-500 mb-1"><i class="fas fa-calendar-alt mr-1"></i>Period</p>
-                  <p class="text-sm font-medium text-gray-900">
-                    ${formatDate(app.StartDate)}${app.EndDate && app.StartDate !== app.EndDate ? '<br><span class="text-xs text-gray-500">to ' + formatDate(app.EndDate) + '</span>' : ''}
+                <div class="bg-gray-50/70 border border-gray-100 rounded-xl p-3">
+                  <p class="text-xs text-gray-500 mb-1"><i class="fas fa-calendar-alt mr-1 text-gray-400"></i>Period</p>
+                  <p class="text-sm font-semibold text-gray-900">
+                    ${formatDate(app.StartDate)}${app.EndDate && app.StartDate !== app.EndDate ? '<br><span class="text-xs text-gray-500 font-normal">to ' + formatDate(app.EndDate) + '</span>' : ''}
                   </p>
                 </div>
-                <div class="bg-gray-50 rounded-lg p-3">
-                  <p class="text-xs text-gray-500 mb-1"><i class="fas fa-clock mr-1"></i>Duration</p>
-                  <p class="text-sm font-medium text-gray-900">
+                <div class="bg-gray-50/70 border border-gray-100 rounded-xl p-3">
+                  <p class="text-xs text-gray-500 mb-1"><i class="fas fa-clock mr-1 text-gray-400"></i>Duration</p>
+                  <p class="text-sm font-semibold text-gray-900">
                     ${app.LeaveMode === 'Hourly' ? `${app.Hours || 0} hrs` : `${app.Duration || 0} days`}
                   </p>
                 </div>
-                <div class="bg-gray-50 rounded-lg p-3">
-                  <p class="text-xs text-gray-500 mb-1"><i class="fas fa-paper-plane mr-1"></i>Applied</p>
-                  <p class="text-sm font-medium text-gray-900">${formatDate(app.DateApplied)}</p>
+                <div class="bg-gray-50/70 border border-gray-100 rounded-xl p-3">
+                  <p class="text-xs text-gray-500 mb-1"><i class="fas fa-paper-plane mr-1 text-gray-400"></i>Applied</p>
+                  <p class="text-sm font-semibold text-gray-900">${formatDate(app.DateApplied)}</p>
                 </div>
-                <div class="bg-gray-50 rounded-lg p-3">
-                  <p class="text-xs text-gray-500 mb-1"><i class="fas fa-calculator mr-1"></i>Deductions</p>
-                  <p class="text-sm font-medium text-gray-900">
+                <div class="bg-gray-50/70 border border-gray-100 rounded-xl p-3">
+                  <p class="text-xs text-gray-500 mb-1"><i class="fas fa-calculator mr-1 text-gray-400"></i>Deductions</p>
+                  <div class="text-xs font-medium flex flex-wrap gap-1 mt-0.5">
                     ${[
-                                app.DeductFromCompensation > 0 ? `Comp: ${app.DeductFromCompensation}` : '',
-                                app.DeductFromBroughtForward > 0 ? `BF: ${app.DeductFromBroughtForward}` : '',
-                                app.DeductFromAnnual > 0 ? `Ann: ${app.DeductFromAnnual}` : '',
-                                app.DeductFromSick > 0 ? `Sick: ${app.DeductFromSick}` : '',
-                            ].filter(Boolean).join(', ') || '—'}
-                  </p>
+                        app.DeductFromCompensation > 0 ? `<span class="text-indigo-700 font-bold bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">Comp: ${app.DeductFromCompensation}</span>` : '',
+                        app.DeductFromBroughtForward > 0 ? `<span class="text-amber-800 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100">BF: ${app.DeductFromBroughtForward}</span>` : '',
+                        app.DeductFromAnnual > 0 ? `<span class="text-emerald-800 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">Ann: ${app.DeductFromAnnual}</span>` : '',
+                        app.DeductFromSick > 0 ? `<span class="text-blue-800 font-bold bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">Sick: ${app.DeductFromSick}</span>` : '',
+                    ].filter(Boolean).join('') || '<span class="text-gray-400 font-normal">—</span>'}
+                  </div>
                 </div>
               </div>
 
               <!-- Reason -->
-              <div class="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-100 text-sm text-gray-700">
+              <div class="mb-4 p-3 bg-gray-50/70 rounded-xl border border-gray-100 text-sm text-gray-700">
                 <i class="fas fa-quote-right text-gray-300 mr-2"></i>${escapeHtml(app.Reason || 'No reason provided')}
               </div>
 
@@ -4197,53 +4255,53 @@
         <h3 class="text-lg font-bold text-gray-900 mb-4">Current Leave Balance</h3>
         ${AppState.leaveBalance ? `
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-emerald-100 p-5 hover:border-emerald-200 transition-all">
             <div class="flex items-center justify-between">
               <div>
                 <p class="text-sm text-gray-600">Annual Leave</p>
                 <p class="text-2xl font-bold text-gray-900">${annualAvailable}</p>
               </div>
-              <div class="h-12 w-12 rounded-lg bg-primary-100 flex items-center justify-center">
-                <i class="fas fa-calendar-alt text-primary-600"></i>
+              <div class="h-12 w-12 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white shadow-sm shadow-emerald-200">
+                <i class="fas fa-calendar-alt text-lg"></i>
               </div>
             </div>
             <p class="text-xs text-gray-500 mt-2">${annualAccrued} accrued • ${annualUsed} used</p>
           </div>
 
-          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-amber-100 p-5 hover:border-amber-200 transition-all">
             <div class="flex items-center justify-between">
               <div>
                 <p class="text-sm text-gray-600">Brought Forward</p>
                 <p class="text-2xl font-bold text-gray-900">${bfAvailable}</p>
               </div>
-              <div class="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
-                <i class="fas fa-forward text-blue-600"></i>
+              <div class="h-12 w-12 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center text-white shadow-sm shadow-amber-200">
+                <i class="fas fa-forward text-lg"></i>
               </div>
             </div>
             <p class="text-xs text-gray-500 mt-2">${bfBalance} total • ${bfIsExpired ? 'Expired' : 'Active'}</p>
           </div>
 
-          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-blue-100 p-5 hover:border-blue-200 transition-all">
             <div class="flex items-center justify-between">
               <div>
                 <p class="text-sm text-gray-600">Sick Leave</p>
                 <p class="text-2xl font-bold text-gray-900">${sickBalance}</p>
               </div>
-              <div class="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
-                <i class="fas fa-heartbeat text-green-600"></i>
+              <div class="h-12 w-12 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white shadow-sm shadow-blue-200">
+                <i class="fas fa-heartbeat text-lg"></i>
               </div>
             </div>
             <p class="text-xs text-gray-500 mt-2">${sickAllocation} allocation • ${sickPercentage}% used</p>
           </div>
 
-          <div class="bg-white rounded-xl shadow-sm border border-indigo-100 p-6">
+          <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-indigo-100 p-5 hover:border-indigo-200 transition-all">
             <div class="flex items-center justify-between">
               <div>
                 <p class="text-sm text-gray-600">Compensation Days</p>
                 <p class="text-2xl font-bold text-indigo-700">${compBalance}</p>
               </div>
-              <div class="h-12 w-12 rounded-lg bg-indigo-100 flex items-center justify-center">
-                <i class="fas fa-star text-indigo-600"></i>
+              <div class="h-12 w-12 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white shadow-sm shadow-indigo-200">
+                <i class="fas fa-star text-lg"></i>
               </div>
             </div>
             <p class="text-xs text-gray-500 mt-2">${compUsed} used • never expires</p>
@@ -4518,37 +4576,52 @@
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 class="text-lg font-bold text-gray-900 mb-4">Year-End Processing</h3>
+          <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-amber-100 p-6 hover:border-amber-200 transition-all">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-lg font-bold text-gray-900">Year-End Processing</h3>
+              <span class="h-8 w-8 rounded-lg bg-amber-100 flex items-center justify-center">
+                <i class="fas fa-calendar-alt text-amber-600"></i>
+              </span>
+            </div>
             <p class="text-sm text-gray-600 mb-4">Run year-end carry-forward for all eligible staff</p>
-            <button id="processYearEndBtn" class="px-6 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700">
-              <i class="fas fa-calendar-alt mr-2"></i> Run Year-End Processing
+            <button id="processYearEndBtn" class="px-5 py-2.5 bg-amber-600 text-white rounded-xl hover:bg-amber-700 font-medium text-sm transition-colors flex items-center shadow-sm">
+              <i class="fas fa-play mr-2"></i> Run Year-End Processing
             </button>
           </div>
 
-          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 class="text-lg font-bold text-gray-900 mb-4">Monthly Accrual</h3>
+          <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-emerald-100 p-6 hover:border-emerald-200 transition-all">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-lg font-bold text-gray-900">Monthly Accrual</h3>
+              <span class="h-8 w-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+                <i class="fas fa-chart-line text-emerald-600"></i>
+              </span>
+            </div>
             <p class="text-sm text-gray-600 mb-4">Manually trigger monthly accrual processing</p>
-            <button id="processAccrualBtn" class="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
-              <i class="fas fa-chart-line mr-2"></i> Process Monthly Accrual
+            <button id="processAccrualBtn" class="px-5 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-medium text-sm transition-colors flex items-center shadow-sm">
+              <i class="fas fa-play mr-2"></i> Process Monthly Accrual
             </button>
           </div>
 
-          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 class="text-lg font-bold text-gray-900 mb-4">Cache Management</h3>
+          <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-blue-100 p-6 hover:border-blue-200 transition-all">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-lg font-bold text-gray-900">Cache Management</h3>
+              <span class="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                <i class="fas fa-database text-blue-600"></i>
+              </span>
+            </div>
             <div class="space-y-4">
               <div>
                 <p class="text-sm text-gray-600">Current Cache Stats:</p>
-                <div id="cacheStats" class="mt-2 p-3 bg-gray-50 rounded-lg text-sm">Loading...</div>
+                <div id="cacheStats" class="mt-2 p-3 bg-blue-50/50 border border-blue-100 rounded-lg text-sm">Loading...</div>
               </div>
-              <div class="flex space-x-4">
-                <button id="clearCacheBtn" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Clear All Caches</button>
-                <button id="rebuildIndexesBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Rebuild Indexes</button>
+              <div class="flex space-x-3">
+                <button id="clearCacheBtn" class="px-4 py-2 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 transition-colors">Clear All Caches</button>
+                <button id="rebuildIndexesBtn" class="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors">Rebuild Indexes</button>
               </div>
             </div>
           </div>
 
-          <div class="bg-white rounded-xl shadow-sm border border-indigo-100 p-6">
+          <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-indigo-100 p-6 hover:border-indigo-200 transition-all">
             <div class="flex items-center justify-between mb-3">
               <h3 class="text-lg font-bold text-gray-900">Compensation Leave Management</h3>
               <span class="h-8 w-8 rounded-lg bg-indigo-100 flex items-center justify-center">
@@ -4557,21 +4630,26 @@
             </div>
             <p class="text-sm text-gray-600 mb-4">Award, adjust balances, or view award history for weekend and holiday work</p>
             <div class="flex flex-wrap gap-3">
-              <button type="button" onclick="openCompensationModal()" class="px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium text-sm transition-colors flex items-center shadow-sm">
+              <button type="button" onclick="openCompensationModal()" class="px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-medium text-sm transition-colors flex items-center shadow-sm">
                 <i class="fas fa-plus-circle mr-2"></i> Award / Adjust Days
               </button>
-              <button type="button" onclick="viewAllCompensationRecords()" class="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm transition-colors flex items-center">
+              <button type="button" onclick="viewAllCompensationRecords()" class="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 font-medium text-sm transition-colors flex items-center">
                 <i class="fas fa-list mr-2"></i> View All Records
               </button>
             </div>
           </div>
 
-          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 class="text-lg font-bold text-gray-900 mb-4">System Reset</h3>
+          <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-red-100 p-6 hover:border-red-200 transition-all">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-lg font-bold text-gray-900">System Reset</h3>
+              <span class="h-8 w-8 rounded-lg bg-red-100 flex items-center justify-center">
+                <i class="fas fa-exclamation-triangle text-red-600"></i>
+              </span>
+            </div>
             <p class="text-sm text-gray-600 mb-4">⚠️ Warning: This will reset the system to initial state</p>
-            <div class="flex space-x-4">
-              <button id="initializeSystemBtn" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Initialize System</button>
-              <button id="resetSystemBtn" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Full System Reset</button>
+            <div class="flex space-x-3">
+              <button id="initializeSystemBtn" class="px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors">Initialize System</button>
+              <button id="resetSystemBtn" class="px-4 py-2 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 transition-colors">Full System Reset</button>
             </div>
           </div>
         </div>
@@ -6818,10 +6896,17 @@
                 if (month === h.month && dateNum === h.day) {
                     return { name: h.name, isHoliday: true };
                 }
-                // Sunday observed rule (if holiday falls on Sunday, following Monday is observed)
+                // Sunday carryover rule: in Kenya (Public Holidays Act, Cap 110, Section 4),
+                // if a public holiday falls on a Sunday, it is carried forward to Monday.
+                // If Christmas Day (Dec 25) falls on Sunday, then Boxing Day is Monday Dec 26,
+                // and Christmas Day is observed on the next succeeding business day: Tuesday Dec 27.
                 const hDate = new Date(year, h.month, h.day);
                 if (hDate.getDay() === 0) {
-                    const obsDate = new Date(year, h.month, h.day + 1);
+                    let carryDays = 1;
+                    if (h.month === 11 && h.day === 25) {
+                        carryDays = 2; // Tuesday Dec 27 because Monday Dec 26 is already Boxing Day
+                    }
+                    const obsDate = new Date(year, h.month, h.day + carryDays);
                     if (month === obsDate.getMonth() && dateNum === obsDate.getDate()) {
                         return { name: `${h.name} (Observed)`, isHoliday: true };
                     }
