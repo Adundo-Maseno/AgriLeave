@@ -3072,16 +3072,21 @@ const DashboardManager = {
 
             const staffBalances = eligibleSupervisedStaff.map(staff => {
                 const balanceData = this.calculateUserBalance(staff.Email);
+                const compBal = balanceData?.compensation?.balance ?? staff.CompensationLeave?.balance ?? 0;
+                const compUsed = balanceData?.compensation?.used ?? staff.CompensationLeave?.used ?? 0;
                 return {
                     name: staff.Name,
                     email: staff.Email,
                     department: staff.Department,
                     role: staff.Role,
                     eligibleForLeave: staff.EligibleForLeave,
+                    compensationBalance: compBal,
+                    compensationUsed: compUsed,
                     balance: balanceData || {
                         annual: { available: 0, used: 0, percentage: 0 },
                         broughtForward: null,
                         sick: { balance: 0, used: 0, percentage: 0 },
+                        compensation: { balance: compBal, used: compUsed, total: compBal + compUsed },
                         total: { available: 0, used: 0, percentage: 0 }
                     }
                 };
@@ -3095,6 +3100,7 @@ const DashboardManager = {
                 totalBalance: staff.balance.total.available,
                 annualBalance: staff.balance.annual.available,
                 broughtForwardBalance: staff.balance.broughtForward?.daysCarriedFromPreviousYear || 0,
+                compensationBalance: staff.balance.compensation?.balance || staff.compensationBalance || 0,
                 sickBalance: staff.balance.sick.balance,
                 hasDeficit: staff.balance.annual.hasDeficit,
                 deficitAmount: staff.balance.annual.deficitAmount || 0
