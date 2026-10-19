@@ -5818,6 +5818,15 @@ const AbsenceDigestManager = {
             const appsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.APPLICATIONS);
             const staffFile = DataManager.readDataFile(SYSTEM.DATA_FILES.STAFF);
 
+            const holDetails = Utils.getPublicHolidayDetails(targetDate);
+            const isHoliday = holDetails !== null;
+            const holidayName = isHoliday ? holDetails.name : null;
+            const dayOfWeek = targetDate.getDay();
+            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+            const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            const dayName = dayNames[dayOfWeek];
+            const isNonWorkingDay = isHoliday || isWeekend;
+
             const activeStaff = (staffFile.data || []).filter(s => s.Metadata?.active !== false && s.EligibleForLeave);
             const approvedApps = (appsFile.data || []).filter(a => a.Status === SYSTEM.STATUS.APPROVED);
 
@@ -5871,9 +5880,23 @@ const AbsenceDigestManager = {
             const totalOnDuty = Math.max(0, totalStaffCount - totalAwayCount);
             const overallStrength = totalStaffCount > 0 ? Math.round((totalOnDuty / totalStaffCount) * 100) : 100;
 
+            let displayStatus = `${overallStrength}% Team Strength`;
+            if (isHoliday) {
+                displayStatus = `Public Holiday (${holidayName})`;
+            } else if (isWeekend) {
+                displayStatus = `Weekend (${dayName})`;
+            }
+
             return {
                 date: targetStr,
                 formattedDate: Utils.formatDateForDisplay(targetDate),
+                dayOfWeek,
+                dayName,
+                isHoliday: Boolean(isHoliday),
+                holidayName,
+                isWeekend: Boolean(isWeekend),
+                isNonWorkingDay: Boolean(isNonWorkingDay),
+                displayStatus,
                 totalStaffCount,
                 totalAwayCount,
                 totalOnDuty,
@@ -5903,23 +5926,40 @@ const AbsenceDigestManager = {
             let webhookResponse = null;
 
             if (url && typeof UrlFetchApp !== 'undefined') {
-                const itemsText = digest.absences.length === 0
-                    ? '✅ <b>All staff are on duty today. No scheduled absences.</b>'
-                    : digest.absences.map(a =>
+                let cardTitle = "🌿 Agri Experience — Today's Absence Digest";
+                let cardSubtitle = `${digest.formattedDate} • Team Strength: ${digest.overallStrength}%`;
+                let sectionHeader = `Out of Office (${digest.totalAwayCount} away, ${digest.totalOnDuty} on duty)`;
+                let itemsText = '';
+
+                if (digest.isHoliday) {
+                    cardTitle = `🌿 Agri Experience — Public Holiday: ${digest.holidayName}`;
+                    cardSubtitle = `${digest.formattedDate} • Official Non-Working Holiday (Office Closed)`;
+                    sectionHeader = `Statutory Holiday: ${digest.holidayName}`;
+                    itemsText = `🇰🇪 <b>Today is ${digest.holidayName}.</b><br>Agri Experience offices are closed in observance of the statutory public holiday.<br>Staff are not on regular office duty and statutory holidays are not deducted from annual leave.`;
+                } else if (digest.isWeekend) {
+                    cardTitle = `🌿 Agri Experience — Weekend (${digest.dayName})`;
+                    cardSubtitle = `${digest.formattedDate} • Non-Working Day (Office Closed)`;
+                    sectionHeader = `Weekend Non-Working Day`;
+                    itemsText = `☕ <b>Agri Experience offices are closed for the weekend (${digest.dayName}).</b> Regular business operations resume on Monday.`;
+                } else if (digest.absences.length === 0) {
+                    itemsText = '✅ <b>All staff are on duty today. No scheduled absences.</b>';
+                } else {
+                    itemsText = digest.absences.map(a =>
                         `• <b>${a.name}</b> (${a.department}): <i>${a.leaveType}</i> ${a.isHourly ? `[${a.hours}h]` : ''} | Coverage: <b>${a.handoverName}</b>`
                     ).join('<br>');
+                }
 
                 const cardPayload = {
                     cardsV2: [{
                         cardId: 'dailyAbsenceDigestCard',
                         card: {
                             header: {
-                                title: "🌿 Agri Experience — Today's Absence Digest",
-                                subtitle: `${digest.formattedDate} • Team Strength: ${digest.overallStrength}%`,
-                                imageUrl: "https://img.icons8.com/color/96/leave.png"
+                                title: cardTitle,
+                                subtitle: cardSubtitle,
+                                imageUrl: digest.isHoliday ? "https://img.icons8.com/color/96/confetti.png" : "https://img.icons8.com/color/96/leave.png"
                             },
                             sections: [{
-                                header: `Out of Office (${digest.totalAwayCount} away, ${digest.totalOnDuty} on duty)`,
+                                header: sectionHeader,
                                 widgets: [{
                                     textParagraph: { text: itemsText }
                                 }]
