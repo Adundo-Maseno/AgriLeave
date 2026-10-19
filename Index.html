@@ -1856,6 +1856,145 @@
         </div>
     </div>
 
+    <!-- Compensation Leave Management Modal (Admin/HR Only) -->
+    <div id="compensationModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="fixed inset-0 modal-overlay" id="compensationModalBackdrop"></div>
+            <div class="relative bg-white rounded-xl text-left shadow-2xl w-full max-w-2xl flex flex-col max-h-[92vh] border border-indigo-100">
+                <!-- Modal Header -->
+                <div class="bg-gradient-to-r from-indigo-700 to-indigo-800 px-6 py-4 rounded-t-xl text-white flex justify-between items-center flex-none">
+                    <div class="flex items-center space-x-3">
+                        <div class="h-10 w-10 rounded-lg bg-white/10 flex items-center justify-center backdrop-blur-sm">
+                            <i class="fas fa-award text-white text-lg"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold">Compensation Leave Management</h3>
+                            <p class="text-xs text-indigo-200">Award, adjust, or view history for weekend and holiday work</p>
+                        </div>
+                    </div>
+                    <button type="button" id="closeCompensationModal" onclick="closeCompensationModal()" class="text-white/80 hover:text-white text-lg p-1">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <!-- Tabs -->
+                <div class="flex border-b border-gray-200 bg-gray-50/70 px-6 pt-3 space-x-6 text-sm font-medium flex-none">
+                    <button type="button" id="compTabAwardBtn" onclick="switchCompensationTab('award')" class="pb-3 border-b-2 border-indigo-600 text-indigo-700 flex items-center space-x-2">
+                        <i class="fas fa-plus-circle"></i>
+                        <span>Award Days</span>
+                    </button>
+                    <button type="button" id="compTabAdjustBtn" onclick="switchCompensationTab('adjust')" class="pb-3 border-b-2 border-transparent text-gray-500 hover:text-gray-700 flex items-center space-x-2">
+                        <i class="fas fa-sliders-h"></i>
+                        <span>Adjust Balance</span>
+                    </button>
+                    <button type="button" id="compTabHistoryBtn" onclick="switchCompensationTab('history')" class="pb-3 border-b-2 border-transparent text-gray-500 hover:text-gray-700 flex items-center space-x-2">
+                        <i class="fas fa-history"></i>
+                        <span>Award History & Revoke</span>
+                    </button>
+                </div>
+
+                <!-- Modal Body -->
+                <div class="p-6 overflow-y-auto flex-1 space-y-6">
+                    <!-- Tab 1: Award Days -->
+                    <div id="compTabAwardSection">
+                        <form id="awardCompensationForm" onsubmit="handleAwardCompensationSubmit(event)" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Staff Member *</label>
+                                <select id="compAwardStaffSelect" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" required>
+                                    <option value="">Select staff member...</option>
+                                </select>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Days to Award *</label>
+                                    <input type="number" id="compAwardDays" step="0.25" min="0.25" max="30" value="1.0" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" required>
+                                    <p class="text-xs text-gray-500 mt-1">E.g., 1.0 day for a full weekend day worked, 0.5 for half day</p>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Date of Extra Work *</label>
+                                    <input type="date" id="compAwardDate" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" required>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Reason / Description *</label>
+                                <textarea id="compAwardReason" rows="3" placeholder="Provide justification (e.g. Worked on Saturday Oct 18 for emergency seed dispatch)" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" required></textarea>
+                            </div>
+
+                            <div class="p-3 bg-indigo-50 border border-indigo-100 rounded-lg text-xs text-indigo-700 flex items-start space-x-2">
+                                <i class="fas fa-info-circle mt-0.5"></i>
+                                <span>Compensation days never expire and are automatically prioritized first when the staff member submits annual leave applications.</span>
+                            </div>
+
+                            <div class="flex justify-end space-x-3 pt-2">
+                                <button type="button" onclick="closeCompensationModal()" class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
+                                <button type="submit" id="submitAwardCompBtn" class="px-5 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 flex items-center">
+                                    <i class="fas fa-award mr-2"></i> Award Compensation Days
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Tab 2: Adjust Balance -->
+                    <div id="compTabAdjustSection" class="hidden">
+                        <form id="adjustCompensationForm" onsubmit="handleAdjustCompensationSubmit(event)" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Staff Member *</label>
+                                <select id="compAdjustStaffSelect" onchange="loadAdjustBalanceDisplay(this.value)" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" required>
+                                    <option value="">Select staff member...</option>
+                                </select>
+                            </div>
+
+                            <div class="p-4 bg-gray-50 rounded-lg border border-gray-200 grid grid-cols-2 gap-4 text-center">
+                                <div>
+                                    <p class="text-xs text-gray-500">Current Balance</p>
+                                    <p class="text-2xl font-bold text-gray-900" id="compAdjustCurrentBal">0.000</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-gray-500">Used This Year</p>
+                                    <p class="text-2xl font-bold text-gray-600" id="compAdjustUsedTotal">0.000</p>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">New Balance *</label>
+                                <input type="number" id="compAdjustNewBalance" step="0.001" min="0" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="e.g. 3.0" required>
+                                <p class="text-xs text-gray-500 mt-1">Directly set the new available compensation leave balance</p>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Reason for Adjustment *</label>
+                                <input type="text" id="compAdjustReason" placeholder="Audit note explaining this adjustment" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" required>
+                            </div>
+
+                            <div class="flex justify-end space-x-3 pt-2">
+                                <button type="button" onclick="closeCompensationModal()" class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
+                                <button type="submit" id="submitAdjustCompBtn" class="px-5 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 flex items-center">
+                                    <i class="fas fa-check mr-2"></i> Update Balance
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Tab 3: History & Revocation -->
+                    <div id="compTabHistorySection" class="hidden space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Staff Member</label>
+                            <select id="compHistoryStaffSelect" onchange="loadStaffCompensationHistory(this.value)" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                <option value="">Select staff member...</option>
+                            </select>
+                        </div>
+
+                        <div id="compHistoryContent" class="space-y-4">
+                            <p class="text-center py-8 text-gray-500 text-sm">Select a staff member above to view compensation awards and history.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notification -->
     <div id="toast" class="hidden fixed bottom-4 right-4 z-50 max-w-sm w-full">
         <div class="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
@@ -2296,12 +2435,17 @@
             <div>
               <p class="text-sm text-gray-600">Compensation Days</p>
               <p class="text-2xl font-bold text-gray-900">${(balance?.compensation?.balance ?? balance?.compensationBalance ?? 0).toFixed(3)}</p>
-              <p class="text-xs text-gray-500">${(balance?.compensation?.used ?? 0).toFixed(3)} used this year</p>
+              <p class="text-xs text-gray-500">${(balance?.compensation?.used ?? 0).toFixed(3)} used • ${(balance?.compensation?.total ?? ((balance?.compensation?.balance || 0) + (balance?.compensation?.used || 0))).toFixed(3)} total</p>
             </div>
           </div>
           <div class="mt-4">
-            <p class="text-xs text-gray-600">Awarded for extra work</p>
-            <p class="text-xs text-gray-500">Never expires</p>
+            <div class="h-2 bg-indigo-100 rounded-full overflow-hidden">
+              <div class="h-full bg-indigo-500 rounded-full" style="width: ${(((balance?.compensation?.total || ((balance?.compensation?.balance || 0) + (balance?.compensation?.used || 0))) > 0) ? Math.min(100, Math.round(((balance?.compensation?.used || 0) / (balance?.compensation?.total || ((balance?.compensation?.balance || 0) + (balance?.compensation?.used || 0)))) * 100)) : 0)}%"></div>
+            </div>
+            <div class="flex justify-between items-center text-xs text-gray-500 mt-1">
+              <span>${(((balance?.compensation?.total || ((balance?.compensation?.balance || 0) + (balance?.compensation?.used || 0))) > 0) ? Math.min(100, Math.round(((balance?.compensation?.used || 0) / (balance?.compensation?.total || ((balance?.compensation?.balance || 0) + (balance?.compensation?.used || 0)))) * 100)) : 0)}% used</span>
+              <span class="text-indigo-600 font-medium">Never expires</span>
+            </div>
           </div>
         </div>
 
@@ -2867,10 +3011,31 @@
               </div>
 
               <div class="mt-3 pt-3 border-t border-gray-100">
-                <p class="text-xs text-indigo-600 flex items-center">
-                  <i class="fas fa-info-circle mr-1"></i>
-                  Compensation days never expire
+                <p class="text-xs text-indigo-600 flex items-center justify-between">
+                  <span><i class="fas fa-info-circle mr-1"></i> Compensation days never expire</span>
+                  <span class="font-medium text-indigo-800">Priority 1 Pool</span>
                 </p>
+                ${(balance.compensation?.awards && balance.compensation.awards.length > 0) ? `
+                <div class="mt-3 pt-2 border-t border-indigo-100">
+                  <p class="text-xs font-semibold text-gray-700 mb-1.5 flex items-center">
+                    <i class="fas fa-history mr-1 text-indigo-500"></i> Award History
+                  </p>
+                  <div class="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                    ${balance.compensation.awards.map(a => `
+                      <div class="flex justify-between items-center text-xs p-1.5 rounded ${a.revoked ? 'bg-red-50 text-red-600 line-through' : 'bg-indigo-50/70 text-indigo-900'}">
+                        <div class="truncate mr-2">
+                          <span class="font-bold">+${a.days}d</span>
+                          <span class="text-gray-500 text-[11px] ml-1">(${formatDate(a.date)})</span>
+                          <p class="text-[11px] text-gray-500 truncate" title="${escapeHtml(a.reason || '')}">${escapeHtml(a.reason || 'Extra work')}</p>
+                        </div>
+                        <span class="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 ${a.revoked ? 'bg-red-100 text-red-700' : 'bg-indigo-100 text-indigo-700 font-medium'}">
+                          ${a.revoked ? 'Revoked' : 'Active'}
+                        </span>
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+                ` : ''}
               </div>
             </div>
 
@@ -2912,12 +3077,13 @@
                     <p class="text-sm text-gray-600">${formatDate(app.StartDate)} • ${app.Duration} ${app.LeaveMode === 'Hourly' ? 'hours' : 'days'}</p>
                   </div>
                   <div class="text-right">
-                    <p class="font-medium text-gray-900">
-                      ${app.DeductFromAnnual > 0 ? `Annual: ${app.DeductFromAnnual}` : ''}
-                      ${app.DeductFromBroughtForward > 0 ? `BF: ${app.DeductFromBroughtForward}` : ''}
-                      ${app.DeductFromSick > 0 ? `Sick: ${app.DeductFromSick}` : ''}
+                    <p class="font-medium text-gray-900 text-xs space-x-1">
+                      ${app.DeductFromCompensation > 0 ? `<span class="text-indigo-600 font-bold bg-indigo-50 px-1.5 py-0.5 rounded">Comp: ${app.DeductFromCompensation}</span>` : ''}
+                      ${app.DeductFromBroughtForward > 0 ? `<span class="text-amber-600 font-bold bg-amber-50 px-1.5 py-0.5 rounded">BF: ${app.DeductFromBroughtForward}</span>` : ''}
+                      ${app.DeductFromAnnual > 0 ? `<span class="text-primary-600 font-bold bg-primary-50 px-1.5 py-0.5 rounded">Annual: ${app.DeductFromAnnual}</span>` : ''}
+                      ${app.DeductFromSick > 0 ? `<span class="text-blue-600 font-bold bg-blue-50 px-1.5 py-0.5 rounded">Sick: ${app.DeductFromSick}</span>` : ''}
                     </p>
-                    <p class="text-xs text-gray-600">${formatDate(app.DateApplied)}</p>
+                    <p class="text-xs text-gray-600 mt-1">${formatDate(app.DateApplied)}</p>
                   </div>
                 </div>
                 `).join('')}
@@ -3612,7 +3778,10 @@
             const pageElement = document.getElementById('staffManagementPage');
 
             pageElement.innerHTML = `
-    <div class="flex justify-end items-center mb-6">
+    <div class="flex justify-end items-center mb-6 space-x-3">
+      <button id="awardCompGlobalBtn" onclick="openCompensationModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-lg font-medium shadow-sm transition-colors flex items-center">
+        <i class="fas fa-award mr-2"></i> Award Compensation
+      </button>
       <button id="addStaffBtn" class="btn-primary px-6 py-3 rounded-lg font-medium">
         <i class="fas fa-plus mr-2"></i> Add Staff
       </button>
@@ -3647,13 +3816,14 @@
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supervisor</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Eligible</th>
+              <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Eligible</th>
+              <th class="px-6 py-3 text-center text-xs font-medium text-indigo-700 uppercase tracking-wider bg-indigo-50/50">Comp Days</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody id="staffTableBody" class="divide-y divide-gray-200">
             <tr>
-              <td colspan="7" class="px-6 py-4 text-center text-gray-500">
+              <td colspan="8" class="px-6 py-4 text-center text-gray-500">
                 <div class="flex justify-center items-center">
                   <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600 mr-3"></div>
                   Loading staff data...
@@ -3684,7 +3854,7 @@
             const rows = document.querySelectorAll('#staffTableBody tr');
 
             rows.forEach(row => {
-                if (row.cells.length < 7) return; // Skip header or empty rows
+                if (row.cells.length < 8) return; // Skip header or empty rows
 
                 const name = row.cells[0]?.textContent.toLowerCase() || '';
                 const email = row.cells[1]?.textContent.toLowerCase() || '';
@@ -3718,7 +3888,7 @@
                         const tbody = document.getElementById('staffTableBody');
 
                         if (staff.length === 0) {
-                            tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">No staff members found</td></tr>';
+                            tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-4 text-center text-gray-500">No staff members found</td></tr>';
                             return;
                         }
 
@@ -3783,12 +3953,24 @@
               </td>
               <td class="px-6 py-4 whitespace-nowrap">${escapedDepartment}</td>
               <td class="px-6 py-4 whitespace-nowrap">${escapedSupervisor}</td>
-              <td class="px-6 py-4 whitespace-nowrap">
+              <td class="px-6 py-4 whitespace-nowrap text-center">
                 <span class="px-2 py-1 text-xs font-medium rounded-full ${eligible ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
                   ${eligible ? 'Yes' : 'No'}
                 </span>
               </td>
+              <td class="px-6 py-4 whitespace-nowrap text-center bg-indigo-50/20">
+                <span class="px-2.5 py-1 text-xs font-bold rounded-full ${(s.CompensationLeave?.balance || 0) > 0 ? 'bg-indigo-100 text-indigo-800' : 'bg-gray-100 text-gray-500'}">
+                  ${(s.CompensationLeave?.balance || 0).toFixed(3)}
+                </span>
+              </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                <button 
+                  class="text-indigo-600 hover:text-indigo-900 award-staff-btn" 
+                  title="Award / Manage Compensation"
+                  onclick="openCompensationModal('${escapedEmail.replace(/'/g, "\\'")}', '${escapedName.replace(/'/g, "\\'")}')"
+                >
+                  <i class="fas fa-award"></i>
+                </button>
                 <button 
                   class="text-blue-600 hover:text-blue-900 edit-staff-btn" 
                   title="Edit"
@@ -3815,7 +3997,7 @@
                     console.error('Failed to load staff:', error);
                     document.getElementById('staffTableBody').innerHTML = `
         <tr>
-          <td colspan="7" class="px-6 py-4 text-center text-red-500">
+          <td colspan="8" class="px-6 py-4 text-center text-red-500">
             Failed to load staff data: ${error.message}
           </td>
         </tr>
@@ -3867,6 +4049,24 @@
                 <button id="clearCacheBtn" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Clear All Caches</button>
                 <button id="rebuildIndexesBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Rebuild Indexes</button>
               </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm border border-indigo-100 p-6">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-lg font-bold text-gray-900">Compensation Leave Management</h3>
+              <span class="h-8 w-8 rounded-lg bg-indigo-100 flex items-center justify-center">
+                <i class="fas fa-award text-indigo-600"></i>
+              </span>
+            </div>
+            <p class="text-sm text-gray-600 mb-4">Award, adjust balances, or view award history for weekend and holiday work</p>
+            <div class="flex flex-wrap gap-3">
+              <button type="button" onclick="openCompensationModal()" class="px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium text-sm transition-colors flex items-center shadow-sm">
+                <i class="fas fa-plus-circle mr-2"></i> Award / Adjust Days
+              </button>
+              <button type="button" onclick="viewAllCompensationRecords()" class="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm transition-colors flex items-center">
+                <i class="fas fa-list mr-2"></i> View All Records
+              </button>
             </div>
           </div>
 
@@ -4679,7 +4879,7 @@
       </div>
     </div>
 
-    <!-- Staff Details - WITH DEFICIT COLUMN -->
+    <!-- Staff Details - WITH DEFICIT & COMPENSATION COLUMNS -->
     <div class="bg-white rounded-xl border border-gray-200 p-6">
       <h3 class="text-lg font-semibold text-gray-900 mb-4">Staff Leave Details</h3>
       <div class="overflow-x-auto">
@@ -4697,6 +4897,9 @@
               
               <!-- Sick Leave Group -->
               <th colspan="2" class="text-center py-3 px-4 font-semibold text-gray-700 bg-green-50/30 border-r">Sick Leave</th>
+
+              <!-- Compensation Leave Group -->
+              <th colspan="2" class="text-center py-3 px-4 font-semibold text-gray-700 bg-indigo-50/30 border-r">Compensation Leave</th>
               
               <!-- Deficit Column -->
               <th rowspan="2" class="text-center py-3 px-4 font-semibold text-gray-700 bg-red-50/30 border-r">Deficit</th>
@@ -4718,16 +4921,20 @@
               <!-- Sick Leave Subheaders -->
               <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 bg-green-50/30">Used</th>
               <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 bg-green-50/30 border-r">Remaining</th>
+
+              <!-- Compensation Leave Subheaders -->
+              <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 bg-indigo-50/30">Used</th>
+              <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 bg-indigo-50/30 border-r">Balance</th>
             </tr>
           </thead>
           <tbody id="staffReportTableBody" class="divide-y divide-gray-100">
             <tr>
-              <td colspan="12" class="text-center py-8 text-gray-500">Loading staff data...</td>
+              <td colspan="14" class="text-center py-8 text-gray-500">Loading staff data...</td>
             </tr>
           </tbody>
         </table>
       </div>
-      <p class="text-xs text-gray-500 mt-2">Deficit subtracts from available days • Total Available = Annual Remaining + Brought Forward Remaining + Deficit</p>
+      <p class="text-xs text-gray-500 mt-2">Deficit subtracts from available days • Total Available = Annual Remaining + Brought Forward Remaining + Compensation Balance + Deficit</p>
     </div>
   `;
         }
@@ -4797,6 +5004,7 @@
             <option value="all">All Types</option>
             <option value="Annual Leave">Annual Leave</option>
             <option value="Sick Leave">Sick Leave</option>
+            <option value="Compensation Leave">Compensation Leave</option>
           </select>
         </div>
         <div>
@@ -5077,14 +5285,14 @@
     `;
             }).join('');
         }
-        // Update staff report table - WITH DEFICIT SUBTRACTED FROM TOTAL
+        // Update staff report table - WITH DEFICIT & COMPENSATION DAYS INCLUDED
         function updateStaffReportTable(staff, applications, year) {
             const tbody = document.getElementById('staffReportTableBody');
 
             if (!tbody) return;
 
             if (staff.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="12" class="px-6 py-4 text-center text-gray-500">No staff data available</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="14" class="px-6 py-4 text-center text-gray-500">No staff data available</td></tr>';
                 return;
             }
 
@@ -5131,6 +5339,12 @@
                 const sickRemaining = Math.max(0, 7 - sickUsed);
 
                 // =============================================
+                // COMPENSATION LEAVE CALCULATIONS
+                // =============================================
+                const compBalance = s.CompensationLeave?.balance || 0;
+                const compUsed = s.CompensationLeave?.used || 0;
+
+                // =============================================
                 // DEFICIT CALCULATION
                 // =============================================
                 const deficit = s.LeaveAccrual?.annualDeficit?.amount || 0;
@@ -5138,10 +5352,10 @@
                 const deficitAmount = hasDeficit ? Math.abs(deficit).toFixed(3) : '0.00';
 
                 // =============================================
-                // TOTAL AVAILABLE - CORRECTED with deficit subtraction
+                // TOTAL AVAILABLE - Includes Annual, BF, Comp Leave, minus Deficit
                 // =============================================
                 // Deficit is negative, so adding it subtracts from total
-                const totalAvailable = (annualRemaining + bfCurrentRemaining + deficit).toFixed(3);
+                const totalAvailable = (annualRemaining + bfCurrentRemaining + compBalance + deficit).toFixed(3);
 
                 return `
       <tr class="hover:bg-gray-50">
@@ -5164,6 +5378,10 @@
         <!-- SICK LEAVE COLUMNS -->
         <td class="px-4 py-3 whitespace-nowrap text-center bg-green-50/30 font-medium">${sickUsed.toFixed(3)}</td>
         <td class="px-4 py-3 whitespace-nowrap text-center bg-green-50/30 font-medium border-r border-gray-300">${sickRemaining.toFixed(3)}</td>
+        
+        <!-- COMPENSATION LEAVE COLUMNS -->
+        <td class="px-4 py-3 whitespace-nowrap text-center bg-indigo-50/30 font-medium">${compUsed.toFixed(3)}</td>
+        <td class="px-4 py-3 whitespace-nowrap text-center bg-indigo-50/30 font-medium border-r border-gray-300">${compBalance.toFixed(3)}</td>
         
         <!-- DEFICIT COLUMN -->
         <td class="px-4 py-3 whitespace-nowrap text-center bg-red-50/30 font-medium border-r border-gray-300">
@@ -5195,6 +5413,7 @@
                 const leaveTypes = {
                     'Annual Leave': 0,
                     'Sick Leave': 0,
+                    'Compensation Leave': 0,
                     'Other': 0
                 };
 
@@ -5204,6 +5423,7 @@
 
                     if (type === 'Annual Leave') leaveTypes['Annual Leave'] += duration;
                     else if (type === 'Sick Leave') leaveTypes['Sick Leave'] += duration;
+                    else if (type === 'Compensation Leave') leaveTypes['Compensation Leave'] += duration;
                     else leaveTypes['Other'] += duration;
                 });
 
@@ -5217,6 +5437,7 @@
                         const colors = {
                             'Annual Leave': 'bg-primary-500',
                             'Sick Leave': 'bg-blue-500',
+                            'Compensation Leave': 'bg-indigo-500',
                             'Other': 'bg-gray-500'
                         };
                         return `
@@ -5480,6 +5701,7 @@
                 'Annual Used', 'Annual Accrued', 'Annual Remaining',
                 'Brought Forward', 'BF Used', 'BF Remaining',
                 'Sick Used', 'Sick Remaining',
+                'Comp Used', 'Comp Balance',
                 'Deficit', 'Total Available'
             ];
             rows.push(headers.join(','));
@@ -5491,7 +5713,7 @@
 
                 const cells = row.querySelectorAll('td');
 
-                if (cells.length >= 12) {
+                if (cells.length >= 14) {
                     const nameDiv = cells[0]?.querySelector('.font-medium');
                     const name = nameDiv ? nameDiv.textContent?.trim() : cells[0]?.textContent?.trim() || '';
                     const emailSpan = cells[0]?.querySelector('.text-gray-500');
@@ -5507,8 +5729,10 @@
                     const bfRemaining = cells[7]?.textContent?.trim().replace(/[^\d.-]/g, '') || '0';
                     const sickUsed = cells[8]?.textContent?.trim().replace(/[^\d.-]/g, '') || '0';
                     const sickRemaining = cells[9]?.textContent?.trim().replace(/[^\d.-]/g, '') || '0';
-                    const deficit = cells[10]?.textContent?.trim().replace(/[^\d.-]/g, '') || '0';
-                    const totalAvailable = cells[11]?.textContent?.trim().replace(/[^\d.-]/g, '') || '0';
+                    const compUsed = cells[10]?.textContent?.trim().replace(/[^\d.-]/g, '') || '0';
+                    const compBalance = cells[11]?.textContent?.trim().replace(/[^\d.-]/g, '') || '0';
+                    const deficit = cells[12]?.textContent?.trim().replace(/[^\d.-]/g, '') || '0';
+                    const totalAvailable = cells[13]?.textContent?.trim().replace(/[^\d.-]/g, '') || '0';
 
                     const rowData = [
                         `"${name}"`,
@@ -5522,6 +5746,8 @@
                         bfRemaining,
                         sickUsed,
                         sickRemaining,
+                        compUsed,
+                        compBalance,
                         deficit,
                         totalAvailable
                     ];
@@ -5657,6 +5883,10 @@
             document.getElementById('closeDetailsModal')?.addEventListener('click', function () {
                 document.getElementById('applicationDetailsModal').classList.add('hidden');
             });
+
+            // Compensation modal
+            document.getElementById('closeCompensationModal')?.addEventListener('click', closeCompensationModal);
+            document.getElementById('compensationModalBackdrop')?.addEventListener('click', closeCompensationModal);
 
             // =============================================
             // EVENT DELEGATION - ALL DYNAMIC CONTENT
@@ -7699,6 +7929,457 @@
             }
         }
 
+        // ============================================================
+        // COMPENSATION LEAVE ADMIN MANAGEMENT FUNCTIONS
+        // ============================================================
+
+        async function openCompensationModal(preselectedEmail = '', preselectedName = '', initialTab = 'award') {
+            const modal = document.getElementById('compensationModal');
+            if (!modal) return;
+
+            // Set default date to today
+            const today = new Date().toISOString().split('T')[0];
+            const dateInput = document.getElementById('compAwardDate');
+            if (dateInput && !dateInput.value) dateInput.value = today;
+
+            // Load staff list into all 3 dropdowns
+            const selectIds = ['compAwardStaffSelect', 'compAdjustStaffSelect', 'compHistoryStaffSelect'];
+            
+            const populateDropdowns = (staffList) => {
+                const sorted = [...staffList].sort((a, b) => {
+                    const nameA = (a.Name || a.name || a.Email || a.email || '').toLowerCase();
+                    const nameB = (b.Name || b.name || b.Email || b.email || '').toLowerCase();
+                    return nameA.localeCompare(nameB);
+                });
+
+                selectIds.forEach(id => {
+                    const sel = document.getElementById(id);
+                    if (!sel) return;
+                    const currentValue = sel.value;
+                    sel.innerHTML = '<option value="">Select staff member...</option>' + 
+                        sorted.map(s => {
+                            const email = s.Email || s.email || '';
+                            const name = s.Name || s.name || email;
+                            const dept = s.Department || s.department ? ` (${s.Department || s.department})` : '';
+                            return `<option value="${escapeHtml(email)}">${escapeHtml(name)}${escapeHtml(dept)}</option>`;
+                        }).join('');
+                    
+                    if (preselectedEmail) {
+                        sel.value = preselectedEmail;
+                    } else if (currentValue) {
+                        sel.value = currentValue;
+                    }
+                });
+            };
+
+            // Check if AppState has allStaff
+            if (window.AppState && window.AppState.allStaff && window.AppState.allStaff.length > 0) {
+                populateDropdowns(window.AppState.allStaff);
+            } else {
+                try {
+                    const res = await callGoogleScriptFunction('apiGetAllStaff');
+                    if (res.success && res.data) {
+                        const list = res.data.data || res.data || [];
+                        if (window.AppState) window.AppState.allStaff = list;
+                        populateDropdowns(list);
+                    }
+                } catch (e) {
+                    console.error('Failed to populate compensation staff dropdowns:', e);
+                }
+            }
+
+            modal.classList.remove('hidden');
+            switchCompensationTab(initialTab);
+
+            if (preselectedEmail) {
+                if (initialTab === 'adjust') {
+                    loadAdjustBalanceDisplay(preselectedEmail);
+                } else if (initialTab === 'history') {
+                    loadStaffCompensationHistory(preselectedEmail);
+                }
+            }
+        }
+
+        function closeCompensationModal() {
+            const modal = document.getElementById('compensationModal');
+            if (modal) modal.classList.add('hidden');
+            const awardForm = document.getElementById('awardCompensationForm');
+            if (awardForm) awardForm.reset();
+            const adjustForm = document.getElementById('adjustCompensationForm');
+            if (adjustForm) adjustForm.reset();
+        }
+
+        function switchCompensationTab(tabName) {
+            const tabs = {
+                award: {
+                    btn: document.getElementById('compTabAwardBtn'),
+                    sec: document.getElementById('compTabAwardSection')
+                },
+                adjust: {
+                    btn: document.getElementById('compTabAdjustBtn'),
+                    sec: document.getElementById('compTabAdjustSection')
+                },
+                history: {
+                    btn: document.getElementById('compTabHistoryBtn'),
+                    sec: document.getElementById('compTabHistorySection')
+                }
+            };
+
+            Object.entries(tabs).forEach(([name, tab]) => {
+                if (!tab.btn || !tab.sec) return;
+                if (name === tabName) {
+                    tab.btn.className = 'pb-3 border-b-2 border-indigo-600 text-indigo-700 flex items-center space-x-2 font-medium';
+                    tab.sec.classList.remove('hidden');
+                } else {
+                    tab.btn.className = 'pb-3 border-b-2 border-transparent text-gray-500 hover:text-gray-700 flex items-center space-x-2 font-medium';
+                    tab.sec.classList.add('hidden');
+                }
+            });
+
+            if (tabName === 'adjust') {
+                const email = document.getElementById('compAdjustStaffSelect')?.value;
+                if (email) loadAdjustBalanceDisplay(email);
+            } else if (tabName === 'history') {
+                const email = document.getElementById('compHistoryStaffSelect')?.value;
+                if (email) loadStaffCompensationHistory(email);
+            }
+        }
+
+        async function loadAdjustBalanceDisplay(email) {
+            const balEl = document.getElementById('compAdjustCurrentBal');
+            const usedEl = document.getElementById('compAdjustUsedTotal');
+            const inputEl = document.getElementById('compAdjustNewBalance');
+
+            if (!email) {
+                if (balEl) balEl.textContent = '0.000';
+                if (usedEl) usedEl.textContent = '0.000';
+                if (inputEl) inputEl.value = '';
+                return;
+            }
+
+            // Check if present in AppState.allStaff
+            const cachedStaff = (window.AppState?.allStaff || []).find(s => (s.Email || s.email || '').toLowerCase() === email.toLowerCase());
+            if (cachedStaff && cachedStaff.CompensationLeave) {
+                const bal = Number(cachedStaff.CompensationLeave.balance || 0).toFixed(3);
+                const used = Number(cachedStaff.CompensationLeave.used || 0).toFixed(3);
+                if (balEl) balEl.textContent = bal;
+                if (usedEl) usedEl.textContent = used;
+                if (inputEl) inputEl.value = Number(cachedStaff.CompensationLeave.balance || 0);
+            }
+
+            try {
+                const res = await callGoogleScriptFunction('apiGetStaffCompensation', { email: email });
+                if (res.success && res.data) {
+                    const data = res.data;
+                    const bal = Number(data.balance || 0).toFixed(3);
+                    const used = Number(data.used || 0).toFixed(3);
+                    if (balEl) balEl.textContent = bal;
+                    if (usedEl) usedEl.textContent = used;
+                    if (inputEl) inputEl.value = Number(data.balance || 0);
+                }
+            } catch (err) {
+                console.warn('Could not fetch latest compensation balance:', err);
+            }
+        }
+
+        async function handleAwardCompensationSubmit(event) {
+            event.preventDefault();
+            const email = document.getElementById('compAwardStaffSelect')?.value;
+            const days = parseFloat(document.getElementById('compAwardDays')?.value);
+            const date = document.getElementById('compAwardDate')?.value;
+            const reason = document.getElementById('compAwardReason')?.value?.trim();
+
+            if (!email) {
+                showToast('error', 'Validation Error', 'Please select a staff member');
+                return;
+            }
+            if (isNaN(days) || days <= 0) {
+                showToast('error', 'Validation Error', 'Days to award must be greater than 0');
+                return;
+            }
+            if (!date) {
+                showToast('error', 'Validation Error', 'Please specify the date worked');
+                return;
+            }
+            if (!reason) {
+                showToast('error', 'Validation Error', 'Please provide a reason or description');
+                return;
+            }
+
+            const btn = document.getElementById('submitAwardCompBtn');
+            if (btn) btn.disabled = true;
+            showLoading(`Awarding ${days} compensation day(s)...`);
+
+            try {
+                const res = await callGoogleScriptFunction('apiAwardCompensationLeave', {
+                    email: email,
+                    days: days,
+                    date: date,
+                    reason: reason
+                });
+
+                hideLoading();
+                if (btn) btn.disabled = false;
+
+                if (res.success) {
+                    showToast('success', 'Compensation Awarded', `Successfully awarded ${days} day(s) to ${email}. New balance: ${res.data?.newBalance ?? '-'}`);
+                    
+                    // Update cache if staff list is loaded
+                    if (window.AppState && window.AppState.allStaff) {
+                        const s = window.AppState.allStaff.find(st => (st.Email || st.email || '').toLowerCase() === email.toLowerCase());
+                        if (s) {
+                            if (!s.CompensationLeave) s.CompensationLeave = { balance: 0, used: 0, totalAwarded: 0, awards: [] };
+                            s.CompensationLeave.balance = res.data?.newBalance ?? (s.CompensationLeave.balance + days);
+                            s.CompensationLeave.totalAwarded = (s.CompensationLeave.totalAwarded || 0) + days;
+                        }
+                    }
+
+                    closeCompensationModal();
+
+                    // Refresh active view if relevant
+                    if (window.AppState?.currentPage === 'staffManagement' && typeof loadStaffList === 'function') {
+                        loadStaffList();
+                    } else if (window.AppState?.currentPage === 'myBalance' && typeof loadBalancePage === 'function') {
+                        loadBalancePage();
+                    } else if (window.AppState?.currentPage === 'dashboard' && typeof loadDashboard === 'function') {
+                        loadDashboard();
+                    }
+                } else {
+                    showToast('error', 'Award Failed', res.error || 'Failed to award compensation leave');
+                }
+            } catch (err) {
+                hideLoading();
+                if (btn) btn.disabled = false;
+                console.error('Compensation award error:', err);
+                showToast('error', 'Award Failed', err.message);
+            }
+        }
+
+        async function handleAdjustCompensationSubmit(event) {
+            event.preventDefault();
+            const email = document.getElementById('compAdjustStaffSelect')?.value;
+            const newBalance = parseFloat(document.getElementById('compAdjustNewBalance')?.value);
+            const reason = document.getElementById('compAdjustReason')?.value?.trim();
+
+            if (!email) {
+                showToast('error', 'Validation Error', 'Please select a staff member');
+                return;
+            }
+            if (isNaN(newBalance) || newBalance < 0) {
+                showToast('error', 'Validation Error', 'New balance must be 0 or greater');
+                return;
+            }
+            if (!reason) {
+                showToast('error', 'Validation Error', 'Please provide a reason for the adjustment');
+                return;
+            }
+
+            const btn = document.getElementById('submitAdjustCompBtn');
+            if (btn) btn.disabled = true;
+            showLoading('Adjusting compensation balance...');
+
+            try {
+                const res = await callGoogleScriptFunction('apiAdjustCompensationLeave', {
+                    email: email,
+                    newBalance: newBalance,
+                    reason: reason
+                });
+
+                hideLoading();
+                if (btn) btn.disabled = false;
+
+                if (res.success) {
+                    showToast('success', 'Balance Adjusted', `Compensation balance updated to ${newBalance} days`);
+                    
+                    if (window.AppState && window.AppState.allStaff) {
+                        const s = window.AppState.allStaff.find(st => (st.Email || st.email || '').toLowerCase() === email.toLowerCase());
+                        if (s) {
+                            if (!s.CompensationLeave) s.CompensationLeave = { balance: 0, used: 0, totalAwarded: 0, awards: [] };
+                            s.CompensationLeave.balance = newBalance;
+                        }
+                    }
+
+                    closeCompensationModal();
+
+                    if (window.AppState?.currentPage === 'staffManagement' && typeof loadStaffList === 'function') {
+                        loadStaffList();
+                    } else if (window.AppState?.currentPage === 'myBalance' && typeof loadBalancePage === 'function') {
+                        loadBalancePage();
+                    } else if (window.AppState?.currentPage === 'dashboard' && typeof loadDashboard === 'function') {
+                        loadDashboard();
+                    }
+                } else {
+                    showToast('error', 'Adjustment Failed', res.error || 'Failed to adjust balance');
+                }
+            } catch (err) {
+                hideLoading();
+                if (btn) btn.disabled = false;
+                console.error('Compensation adjust error:', err);
+                showToast('error', 'Adjustment Failed', err.message);
+            }
+        }
+
+        async function loadStaffCompensationHistory(email) {
+            const container = document.getElementById('compHistoryContent');
+            if (!container) return;
+
+            if (!email) {
+                container.innerHTML = '<p class="text-center py-8 text-gray-500 text-sm">Select a staff member above to view compensation awards and history.</p>';
+                return;
+            }
+
+            container.innerHTML = '<div class="text-center py-8 text-indigo-600"><i class="fas fa-spinner fa-spin text-2xl mb-2"></i><p class="text-sm">Loading compensation records...</p></div>';
+
+            try {
+                const res = await callGoogleScriptFunction('apiGetStaffCompensation', { email: email });
+                if (!res.success || !res.data) {
+                    container.innerHTML = `<p class="text-center py-6 text-red-500 text-sm">${escapeHtml(res.error || 'Failed to load compensation data')}</p>`;
+                    return;
+                }
+
+                const data = res.data;
+                const balance = Number(data.balance || 0).toFixed(3);
+                const used = Number(data.used || 0).toFixed(3);
+                const totalAwarded = Number(data.totalAwarded || 0).toFixed(3);
+                const awards = data.awards || [];
+
+                let html = `
+                    <div class="grid grid-cols-3 gap-3 p-4 bg-indigo-50/60 rounded-xl border border-indigo-100 text-center">
+                        <div>
+                            <p class="text-xs text-indigo-600 font-medium">Available Balance</p>
+                            <p class="text-xl font-bold text-indigo-900 mt-0.5">${balance}d</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500 font-medium">Total Awarded</p>
+                            <p class="text-xl font-bold text-gray-800 mt-0.5">${totalAwarded}d</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500 font-medium">Used This Year</p>
+                            <p class="text-xl font-bold text-gray-600 mt-0.5">${used}d</p>
+                        </div>
+                    </div>
+                `;
+
+                if (awards.length === 0) {
+                    html += `
+                        <div class="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                            <i class="fas fa-award text-gray-300 text-4xl mb-2"></i>
+                            <p class="text-sm font-medium text-gray-600">No compensation days awarded yet</p>
+                            <p class="text-xs text-gray-400 mt-1">Use the "Award Days" tab to award days for weekend or holiday work.</p>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="overflow-x-auto border border-gray-200 rounded-lg">
+                            <table class="w-full text-xs text-left">
+                                <thead class="bg-gray-50 text-gray-600 uppercase border-b border-gray-200 font-semibold">
+                                    <tr>
+                                        <th class="py-2.5 px-3">Date Worked</th>
+                                        <th class="py-2.5 px-3 text-center">Days</th>
+                                        <th class="py-2.5 px-3">Reason</th>
+                                        <th class="py-2.5 px-3">Awarded By</th>
+                                        <th class="py-2.5 px-3 text-center">Status</th>
+                                        <th class="py-2.5 px-3 text-right">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                    `;
+
+                    awards.forEach((award, index) => {
+                        const isRevoked = !!award.revoked;
+                        const dateWorked = award.date ? formatDate(award.date) : 'N/A';
+                        const days = Number(award.days || 0).toFixed(2);
+                        const reason = award.reason || '-';
+                        const awardedBy = award.awardedBy || '-';
+
+                        html += `
+                            <tr class="hover:bg-gray-50 ${isRevoked ? 'opacity-50 bg-gray-50/50' : ''}">
+                                <td class="py-2.5 px-3 whitespace-nowrap font-medium text-gray-800">${escapeHtml(dateWorked)}</td>
+                                <td class="py-2.5 px-3 text-center font-bold ${isRevoked ? 'line-through text-gray-400' : 'text-indigo-600'}">+${days}</td>
+                                <td class="py-2.5 px-3 max-w-xs truncate" title="${escapeHtml(reason)}">${escapeHtml(reason)}</td>
+                                <td class="py-2.5 px-3 text-gray-500 whitespace-nowrap">${escapeHtml(awardedBy)}</td>
+                                <td class="py-2.5 px-3 text-center whitespace-nowrap">
+                                    ${isRevoked 
+                                        ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-700">Revoked</span>'
+                                        : '<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-100 text-green-700">Active</span>'}
+                                </td>
+                                <td class="py-2.5 px-3 text-right whitespace-nowrap">
+                                    ${!isRevoked ? `
+                                        <button type="button" onclick="handleRevokeCompensationAward('${escapeHtml(email)}', ${index})" class="text-red-600 hover:text-red-800 text-xs font-medium px-2 py-1 rounded hover:bg-red-50">
+                                            <i class="fas fa-undo-alt mr-1"></i> Revoke
+                                        </button>
+                                    ` : '<span class="text-gray-400 text-xs">—</span>'}
+                                </td>
+                            </tr>
+                        `;
+                    });
+
+                    html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                }
+
+                container.innerHTML = html;
+            } catch (err) {
+                container.innerHTML = `<p class="text-center py-6 text-red-500 text-sm">${escapeHtml(err.message)}</p>`;
+            }
+        }
+
+        async function handleRevokeCompensationAward(email, awardIndex) {
+            const reason = prompt('Please enter the reason for revoking this compensation award:');
+            if (reason === null) return; // User cancelled
+            if (!reason.trim()) {
+                showToast('error', 'Validation Error', 'Revocation reason is required');
+                return;
+            }
+
+            showLoading('Revoking compensation award...');
+
+            try {
+                const res = await callGoogleScriptFunction('apiRevokeCompensationAward', {
+                    email: email,
+                    awardIndex: awardIndex,
+                    reason: reason.trim()
+                });
+
+                hideLoading();
+
+                if (res.success) {
+                    showToast('success', 'Award Revoked', `Award revoked. New balance: ${res.data?.newBalance ?? '-'}`);
+                    
+                    if (window.AppState && window.AppState.allStaff) {
+                        const s = window.AppState.allStaff.find(st => (st.Email || st.email || '').toLowerCase() === email.toLowerCase());
+                        if (s && s.CompensationLeave) {
+                            s.CompensationLeave.balance = res.data?.newBalance ?? s.CompensationLeave.balance;
+                            if (s.CompensationLeave.awards && s.CompensationLeave.awards[awardIndex]) {
+                                s.CompensationLeave.awards[awardIndex].revoked = true;
+                            }
+                        }
+                    }
+
+                    loadStaffCompensationHistory(email);
+
+                    if (window.AppState?.currentPage === 'staffManagement' && typeof loadStaffList === 'function') {
+                        loadStaffList();
+                    } else if (window.AppState?.currentPage === 'myBalance' && typeof loadBalancePage === 'function') {
+                        loadBalancePage();
+                    }
+                } else {
+                    showToast('error', 'Revocation Failed', res.error || 'Failed to revoke award');
+                }
+            } catch (err) {
+                hideLoading();
+                console.error('Revocation error:', err);
+                showToast('error', 'Revocation Failed', err.message);
+            }
+        }
+
+        async function viewAllCompensationRecords() {
+            openCompensationModal('', '', 'history');
+        }
+
         //Global window functions
         window.callGoogleScriptFunction = callGoogleScriptFunction;
         window.loadHRDashboardPage = loadHRDashboardPage;
@@ -7707,6 +8388,17 @@
         window.showToast = showToast;
         window.showLoading = showLoading;
         window.hideLoading = hideLoading;
+
+        // Compensation Leave Window Functions
+        window.openCompensationModal = openCompensationModal;
+        window.closeCompensationModal = closeCompensationModal;
+        window.switchCompensationTab = switchCompensationTab;
+        window.loadAdjustBalanceDisplay = loadAdjustBalanceDisplay;
+        window.handleAwardCompensationSubmit = handleAwardCompensationSubmit;
+        window.handleAdjustCompensationSubmit = handleAdjustCompensationSubmit;
+        window.loadStaffCompensationHistory = loadStaffCompensationHistory;
+        window.handleRevokeCompensationAward = handleRevokeCompensationAward;
+        window.viewAllCompensationRecords = viewAllCompensationRecords;
     </script>
 
     <!-- ── Mobile Bottom Navigation Bar ─────────────────────────── -->

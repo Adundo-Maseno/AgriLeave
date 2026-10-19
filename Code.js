@@ -2765,10 +2765,15 @@ const DashboardManager = {
             const sickBalance = Math.max(0, sickAllocation - sickUsed);
             const sickPercentage = sickAllocation > 0 ? Math.round((sickUsed / sickAllocation) * 100) : 0;
 
-            // Total calculations
-            const totalAvailable = availableAnnual + availableBroughtForward;
-            const totalUsed = usedYearToDate + broughtForwardUsed;
-            const totalAllocation = theoreticalAllocation + (broughtForwardTotal > 0 ? broughtForwardTotal : 0);
+            // Compensation leave
+            const compensationBalance = Math.max(0, user.CompensationLeave?.balance || 0);
+            const compensationUsedTotal = user.CompensationLeave?.used || 0;
+            const compensationTotal = compensationBalance + compensationUsedTotal;
+
+            // Total calculations (annual available + brought forward available + compensation balance)
+            const totalAvailable = availableAnnual + availableBroughtForward + compensationBalance;
+            const totalUsed = usedYearToDate + broughtForwardUsed + compensationUsedTotal;
+            const totalAllocation = theoreticalAllocation + (broughtForwardTotal > 0 ? broughtForwardTotal : 0) + compensationTotal;
             const overallPercentage = totalAllocation > 0 ? Math.round((totalUsed / totalAllocation) * 100) : 0;
 
             const projection = AccrualManager.getAccrualProjection(user);
@@ -2778,10 +2783,6 @@ const DashboardManager = {
                 const nextAccrual = new Date(accrual.nextAccrualDate);
                 daysUntilNextAccrual = Math.max(0, Math.ceil((nextAccrual - currentDate) / (1000 * 60 * 60 * 24)));
             }
-
-            // Compensation leave
-            const compensationBalance = Math.max(0, user.CompensationLeave?.balance || 0);
-            const compensationUsedTotal = user.CompensationLeave?.used || 0;
 
             const balanceData = {
                 eligible: true,
@@ -2815,7 +2816,9 @@ const DashboardManager = {
                 compensation: {
                     balance: compensationBalance,
                     used: compensationUsedTotal,
-                    total: compensationBalance + compensationUsedTotal
+                    total: compensationTotal,
+                    totalAwarded: compensationTotal,
+                    awards: user.CompensationLeave?.awards || []
                 },
                 total: {
                     available: totalAvailable,
@@ -4621,9 +4624,9 @@ function apiGetSupervisors() {
 function apiAwardCompensationLeave(params) {
     try {
         if (typeof params !== 'object' || !params) {
-            return Utils.createErrorResponse('params object required: { email, days, reason }');
+            return Utils.createErrorResponse('params object required: { email, days, reason, date }');
         }
-        const { email, days, reason } = params;
+        const { email, days, reason, date } = params;
         if (!email || !days || days <= 0) {
             return Utils.createErrorResponse('email and positive days are required');
         }
@@ -4649,11 +4652,16 @@ function apiAwardCompensationLeave(params) {
         const awardDays = parseFloat(days);
         member.CompensationLeave.balance = (member.CompensationLeave.balance || 0) + awardDays;
         member.CompensationLeave.awards = member.CompensationLeave.awards || [];
+        
+        const awardDate = date ? new Date(date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+        
         member.CompensationLeave.awards.push({
-            date: new Date().toISOString().split('T')[0],
+            date: awardDate,
             days: awardDays,
             reason: reason || 'Compensation for weekend/public holiday work',
-            awardedBy: currentUser
+            awardedBy: currentUser,
+            timestamp: new Date().toISOString(),
+            revoked: false
         });
 
         member.Metadata.lastUpdated = new Date().toISOString();
@@ -4662,15 +4670,228 @@ function apiAwardCompensationLeave(params) {
         DataManager.writeDataFile(SYSTEM.DATA_FILES.STAFF, staffFile);
         EnhancedCacheManager.clearBalance(email);
 
-        Utils.logAction('AWARD_COMPENSATION_LEAVE', { email, days: awardDays, reason, awardedBy: currentUser });
+        Utils.logAction('AWARD_COMPENSATION_LEAVE', { 
+            email, days: awardDays, reason, date: awardDate, awardedBy: currentUser 
+        });
 
         return Utils.createSuccessResponse({
-            email, daysAwarded: awardDays,
-            newBalance: member.CompensationLeave.balance
+            email, 
+            daysAwarded: awardDays,
+            newBalance: member.CompensationLeave.balance,
+            awards: member.CompensationLeave.awards
         }, `${awardDays} compensation day(s) awarded to ${member.Name}`);
 
     } catch (error) {
         return Utils.createErrorResponse('Failed to award compensation leave: ' + error.message);
+    }
+}
+
+// ── Get staff compensation leave profile and award history ────────────────
+function apiGetStaffCompensation(emailOrParams) {
+    try {
+        const currentUser = Session.getActiveUser().getEmail();
+        const currentRole = StaffManager.getUserRole(currentUser);
+
+        const email = typeof emailOrParams === 'object' && emailOrParams !== null
+            ? (emailOrParams.email || currentUser)
+            : (emailOrParams || currentUser);
+
+        const isSelf = currentUser.toLowerCase().trim() === email.toLowerCase().trim();
+        const isPrivileged = currentRole === SYSTEM.ROLES.ADMIN || currentRole === SYSTEM.ROLES.HR || currentRole === SYSTEM.ROLES.SUPERVISOR;
+
+        if (!isSelf && !isPrivileged) {
+            return Utils.createErrorResponse('Insufficient permissions to view compensation details');
+        }
+
+        const staff = StaffManager.getUserData(email);
+        if (!staff) return Utils.createErrorResponse('Staff member not found');
+
+        const comp = staff.CompensationLeave || { balance: 0, used: 0, awards: [] };
+
+        return Utils.createSuccessResponse({
+            email: staff.Email,
+            name: staff.Name,
+            department: staff.Department,
+            balance: comp.balance || 0,
+            used: comp.used || 0,
+            totalAwarded: (comp.balance || 0) + (comp.used || 0),
+            awards: comp.awards || []
+        });
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to get staff compensation: ' + error.message);
+    }
+}
+
+// ── Adjust compensation leave balance directly (Admin/HR only) ─────────────
+function apiAdjustCompensationLeave(params) {
+    try {
+        if (typeof params !== 'object' || !params) {
+            return Utils.createErrorResponse('params object required: { email, newBalance, reason }');
+        }
+        const { email, newBalance, reason } = params;
+        if (!email || newBalance === undefined || isNaN(parseFloat(newBalance)) || parseFloat(newBalance) < 0) {
+            return Utils.createErrorResponse('email and non-negative newBalance are required');
+        }
+
+        const currentUser = Session.getActiveUser().getEmail();
+        const currentRole = StaffManager.getUserRole(currentUser);
+        if (currentRole !== SYSTEM.ROLES.ADMIN && currentRole !== SYSTEM.ROLES.HR) {
+            return Utils.createErrorResponse('Only Admin or HR can adjust compensation leave');
+        }
+
+        const staffFile = DataManager.readDataFile(SYSTEM.DATA_FILES.STAFF);
+        const idx = staffFile.data.findIndex(s =>
+            s.Email.toLowerCase().trim() === email.toLowerCase().trim()
+        );
+        if (idx === -1) return Utils.createErrorResponse('Staff member not found');
+
+        const member = staffFile.data[idx];
+        if (!member.CompensationLeave) {
+            member.CompensationLeave = { balance: 0, used: 0, awards: [] };
+        }
+
+        const prevBalance = member.CompensationLeave.balance || 0;
+        const targetBalance = Math.max(0, parseFloat(newBalance));
+        const delta = targetBalance - prevBalance;
+
+        member.CompensationLeave.balance = targetBalance;
+        member.CompensationLeave.awards = member.CompensationLeave.awards || [];
+        member.CompensationLeave.awards.push({
+            date: new Date().toISOString().split('T')[0],
+            days: delta,
+            type: 'adjustment',
+            previousBalance: prevBalance,
+            newBalance: targetBalance,
+            reason: reason || `Manual balance adjustment by ${currentUser}`,
+            awardedBy: currentUser,
+            timestamp: new Date().toISOString(),
+            revoked: false
+        });
+
+        member.Metadata.lastUpdated = new Date().toISOString();
+        member.Metadata.updatedBy = currentUser;
+
+        DataManager.writeDataFile(SYSTEM.DATA_FILES.STAFF, staffFile);
+        EnhancedCacheManager.clearBalance(email);
+
+        Utils.logAction('ADJUST_COMPENSATION_LEAVE', {
+            email, prevBalance, newBalance: targetBalance, delta, reason, adjustedBy: currentUser
+        });
+
+        return Utils.createSuccessResponse({
+            email, prevBalance, previousBalance: prevBalance, newBalance: targetBalance, delta,
+            awards: member.CompensationLeave.awards
+        }, `Compensation balance for ${member.Name} adjusted from ${prevBalance.toFixed(3)} to ${targetBalance.toFixed(3)} days`);
+
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to adjust compensation leave: ' + error.message);
+    }
+}
+
+// ── Revoke an existing compensation leave award (Admin/HR only) ─────────────
+function apiRevokeCompensationAward(params) {
+    try {
+        if (typeof params !== 'object' || !params) {
+            return Utils.createErrorResponse('params object required: { email, awardIndex, reason }');
+        }
+        const { email, awardIndex, reason } = params;
+        if (!email || awardIndex === undefined || awardIndex === null) {
+            return Utils.createErrorResponse('email and awardIndex are required');
+        }
+
+        const currentUser = Session.getActiveUser().getEmail();
+        const currentRole = StaffManager.getUserRole(currentUser);
+        if (currentRole !== SYSTEM.ROLES.ADMIN && currentRole !== SYSTEM.ROLES.HR) {
+            return Utils.createErrorResponse('Only Admin or HR can revoke compensation awards');
+        }
+
+        const staffFile = DataManager.readDataFile(SYSTEM.DATA_FILES.STAFF);
+        const idx = staffFile.data.findIndex(s =>
+            s.Email.toLowerCase().trim() === email.toLowerCase().trim()
+        );
+        if (idx === -1) return Utils.createErrorResponse('Staff member not found');
+
+        const member = staffFile.data[idx];
+        if (!member.CompensationLeave || !member.CompensationLeave.awards || !member.CompensationLeave.awards[awardIndex]) {
+            return Utils.createErrorResponse('Award record not found');
+        }
+
+        const targetAward = member.CompensationLeave.awards[awardIndex];
+        if (targetAward.revoked) {
+            return Utils.createErrorResponse('This award has already been revoked');
+        }
+
+        const daysToDeduct = targetAward.days || 0;
+        const currentBal = member.CompensationLeave.balance || 0;
+        const newBal = Math.max(0, currentBal - daysToDeduct);
+
+        targetAward.revoked = true;
+        targetAward.revokedDate = new Date().toISOString().split('T')[0];
+        targetAward.revokedBy = currentUser;
+        targetAward.revocationReason = reason || 'Award revoked by administrator';
+
+        member.CompensationLeave.balance = newBal;
+        member.Metadata.lastUpdated = new Date().toISOString();
+        member.Metadata.updatedBy = currentUser;
+
+        DataManager.writeDataFile(SYSTEM.DATA_FILES.STAFF, staffFile);
+        EnhancedCacheManager.clearBalance(email);
+
+        Utils.logAction('REVOKE_COMPENSATION_AWARD', {
+            email, awardIndex, daysDeducted: daysToDeduct, newBalance: newBal, reason, revokedBy: currentUser
+        });
+
+        return Utils.createSuccessResponse({
+            email, newBalance: newBal, revokedAward: targetAward,
+            awards: member.CompensationLeave.awards
+        }, `Award of ${daysToDeduct} day(s) revoked for ${member.Name}. New balance: ${newBal.toFixed(3)}`);
+
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to revoke compensation award: ' + error.message);
+    }
+}
+
+// ── Get all compensation records across the organization (Admin/HR only) ───
+function apiGetAllCompensationRecords() {
+    try {
+        const currentUser = Session.getActiveUser().getEmail();
+        const currentRole = StaffManager.getUserRole(currentUser);
+        if (currentRole !== SYSTEM.ROLES.ADMIN && currentRole !== SYSTEM.ROLES.HR) {
+            return Utils.createErrorResponse('Only Admin or HR can access all compensation records');
+        }
+
+        const staffData = StaffManager.getAllStaffData().filter(s => s.Metadata?.active !== false);
+        const records = staffData.map(s => {
+            const comp = s.CompensationLeave || { balance: 0, used: 0, awards: [] };
+            return {
+                email: s.Email,
+                name: s.Name,
+                department: s.Department,
+                role: s.Role,
+                eligibleForLeave: s.EligibleForLeave,
+                balance: comp.balance || 0,
+                used: comp.used || 0,
+                totalAwarded: (comp.balance || 0) + (comp.used || 0),
+                awardsCount: (comp.awards || []).length,
+                awards: comp.awards || []
+            };
+        });
+
+        const totalActiveBalance = records.reduce((sum, r) => sum + r.balance, 0);
+        const totalUsed = records.reduce((sum, r) => sum + r.used, 0);
+
+        return Utils.createSuccessResponse({
+            records: records,
+            summary: {
+                totalStaffWithComp: records.filter(r => r.balance > 0 || r.used > 0).length,
+                totalActiveBalance: +totalActiveBalance.toFixed(3),
+                totalBalance: +totalActiveBalance.toFixed(3),
+                totalUsed: +totalUsed.toFixed(3),
+                totalAwarded: +(totalActiveBalance + totalUsed).toFixed(3)
+            }
+        });
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to load compensation records: ' + error.message);
     }
 }
 
