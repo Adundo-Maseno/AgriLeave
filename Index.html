@@ -2771,14 +2771,20 @@
                     <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                       ${app.LeaveMode === 'Hourly'
                         ? `${app.Hours} hours`
-                        : `${app.Duration} days`
+                        : `${(app.Status === 'Pending' && app.StartDate && app.EndDate) ? calculateBusinessDays(app.StartDate, app.EndDate) : (app.Duration || 0)} days`
                     }
                       ${app.LeaveMode === 'Hourly' && app.Duration
                         ? ` (${app.Duration.toFixed(3)} days)`
                         : app.CalendarDays && app.CalendarDays !== app.Duration
-                            ? ` (${app.CalendarDays} calendar days)`
+                            ? ` (${app.CalendarDays} cal days)`
                             : ''
                     }
+                      ${(() => {
+                          if (app.LeaveMode === 'Hourly' || !app.StartDate || !app.EndDate) return '';
+                          const hols = getHolidaysInRange(app.StartDate, app.EndDate).filter(h => !h.isWeekend);
+                          if (hols.length === 0) return '';
+                          return `<br><span class="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded font-medium mt-1" title="Excludes: ${escapeHtml(hols.map(h => h.name).join(', '))}"><i class="fas fa-calendar-check text-[10px]"></i> ${hols.length} holiday${hols.length > 1 ? 's' : ''} excl.</span>`;
+                      })()}
                     </td>
                     <td class="px-4 py-4 whitespace-nowrap">
                       <span class="status-badge ${(app.Status || 'pending').toLowerCase()} px-3 py-1 rounded-full text-xs font-medium">${app.Status || 'Pending'}</span>
@@ -3519,17 +3525,23 @@
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       ${formatDate(app.StartDate)} ${app.EndDate && app.StartDate !== app.EndDate ? `to ${formatDate(app.EndDate)}` : ''}
                     </td>
-                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       ${app.LeaveMode === 'Hourly'
-                                ? `${app.Hours} hours`
-                                : `${app.Duration} days`
-                            }
+                        ? `${app.Hours} hours`
+                        : `${(app.Status === 'Pending' && app.StartDate && app.EndDate) ? calculateBusinessDays(app.StartDate, app.EndDate) : (app.Duration || 0)} days`
+                    }
                       ${app.LeaveMode === 'Hourly' && app.Duration
-                                ? ` (${app.Duration.toFixed(3)} days)`
-                                : app.CalendarDays && app.CalendarDays !== app.Duration
-                                    ? ` (${app.CalendarDays} calendar days)`
-                                    : ''
-                            }
+                        ? ` (${app.Duration.toFixed(3)} days)`
+                        : app.CalendarDays && app.CalendarDays !== app.Duration
+                            ? ` (${app.CalendarDays} cal days)`
+                            : ''
+                    }
+                      ${(() => {
+                          if (app.LeaveMode === 'Hourly' || !app.StartDate || !app.EndDate) return '';
+                          const hols = getHolidaysInRange(app.StartDate, app.EndDate).filter(h => !h.isWeekend);
+                          if (hols.length === 0) return '';
+                          return `<br><span class="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded font-medium mt-1" title="Excludes: ${escapeHtml(hols.map(h => h.name).join(', '))}"><i class="fas fa-calendar-check text-[10px]"></i> ${hols.length} holiday${hols.length > 1 ? 's' : ''} excl.</span>`;
+                      })()}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                       <span class="status-badge ${(app.Status || 'pending').toLowerCase()} px-3 py-1 rounded-full text-xs font-medium">${app.Status || 'Pending'}</span>
@@ -6733,6 +6745,25 @@
             document.getElementById('applyLeaveModal').classList.add('hidden');
         }
 
+        function parseLocalDate(dateInput) {
+            if (!dateInput) return null;
+            if (dateInput instanceof Date) {
+                return new Date(dateInput.getFullYear(), dateInput.getMonth(), dateInput.getDate());
+            }
+            if (typeof dateInput === 'string') {
+                const str = dateInput.split('T')[0];
+                const parts = str.split(/[-/]/);
+                if (parts.length === 3) {
+                    const y = parseInt(parts[0], 10);
+                    const m = parseInt(parts[1], 10) - 1;
+                    const d = parseInt(parts[2], 10);
+                    return new Date(y, m, d);
+                }
+            }
+            const d = new Date(dateInput);
+            return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        }
+
         function calculateEasterDate(year) {
             const a = year % 19;
             const b = Math.floor(year / 100);
@@ -6751,57 +6782,91 @@
             return new Date(year, month - 1, day);
         }
 
-        function isPublicHoliday(date) {
-            const d = new Date(date);
-            d.setHours(0, 0, 0, 0);
+        function getPublicHolidayDetails(dateInput) {
+            const d = parseLocalDate(dateInput);
+            if (!d || isNaN(d.getTime())) return null;
+
             const year = d.getFullYear();
+            const month = d.getMonth();
+            const dateNum = d.getDate();
 
-            const fixedHolidays = [
-                { month: 0, day: 1 },   // New Year's Day
-                { month: 4, day: 1 },   // Labour Day
-                { month: 5, day: 1 },   // Madaraka Day
-                { month: 9, day: 10 },  // Utamaduni / Mazigira Day
-                { month: 9, day: 20 },  // Mashujaa Day
-                { month: 11, day: 12 }, // Jamhuri Day
-                { month: 11, day: 25 }, // Christmas Day
-                { month: 11, day: 26 }  // Boxing Day
-            ];
-
+            // 1. Dynamic Easter Holidays (Good Friday = Easter - 2 days, Easter Monday = Easter + 1 day)
             const easter = calculateEasterDate(year);
-            easter.setHours(0, 0, 0, 0);
-            const goodFriday = new Date(easter);
-            goodFriday.setDate(easter.getDate() - 2);
-            const easterMonday = new Date(easter);
-            easterMonday.setDate(easter.getDate() + 1);
+            const goodFriday = new Date(easter.getFullYear(), easter.getMonth(), easter.getDate() - 2);
+            const easterMonday = new Date(easter.getFullYear(), easter.getMonth(), easter.getDate() + 1);
 
-            if (d.getTime() === goodFriday.getTime() || d.getTime() === easterMonday.getTime()) {
-                return true;
+            if (month === goodFriday.getMonth() && dateNum === goodFriday.getDate()) {
+                return { name: 'Good Friday', isHoliday: true };
+            }
+            if (month === easterMonday.getMonth() && dateNum === easterMonday.getDate()) {
+                return { name: 'Easter Monday', isHoliday: true };
             }
 
+            // 2. Fixed Kenya Public Holidays [month (0-11), day (1-31)]
+            const fixedHolidays = [
+                { month: 0, day: 1, name: "New Year's Day" },
+                { month: 4, day: 1, name: "Labour Day" },
+                { month: 5, day: 1, name: "Madaraka Day" },
+                { month: 9, day: 10, name: "Utamaduni / Mazingira Day" },
+                { month: 9, day: 20, name: "Mashujaa Day" },
+                { month: 11, day: 12, name: "Jamhuri Day" },
+                { month: 11, day: 25, name: "Christmas Day" },
+                { month: 11, day: 26, name: "Boxing Day" }
+            ];
+
             for (const h of fixedHolidays) {
+                if (month === h.month && dateNum === h.day) {
+                    return { name: h.name, isHoliday: true };
+                }
+                // Sunday observed rule (if holiday falls on Sunday, following Monday is observed)
                 const hDate = new Date(year, h.month, h.day);
-                hDate.setHours(0, 0, 0, 0);
-                if (d.getTime() === hDate.getTime()) return true;
                 if (hDate.getDay() === 0) {
-                    const observedMonday = new Date(hDate);
-                    observedMonday.setDate(hDate.getDate() + 1);
-                    if (d.getTime() === observedMonday.getTime()) return true;
+                    const obsDate = new Date(year, h.month, h.day + 1);
+                    if (month === obsDate.getMonth() && dateNum === obsDate.getDate()) {
+                        return { name: `${h.name} (Observed)`, isHoliday: true };
+                    }
                 }
             }
 
-            return false;
+            return null;
+        }
+
+        function isPublicHoliday(date) {
+            return getPublicHolidayDetails(date) !== null;
+        }
+
+        function getHolidaysInRange(startDate, endDate) {
+            const start = parseLocalDate(startDate);
+            const end = parseLocalDate(endDate);
+            if (!start || !end || start > end) return [];
+
+            const holidays = [];
+            const current = new Date(start.getTime());
+
+            while (current <= end) {
+                const hol = getPublicHolidayDetails(current);
+                if (hol) {
+                    const day = current.getDay();
+                    holidays.push({
+                        date: current.toISOString().split('T')[0],
+                        name: hol.name,
+                        dayOfWeek: day,
+                        isWeekend: day === 0 || day === 6
+                    });
+                }
+                current.setDate(current.getDate() + 1);
+            }
+            return holidays;
         }
 
         function calculateBusinessDays(startDateStr, endDateStr) {
             if (!startDateStr || !endDateStr) return 0;
-            const start = new Date(startDateStr);
-            const end = new Date(endDateStr);
-            if (start > end) return 0;
+            const start = parseLocalDate(startDateStr);
+            const end = parseLocalDate(endDateStr);
+            if (!start || !end || start > end) return 0;
 
             let count = 0;
-            const current = new Date(start);
-            current.setHours(0, 0, 0, 0);
-            end.setHours(0, 0, 0, 0);
+            const current = new Date(start.getTime());
 
             while (current <= end) {
                 const day = current.getDay();
@@ -6816,33 +6881,59 @@
         function updateBusinessDaysDisplay() {
             const startDate = document.getElementById('startDate').value;
             const endDate = document.getElementById('endDate').value;
-            if (!startDate || !endDate) return;
+            const infoEl = document.getElementById('businessDaysInfo');
+            if (!infoEl) return;
+            if (!startDate || !endDate) {
+                infoEl.innerHTML = 'Business days: 0';
+                return;
+            }
 
-            const start = new Date(startDate);
-            const end = new Date(endDate);
+            const start = parseLocalDate(startDate);
+            const end = parseLocalDate(endDate);
             if (start > end) {
-                document.getElementById('businessDaysInfo').textContent = 'Business days: 0 (End date must be after start date)';
+                infoEl.innerHTML = '<span class="text-rose-500 font-medium"><i class="fas fa-exclamation-circle mr-1"></i>Business days: 0 (End date must be after start date)</span>';
                 return;
             }
 
             const count = calculateBusinessDays(startDate, endDate);
-            document.getElementById('businessDaysInfo').textContent = `Business days: ${count}`;
+            const holidays = getHolidaysInRange(startDate, endDate);
+            const weekdayHolidays = holidays.filter(h => !h.isWeekend);
+
+            if (weekdayHolidays.length > 0) {
+                const names = weekdayHolidays.map(h => h.name).join(', ');
+                infoEl.innerHTML = `<span class="font-semibold text-gray-900">Business days: ${count}</span> <span class="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full text-xs font-medium ml-1"><i class="fas fa-calendar-check text-emerald-600"></i> ${weekdayHolidays.length} holiday${weekdayHolidays.length > 1 ? 's' : ''} excluded: ${escapeHtml(names)}</span>`;
+            } else {
+                infoEl.innerHTML = `<span class="font-semibold text-gray-900">Business days: ${count}</span>`;
+            }
         }
 
         function updateBusinessDaysDisplayForPage() {
             const startDate = document.getElementById('pageStartDate').value;
             const endDate = document.getElementById('pageEndDate').value;
-            if (!startDate || !endDate) return;
+            const infoEl = document.getElementById('pageBusinessDaysInfo');
+            if (!infoEl) return;
+            if (!startDate || !endDate) {
+                infoEl.innerHTML = 'Business days: 0';
+                return;
+            }
 
-            const start = new Date(startDate);
-            const end = new Date(endDate);
+            const start = parseLocalDate(startDate);
+            const end = parseLocalDate(endDate);
             if (start > end) {
-                document.getElementById('pageBusinessDaysInfo').textContent = 'Business days: 0 (End date must be after start date)';
+                infoEl.innerHTML = '<span class="text-rose-500 font-medium"><i class="fas fa-exclamation-circle mr-1"></i>Business days: 0 (End date must be after start date)</span>';
                 return;
             }
 
             const count = calculateBusinessDays(startDate, endDate);
-            document.getElementById('pageBusinessDaysInfo').textContent = `Business days: ${count}`;
+            const holidays = getHolidaysInRange(startDate, endDate);
+            const weekdayHolidays = holidays.filter(h => !h.isWeekend);
+
+            if (weekdayHolidays.length > 0) {
+                const names = weekdayHolidays.map(h => h.name).join(', ');
+                infoEl.innerHTML = `<span class="font-semibold text-gray-900">Business days: ${count}</span> <span class="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full text-xs font-medium ml-1"><i class="fas fa-calendar-check text-emerald-600"></i> ${weekdayHolidays.length} holiday${weekdayHolidays.length > 1 ? 's' : ''} excluded: ${escapeHtml(names)}</span>`;
+            } else {
+                infoEl.innerHTML = `<span class="font-semibold text-gray-900">Business days: ${count}</span>`;
+            }
         }
         // Modal balance check
         function checkLeaveBalance() {
@@ -7138,27 +7229,6 @@
             }
 
             return html;
-        }
-
-        // Helper function to calculate business days
-        function calculateBusinessDays(startDate, endDate) {
-            const start = new Date(startDate);
-            const end = new Date(endDate);
-
-            if (start > end) return 0;
-
-            let count = 0;
-            const current = new Date(start);
-            current.setHours(0, 0, 0, 0);
-            end.setHours(0, 0, 0, 0);
-
-            while (current <= end) {
-                const day = current.getDay();
-                if (day !== 0 && day !== 6) count++;
-                current.setDate(current.getDate() + 1);
-            }
-
-            return count;
         }
 
 
@@ -8215,7 +8285,7 @@
               <p class="font-medium text-gray-900">
                 ${application.LeaveMode === 'Hourly'
                     ? `${application.Hours || 0} hours`
-                    : `${application.Duration || 0} days`
+                    : `${(application.Status === 'Pending' && application.StartDate && application.EndDate) ? calculateBusinessDays(application.StartDate, application.EndDate) : (application.Duration || 0)} business days`
                 }
                 ${application.LeaveMode === 'Hourly' && application.Duration
                     ? ` (${application.Duration.toFixed(3)} days)`
@@ -8224,6 +8294,14 @@
                         : ''
                 }
               </p>
+              ${(() => {
+                  if (application.LeaveMode === 'Hourly' || !application.StartDate || !application.EndDate) return '';
+                  const hols = getHolidaysInRange(application.StartDate, application.EndDate).filter(h => !h.isWeekend);
+                  if (hols.length === 0) return '';
+                  return `<p class="mt-1.5 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md p-1.5 inline-flex items-center gap-1.5">
+                      <i class="fas fa-calendar-check text-emerald-600"></i> Excludes public holiday: <strong>${escapeHtml(hols.map(h => h.name).join(', '))}</strong>
+                  </p>`;
+              })()}
             </div>
         </div>
         

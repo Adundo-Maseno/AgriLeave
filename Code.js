@@ -156,60 +156,110 @@ const Utils = {
         });
     },
 
-    isPublicHoliday: function (date) {
-        const d = new Date(date);
-        d.setHours(0, 0, 0, 0);
-        const year = d.getFullYear();
+    parseLocalDate: function (dateInput) {
+        if (!dateInput) return null;
+        if (dateInput instanceof Date) {
+            return new Date(dateInput.getFullYear(), dateInput.getMonth(), dateInput.getDate());
+        }
+        if (typeof dateInput === 'string') {
+            const str = dateInput.split('T')[0];
+            const parts = str.split(/[-/]/);
+            if (parts.length === 3) {
+                const y = parseInt(parts[0], 10);
+                const m = parseInt(parts[1], 10) - 1;
+                const d = parseInt(parts[2], 10);
+                return new Date(y, m, d);
+            }
+        }
+        const d = new Date(dateInput);
+        return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    },
 
-        // 1. Fixed Kenya Public Holidays [month (0-11), day (1-31)]
+    getPublicHolidayDetails: function (date) {
+        const d = this.parseLocalDate(date);
+        if (!d || isNaN(d.getTime())) return null;
+
+        const year = d.getFullYear();
+        const month = d.getMonth();
+        const dateNum = d.getDate();
+
+        // 1. Dynamic Easter Holidays (Good Friday = Easter - 2 days, Easter Monday = Easter + 1 day)
+        const easter = this.calculateEasterDate(year);
+        const goodFriday = new Date(easter.getFullYear(), easter.getMonth(), easter.getDate() - 2);
+        const easterMonday = new Date(easter.getFullYear(), easter.getMonth(), easter.getDate() + 1);
+
+        if (month === goodFriday.getMonth() && dateNum === goodFriday.getDate()) {
+            return { name: 'Good Friday', isHoliday: true };
+        }
+        if (month === easterMonday.getMonth() && dateNum === easterMonday.getDate()) {
+            return { name: 'Easter Monday', isHoliday: true };
+        }
+
+        // 2. Fixed Kenya Public Holidays [month (0-11), day (1-31)]
         const fixedHolidays = [
             { month: 0, day: 1, name: "New Year's Day" },
             { month: 4, day: 1, name: "Labour Day" },
             { month: 5, day: 1, name: "Madaraka Day" },
-            { month: 9, day: 10, name: "Utamaduni / Mazigira Day" },
+            { month: 9, day: 10, name: "Utamaduni / Mazingira Day" },
             { month: 9, day: 20, name: "Mashujaa Day" },
             { month: 11, day: 12, name: "Jamhuri Day" },
             { month: 11, day: 25, name: "Christmas Day" },
             { month: 11, day: 26, name: "Boxing Day" }
         ];
 
-        // 2. Dynamic Easter Holidays (Good Friday = Easter - 2 days, Easter Monday = Easter + 1 day)
-        const easter = this.calculateEasterDate(year);
-        easter.setHours(0, 0, 0, 0);
-        const goodFriday = new Date(easter);
-        goodFriday.setDate(easter.getDate() - 2);
-        const easterMonday = new Date(easter);
-        easterMonday.setDate(easter.getDate() + 1);
-
-        if (d.getTime() === goodFriday.getTime() || d.getTime() === easterMonday.getTime()) {
-            return true;
-        }
-
-        // Check fixed holidays & Sunday observed rule (if holiday falls on Sunday, following Monday is observed)
         for (const h of fixedHolidays) {
-            const hDate = new Date(year, h.month, h.day);
-            hDate.setHours(0, 0, 0, 0);
-            if (d.getTime() === hDate.getTime()) {
-                return true;
+            if (month === h.month && dateNum === h.day) {
+                return { name: h.name, isHoliday: true };
             }
+            // Sunday observed rule (if holiday falls on Sunday, following Monday is observed)
+            const hDate = new Date(year, h.month, h.day);
             if (hDate.getDay() === 0) {
-                const observedMonday = new Date(hDate);
-                observedMonday.setDate(hDate.getDate() + 1);
-                if (d.getTime() === observedMonday.getTime()) {
-                    return true;
+                const obsDate = new Date(year, h.month, h.day + 1);
+                if (month === obsDate.getMonth() && dateNum === obsDate.getDate()) {
+                    return { name: `${h.name} (Observed)`, isHoliday: true };
                 }
             }
         }
 
-        return false;
+        return null;
+    },
+
+    isPublicHoliday: function (date) {
+        return this.getPublicHolidayDetails(date) !== null;
+    },
+
+    getHolidaysInRange: function (startDate, endDate) {
+        const start = this.parseLocalDate(startDate);
+        const end = this.parseLocalDate(endDate);
+        if (!start || !end || start > end) return [];
+
+        const holidays = [];
+        const current = new Date(start.getTime());
+
+        while (current <= end) {
+            const hol = this.getPublicHolidayDetails(current);
+            if (hol) {
+                const day = current.getDay();
+                holidays.push({
+                    date: current.toISOString().split('T')[0],
+                    name: hol.name,
+                    dayOfWeek: day,
+                    isWeekend: day === 0 || day === 6
+                });
+            }
+            current.setDate(current.getDate() + 1);
+        }
+        return holidays;
     },
 
     getBusinessDays: function (startDate, endDate) {
+        const start = this.parseLocalDate(startDate);
+        const end = this.parseLocalDate(endDate);
+        if (!start || !end || start > end) return 0;
+
         let count = 0;
-        const current = new Date(startDate);
-        const end = new Date(endDate);
-        current.setHours(0, 0, 0, 0);
-        end.setHours(0, 0, 0, 0);
+        const current = new Date(start.getTime());
+
         while (current <= end) {
             const day = current.getDay();
             if (day !== 0 && day !== 6 && !this.isPublicHoliday(current)) {
@@ -1967,6 +2017,42 @@ const ApplicationsManager = {
         try {
             const applicationsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.APPLICATIONS);
             let applications = applicationsFile.data || [];
+            let updatedApplicationsFile = false;
+
+            // Self-heal pending daily applications if business days were incorrectly calculated with holidays
+            applications.forEach(app => {
+                if (app && app.Status === SYSTEM.STATUS.PENDING && app.LeaveMode !== 'Hourly' && app.StartDate && app.EndDate) {
+                    const accurateBusinessDays = Utils.getBusinessDays(app.StartDate, app.EndDate);
+                    if (accurateBusinessDays > 0 && app.Duration !== accurateBusinessDays) {
+                        const oldDuration = app.Duration;
+                        app.Duration = accurateBusinessDays;
+                        if (!app.Metadata) app.Metadata = {};
+                        app.Metadata.businessDays = accurateBusinessDays;
+                        const holidays = Utils.getHolidaysInRange(app.StartDate, app.EndDate).filter(h => !h.isWeekend);
+                        app.Metadata.holidaysExcluded = holidays.map(h => h.name);
+
+                        // Also adjust deduction amounts if needed
+                        if (app.DeductFromAnnual > 0 && app.DeductFromAnnual === oldDuration) {
+                            app.DeductFromAnnual = accurateBusinessDays;
+                        } else if (app.DeductFromCompensation > 0 && app.DeductFromCompensation === oldDuration) {
+                            app.DeductFromCompensation = accurateBusinessDays;
+                        } else if (app.DeductFromSick > 0 && app.DeductFromSick === oldDuration) {
+                            app.DeductFromSick = accurateBusinessDays;
+                        } else if (app.DeductFromBroughtForward > 0 && app.DeductFromBroughtForward === oldDuration) {
+                            app.DeductFromBroughtForward = accurateBusinessDays;
+                        }
+                        updatedApplicationsFile = true;
+                    }
+                }
+            });
+
+            if (updatedApplicationsFile) {
+                try {
+                    DataManager.writeDataFile(SYSTEM.DATA_FILES.APPLICATIONS, applicationsFile);
+                } catch (e) {
+                    console.error('Failed to save healed applications:', e);
+                }
+            }
 
             if (filters.email) applications = applications.filter(app =>
                 app.Email && app.Email.toLowerCase() === filters.email.toLowerCase()
@@ -2046,10 +2132,9 @@ const ApplicationsManager = {
                 businessDays = duration;
             } else {
                 if (!startDate || !endDate) return Utils.createErrorResponse('Start date and end date are required');
-                const start = new Date(startDate);
-                const end = new Date(endDate);
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
+                const start = Utils.parseLocalDate(startDate);
+                const end = Utils.parseLocalDate(endDate);
+                const today = Utils.parseLocalDate(new Date());
                 // Sick leave may be applied retroactively; only future-only restriction applies to other leave types
                 const isSickLeaveType = applicationData.leaveType === SYSTEM.LEAVE_TYPES.SICK;
                 if (!isSickLeaveType && start < today) return Utils.createErrorResponse('Start date cannot be in the past');
@@ -2067,10 +2152,10 @@ const ApplicationsManager = {
             const deductions = balanceCheck.data.deductions;
             let calendarDays = 0;
             if (applicationData.leaveMode !== 'Hourly' && startDate && endDate) {
-                const start = new Date(startDate);
-                const end = new Date(endDate);
+                const start = Utils.parseLocalDate(startDate);
+                const end = Utils.parseLocalDate(endDate);
                 const diffTime = Math.abs(end.getTime() - start.getTime());
-                calendarDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                calendarDays = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1;
             }
 
             const appId = 'APP-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9).toUpperCase();
@@ -2086,6 +2171,10 @@ const ApplicationsManager = {
             // in the annual accrual — they draw from a separate expiring pool).
             const availableAfter = AccrualManager.calculateAvailableBalance(user) - (deductions.annual || 0);
             const willHaveDeficit = availableAfter < 0;
+
+            const holidaysExcluded = (applicationData.leaveMode !== 'Hourly' && startDate && endDate)
+                ? Utils.getHolidaysInRange(startDate, endDate).filter(h => !h.isWeekend).map(h => h.name)
+                : [];
 
             const application = {
                 ID: appId,
@@ -2118,6 +2207,7 @@ const ApplicationsManager = {
                     isHourly: applicationData.leaveMode === 'Hourly',
                     timestamp: new Date().toISOString(),
                     businessDays: businessDays,
+                    holidaysExcluded: holidaysExcluded,
                     willCreateDeficit: willHaveDeficit,
                     deficitAmount: willHaveDeficit ? Math.abs(availableAfter) : 0
                 }
