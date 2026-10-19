@@ -1588,6 +1588,19 @@
                                     <input type="text" id="handoverNotes" placeholder="e.g. Urgent queries to Jane; files in shared drive" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-emerald-500">
                                 </div>
                             </div>
+                            <!-- Coverage Tasks Checklist Builder -->
+                            <div class="mt-2 pt-2.5 border-t border-emerald-100/70">
+                                <div class="flex items-center justify-between mb-1.5">
+                                    <label class="text-[11px] font-semibold text-emerald-900 flex items-center gap-1">
+                                        <i class="fas fa-tasks text-emerald-600"></i> Coverage Tasks / Delegated Duties
+                                    </label>
+                                    <button type="button" onclick="addHandoverTaskRow('modal')" class="text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 flex items-center gap-1 transition-colors">
+                                        <i class="fas fa-plus-circle"></i> Add Task
+                                    </button>
+                                </div>
+                                <div id="modalHandoverTasksContainer" class="space-y-1.5"></div>
+                                <p class="text-[10px] text-gray-500 mt-1">Add key responsibilities for your coverage reliever to check off.</p>
+                            </div>
                         </div>
 
                         <!-- Supporting Document Attachment Section -->
@@ -2419,6 +2432,129 @@
                 </form>
             </div>
         </div>
+    <!-- Gazetted Holiday Modal (HR/Admin) -->
+    <div id="gazettedHolidayModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="fixed inset-0 modal-overlay" id="gazettedHolidayModalBackdrop" onclick="closeGazettedHolidayModal()"></div>
+            <div class="relative bg-white rounded-2xl text-left shadow-2xl w-full max-w-md flex flex-col border border-emerald-100 overflow-hidden">
+                <div class="bg-gradient-to-r from-emerald-700 to-emerald-800 px-6 py-4 rounded-t-2xl text-white flex justify-between items-center">
+                    <div class="flex items-center space-x-3">
+                        <div class="h-9 w-9 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
+                            <i class="fas fa-flag text-white"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-bold">Gazette Public Holiday</h3>
+                            <p class="text-xs text-emerald-200">Register state gazetted holidays & recalibrate leaves</p>
+                        </div>
+                    </div>
+                    <button type="button" onclick="closeGazettedHolidayModal()" class="text-white/80 hover:text-white p-1">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <form id="gazettedHolidayForm" onsubmit="handleSaveGazettedHoliday(event)" class="p-6 space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">Holiday Name *</label>
+                        <input type="text" id="holidayNameInput" placeholder="e.g. National Tree Planting Day" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">Holiday Date *</label>
+                        <input type="date" id="holidayDateInput" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">Gazette Notice / Description</label>
+                        <textarea id="holidayDescInput" rows="2" placeholder="e.g. Special public holiday declared via Kenya Gazette Vol. CXXVI" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500"></textarea>
+                    </div>
+                    <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-start gap-2">
+                        <i class="fas fa-info-circle text-amber-600 mt-0.5"></i>
+                        <span>After saving, you can click <strong>Recalibrate Leaves</strong> to automatically refund overlapping business days for employees on approved leave!</span>
+                    </div>
+                    <div class="pt-3 border-t border-gray-100 flex justify-end space-x-3">
+                        <button type="button" onclick="closeGazettedHolidayModal()" class="px-4 py-2 border border-gray-300 rounded-xl text-sm text-gray-700 hover:bg-gray-50">Cancel</button>
+                        <button type="submit" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold shadow-sm transition-all flex items-center gap-1.5">
+                            <i class="fas fa-save text-xs"></i> Gazette Holiday
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vacation Responder Template Preview Modal -->
+    <div id="vacationResponderModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="fixed inset-0 modal-overlay" id="vacationResponderModalBackdrop" onclick="closeVacationResponderModal()"></div>
+            <div class="relative bg-white rounded-2xl text-left shadow-2xl w-full max-w-lg flex flex-col border border-blue-100 overflow-hidden">
+                <div class="bg-gradient-to-r from-blue-700 to-indigo-800 px-6 py-4 rounded-t-2xl text-white flex justify-between items-center">
+                    <div class="flex items-center space-x-3">
+                        <div class="h-9 w-9 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
+                            <i class="fas fa-envelope-open-text text-white"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-bold">Gmail Out-of-Office Responder</h3>
+                            <p class="text-xs text-blue-200">Automated vacation auto-reply preview</p>
+                        </div>
+                    </div>
+                    <button type="button" onclick="closeVacationResponderModal()" class="text-white/80 hover:text-white p-1">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Subject Line</label>
+                        <div id="vrSubject" class="p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-800"></div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Active Window</label>
+                            <div id="vrWindow" class="p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-700"></div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Coverage Reliever</label>
+                            <div id="vrCoverage" class="p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-700"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Auto-Response Message</label>
+                        <div id="vrBody" class="p-3.5 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-700 leading-relaxed font-sans"></div>
+                    </div>
+                    <div class="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800 flex items-center gap-2">
+                        <i class="fas fa-check-circle text-blue-600"></i>
+                        <span>Auto-activates on leave start date and turns off automatically upon return.</span>
+                    </div>
+                    <div class="pt-3 border-t border-gray-100 flex justify-end space-x-3">
+                        <button type="button" onclick="closeVacationResponderModal()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold transition-colors">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Handover Coverage Requests Modal -->
+    <div id="handoverRequestsModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="fixed inset-0 modal-overlay" id="handoverRequestsModalBackdrop" onclick="closeHandoverRequestsModal()"></div>
+            <div class="relative bg-white rounded-2xl text-left shadow-2xl w-full max-w-2xl flex flex-col border border-emerald-100 overflow-hidden max-h-[90vh]">
+                <div class="bg-gradient-to-r from-emerald-700 to-teal-800 px-6 py-4 rounded-t-2xl text-white flex justify-between items-center">
+                    <div class="flex items-center space-x-3">
+                        <div class="h-9 w-9 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
+                            <i class="fas fa-user-friends text-white"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-bold">Handover Coverage Requests</h3>
+                            <p class="text-xs text-emerald-200">Review coverage delegations & task checklists from colleagues</p>
+                        </div>
+                    </div>
+                    <button type="button" onclick="closeHandoverRequestsModal()" class="text-white/80 hover:text-white p-1">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div id="handoverRequestsList" class="p-6 overflow-y-auto space-y-4">
+                    <div class="text-center py-8 text-gray-400 text-sm">
+                        <i class="fas fa-spinner fa-spin mr-2"></i> Loading handover requests...
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Toast Notification -->
@@ -2917,6 +3053,22 @@
         </div>
       </div>
 
+      <!-- Handover Coverage Alert Banner -->
+      <div id="handoverAlertBanner" class="hidden bg-gradient-to-r from-emerald-600 to-teal-700 rounded-xl p-4 text-white shadow-sm flex flex-wrap items-center justify-between gap-3 mb-6">
+        <div class="flex items-center gap-3">
+          <div class="h-10 w-10 rounded-lg bg-white/20 flex items-center justify-center">
+            <i class="fas fa-user-friends text-lg"></i>
+          </div>
+          <div>
+            <h4 class="font-bold text-sm">Colleague Handover Coverage Request</h4>
+            <p class="text-xs text-emerald-100">You have <span id="handoverAlertCount" class="font-bold underline">0</span> pending coverage request(s) awaiting your acceptance.</p>
+          </div>
+        </div>
+        <button type="button" onclick="openHandoverRequestsModal()" class="px-4 py-2 bg-white text-emerald-800 rounded-xl text-xs font-bold hover:bg-emerald-50 transition-all shadow-sm">
+          Review Handovers & Tasks
+        </button>
+      </div>
+
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div class="lg:col-span-1">
           <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
@@ -2961,6 +3113,22 @@
                 <i class="fas fa-chevron-right text-gray-400"></i>
               </button>
 
+              <button id="quickHandoverRequests" onclick="openHandoverRequestsModal()" class="w-full flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-emerald-50 hover:border-emerald-200 transition-colors">
+                <div class="flex items-center">
+                  <div class="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center mr-3">
+                    <i class="fas fa-user-friends text-emerald-600"></i>
+                  </div>
+                  <div class="text-left">
+                    <p class="font-medium text-gray-900 flex items-center gap-2">
+                      Handover Coverage
+                      <span id="handoverBadgeCount" class="hidden px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white">0</span>
+                    </p>
+                    <p class="text-sm text-gray-600">Review coverage delegations & tasks</p>
+                  </div>
+                </div>
+                <i class="fas fa-chevron-right text-gray-400"></i>
+              </button>
+
               <button id="quickViewApplications" class="w-full flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                 <div class="flex items-center">
                   <div class="h-10 w-10 rounded-lg bg-green-100 flex items-center justify-center mr-3">
@@ -2973,6 +3141,27 @@
                 </div>
                 <i class="fas fa-chevron-right text-gray-400"></i>
               </button>
+            </div>
+          </div>
+
+          <!-- Today's Team Presence Widget -->
+          <div class="bg-white rounded-xl shadow-sm border border-emerald-100 p-5 mb-6">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center gap-2.5">
+                <div class="h-9 w-9 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-sm font-bold shadow-sm">
+                  <i class="fas fa-users"></i>
+                </div>
+                <div>
+                  <h4 class="text-sm font-bold text-gray-900">Today's Team Presence</h4>
+                  <p class="text-[11px] text-gray-500" id="presenceDateText">Out-of-office digest</p>
+                </div>
+              </div>
+              <button type="button" onclick="triggerAbsenceDigestDispatch()" class="text-xs text-gray-400 hover:text-emerald-700 p-1.5 rounded-lg border border-gray-200 hover:border-emerald-300 transition-colors" title="Dispatch today's absence digest to Google Chat & Email">
+                <i class="fas fa-paper-plane"></i>
+              </button>
+            </div>
+            <div id="todayAbsencesWidget" class="space-y-2">
+              <div class="text-xs text-gray-400 py-3 text-center"><i class="fas fa-spinner fa-spin mr-1"></i> Checking team presence...</div>
             </div>
           </div>
           <!-- Professional Disclaimer Card -->
@@ -3115,6 +3304,8 @@
 
             dashboardPage.innerHTML = dashboardHTML;
             loadUpcomingHolidaysWidget();
+            renderTodayAbsenceWidget('todayAbsencesWidget');
+            loadMyHandoverRequestsCount();
             console.log('Dashboard UI updated');
         }
 
@@ -4519,6 +4710,19 @@
                   <label class="block text-xs text-gray-600 mb-1">Handover Notes / Contact</label>
                   <input type="text" id="pageHandoverNotes" placeholder="e.g. Urgent queries to Jane; files in shared drive" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-emerald-500">
                 </div>
+              </div>
+              <!-- Coverage Tasks Checklist Builder -->
+              <div class="mt-2 pt-2.5 border-t border-emerald-100/70">
+                <div class="flex items-center justify-between mb-1.5">
+                  <label class="text-[11px] font-semibold text-emerald-900 flex items-center gap-1">
+                    <i class="fas fa-tasks text-emerald-600"></i> Coverage Tasks / Delegated Duties
+                  </label>
+                  <button type="button" onclick="addHandoverTaskRow('page')" class="text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 flex items-center gap-1 transition-colors">
+                    <i class="fas fa-plus-circle"></i> Add Task
+                  </button>
+                </div>
+                <div id="pageHandoverTasksContainer" class="space-y-1.5"></div>
+                <p class="text-[10px] text-gray-500 mt-1">Add key responsibilities for your coverage reliever to check off.</p>
               </div>
             </div>
 
@@ -7941,6 +8145,28 @@
         }
 
 
+        function addHandoverTaskRow(scope = 'modal') {
+            const containerId = scope === 'page' ? 'pageHandoverTasksContainer' : 'modalHandoverTasksContainer';
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            const currentCount = container.children.length;
+            if (currentCount >= 4) {
+                showToast('info', 'Task Limit', 'You can add up to 4 coverage tasks');
+                return;
+            }
+            const row = document.createElement('div');
+            row.className = 'flex items-center gap-2 task-row';
+            row.innerHTML = `
+                <span class="text-xs font-bold text-emerald-700 w-5 text-center">${currentCount + 1}.</span>
+                <input type="text" placeholder="e.g. Monitor trial plots & send weekly report" class="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-emerald-500">
+                <button type="button" onclick="this.parentElement.remove()" class="text-gray-400 hover:text-red-500 p-1 transition-colors" title="Remove task">
+                    <i class="fas fa-times text-xs"></i>
+                </button>
+            `;
+            container.appendChild(row);
+        }
+        window.addHandoverTaskRow = addHandoverTaskRow;
+
         // Submit leave application from modal
         async function submitLeaveApplication() {
             const handoverSelect = document.getElementById('handoverColleague');
@@ -7948,6 +8174,13 @@
             const handoverEmail = handoverSelect?.value || '';
             const handoverName = selectedOpt?.getAttribute('data-name') || (handoverEmail ? selectedOpt?.text : '');
             const handoverNotes = document.getElementById('handoverNotes')?.value || '';
+
+            const taskInputs = document.querySelectorAll('#modalHandoverTasksContainer input');
+            const handoverTasks = Array.from(taskInputs).map(inp => inp.value.trim()).filter(Boolean).map((text, idx) => ({
+                id: 'T' + (idx + 1),
+                text,
+                completed: false
+            }));
 
             let attachment = null;
             try {
@@ -7968,6 +8201,7 @@
                 handoverEmail,
                 handoverName,
                 handoverNotes,
+                handoverTasks,
                 attachment
             };
 
@@ -7975,13 +8209,15 @@
             if (success) {
                 const attInput = document.getElementById('leaveAttachmentFile');
                 if (attInput) attInput.value = '';
+                const taskContainer = document.getElementById('modalHandoverTasksContainer');
+                if (taskContainer) taskContainer.innerHTML = '';
                 closeApplyLeaveModal();
             }
         }
 
         // Shared function to submit leave application from any form
         async function submitLeaveApplicationCore(formData) {
-            const { leaveType, leaveMode, reason, startDate, endDate, hourlyDate, hours, handoverEmail, handoverName, handoverNotes, attachment } = formData;
+            const { leaveType, leaveMode, reason, startDate, endDate, hourlyDate, hours, handoverEmail, handoverName, handoverNotes, handoverTasks, attachment } = formData;
 
             if (!leaveType || !reason || reason.length < 10) {
                 showToast('warning', 'Missing Information', 'Please fill all required fields (reason minimum 10 characters)');
@@ -7998,6 +8234,10 @@
                 applicationData.handoverEmail = handoverEmail;
                 applicationData.handoverName = handoverName || '';
                 applicationData.handoverNotes = handoverNotes || '';
+            }
+
+            if (handoverTasks && handoverTasks.length > 0) {
+                applicationData.handoverTasks = handoverTasks;
             }
 
             if (attachment) {
@@ -8054,6 +8294,13 @@
             const handoverName = selectedOpt?.getAttribute('data-name') || (handoverEmail ? selectedOpt?.text : '');
             const handoverNotes = document.getElementById('pageHandoverNotes')?.value || '';
 
+            const taskInputs = document.querySelectorAll('#pageHandoverTasksContainer input');
+            const handoverTasks = Array.from(taskInputs).map(inp => inp.value.trim()).filter(Boolean).map((text, idx) => ({
+                id: 'T' + (idx + 1),
+                text,
+                completed: false
+            }));
+
             let attachment = null;
             try {
                 attachment = await getAttachmentPayload('pageLeaveAttachmentFile');
@@ -8073,6 +8320,7 @@
                 handoverEmail,
                 handoverName,
                 handoverNotes,
+                handoverTasks,
                 attachment
             };
 
@@ -8081,6 +8329,8 @@
                 document.getElementById('pageLeaveApplicationForm')?.reset();
                 const attInput = document.getElementById('pageLeaveAttachmentFile');
                 if (attInput) attInput.value = '';
+                const taskContainer = document.getElementById('pageHandoverTasksContainer');
+                if (taskContainer) taskContainer.innerHTML = '';
                 showToast('success', 'Success', 'Application submitted successfully');
             }
         }
@@ -9113,17 +9363,85 @@
         </div>
       </div>
 
-      <!-- Handover Nomination -->
-      ${(application.HandoverColleagueName || application.HandoverColleagueEmail) ? `
+      <!-- Handover Nomination & Tasks Checklist -->
+      ${(application.HandoverColleagueName || application.HandoverColleagueEmail || application.HandoverEmail) ? `
       <div>
-        <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Handover Nomination</p>
-        <div class="p-4 bg-emerald-50/70 border border-emerald-100 rounded-xl">
-          <div class="flex items-center gap-2">
-            <i class="fas fa-user-friends text-emerald-600"></i>
-            <span class="font-bold text-gray-900 text-sm">${escapeHtml(application.HandoverColleagueName || application.HandoverColleagueEmail)}</span>
-            ${application.HandoverColleagueEmail ? `<span class="text-xs text-gray-500">(${escapeHtml(application.HandoverColleagueEmail)})</span>` : ''}
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Handover Nomination</p>
+          <div>
+            ${application.HandoverStatus === 'Accepted'
+              ? '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800"><i class="fas fa-check-circle mr-1"></i> Coverage Accepted</span>'
+              : application.HandoverStatus === 'Declined'
+                ? '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800"><i class="fas fa-times-circle mr-1"></i> Coverage Declined</span>'
+                : '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800"><i class="fas fa-clock mr-1"></i> Awaiting Colleague Response</span>'
+            }
           </div>
-          ${application.HandoverNotes ? `<p class="text-xs text-gray-700 mt-2 bg-white/80 p-2.5 rounded-lg border border-emerald-100 italic">"${escapeHtml(application.HandoverNotes)}"</p>` : ''}
+        </div>
+        <div class="p-4 bg-emerald-50/70 border border-emerald-100 rounded-xl space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <i class="fas fa-user-friends text-emerald-600"></i>
+              <span class="font-bold text-gray-900 text-sm">${escapeHtml(application.HandoverColleagueName || application.HandoverName || application.HandoverColleagueEmail || application.HandoverEmail)}</span>
+              ${(application.HandoverColleagueEmail || application.HandoverEmail) ? `<span class="text-xs text-gray-500">(${escapeHtml(application.HandoverColleagueEmail || application.HandoverEmail)})</span>` : ''}
+            </div>
+            ${(() => {
+              const myEmail = (AppState.currentUser?.email || '').toLowerCase().trim();
+              const hEmail = (application.HandoverColleagueEmail || application.HandoverEmail || '').toLowerCase().trim();
+              const isHandoverReliever = myEmail && hEmail && myEmail === hEmail;
+              const isAdmin = AppState.currentUser?.role === 'admin';
+              if ((isHandoverReliever || isAdmin) && application.HandoverStatus !== 'Accepted' && application.HandoverStatus !== 'Declined') {
+                return `
+                  <div class="flex items-center gap-1.5">
+                    <button type="button" onclick="handleHandoverResponse('${application.ID}', 'accept')" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1">
+                      <i class="fas fa-check text-[10px]"></i> Accept
+                    </button>
+                    <button type="button" onclick="handleHandoverResponse('${application.ID}', 'decline')" class="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg text-xs font-semibold transition-all flex items-center gap-1">
+                      <i class="fas fa-times text-[10px]"></i> Decline
+                    </button>
+                  </div>
+                `;
+              }
+              return '';
+            })()}
+          </div>
+          ${application.HandoverNotes ? `<p class="text-xs text-gray-700 bg-white/80 p-2.5 rounded-lg border border-emerald-100 italic">"${escapeHtml(application.HandoverNotes)}"</p>` : ''}
+          ${(Array.isArray(application.HandoverTasks) && application.HandoverTasks.length > 0) ? `
+          <div class="pt-2 border-t border-emerald-100/80">
+            <p class="text-[11px] font-semibold text-emerald-900 mb-1.5 flex items-center gap-1.5">
+              <i class="fas fa-tasks text-emerald-600"></i> Coverage Tasks Checklist:
+            </p>
+            <div class="space-y-1.5">
+              ${application.HandoverTasks.map(t => `
+                <label class="flex items-start gap-2.5 p-2 rounded-lg bg-white/90 border border-emerald-100 text-xs text-gray-800 cursor-pointer hover:bg-emerald-50/50 transition-colors">
+                  <input type="checkbox" ${t.completed ? 'checked' : ''} onchange="handleToggleHandoverTask('${application.ID}', '${t.id}', this.checked)" class="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500">
+                  <span class="${t.completed ? 'line-through text-gray-400' : 'font-medium'}">${escapeHtml(t.text)}</span>
+                  ${t.completed ? `<span class="ml-auto text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded">Done</span>` : ''}
+                </label>
+              `).join('')}
+            </div>
+          </div>
+          ` : ''}
+        </div>
+      </div>
+      ` : ''}
+
+      <!-- Gmail Out-of-Office Vacation Responder Preview -->
+      ${application.Status === 'Approved' ? `
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Gmail Out-of-Office Sync</p>
+        <div class="p-3.5 bg-blue-50/70 border border-blue-200 rounded-xl flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="h-9 w-9 rounded-lg bg-blue-600 text-white flex items-center justify-center text-sm shadow-sm">
+              <i class="fas fa-envelope-open-text"></i>
+            </div>
+            <div>
+              <p class="text-xs font-bold text-gray-900">Gmail Vacation Responder</p>
+              <p class="text-[11px] text-gray-600">Auto-synced with approved dates & coverage contact</p>
+            </div>
+          </div>
+          <button type="button" onclick="previewVacationResponder('${application.ID}')" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm">
+            <i class="fas fa-eye text-[10px]"></i> Preview Auto-Reply
+          </button>
         </div>
       </div>
       ` : ''}
@@ -9193,14 +9511,48 @@
             <p class="font-semibold text-gray-900">Application Submitted</p>
             <p class="text-gray-500">${formatDate(application.DateApplied)}</p>
           </div>
-          <div class="timeline-node ${application.Status === 'Pending' ? 'current' : application.Status === 'Approved' ? 'completed' : application.Status === 'Declined' ? 'declined' : 'completed'}">
-            <p class="font-semibold text-gray-900">${application.Status === 'Pending' ? 'Awaiting Review' : 'Status: ' + application.Status}</p>
-            <p class="text-gray-500">
-              ${application.ProcessedBy 
-                ? `Processed by ${escapeHtml(application.ProcessedBy)}${application.ProcessedDate ? ' on ' + formatDate(application.ProcessedDate) : ''}`
-                : `Supervisor: ${escapeHtml(application.Supervisor || 'Pending Assignment')}`}
-            </p>
-          </div>
+          ${(() => {
+            const isSpecialized = ['Study Leave', 'Maternity Leave', 'Paternity Leave'].includes(application.LeaveType);
+            const isDual = Boolean(application.RequiresDualApproval || (application.Duration > 5) || isSpecialized);
+            if (!isDual) {
+              const nodeClass = application.Status === 'Pending' ? 'current' : application.Status === 'Approved' ? 'completed' : application.Status === 'Declined' ? 'declined' : 'completed';
+              return `
+                <div class="timeline-node ${nodeClass}">
+                  <p class="font-semibold text-gray-900">${application.Status === 'Pending' ? 'Awaiting Review' : 'Status: ' + application.Status}</p>
+                  <p class="text-gray-500">
+                    ${application.ProcessedBy 
+                      ? `Processed by ${escapeHtml(application.ProcessedBy)}${application.ProcessedDate ? ' on ' + formatDate(application.ProcessedDate) : ''}`
+                      : `Supervisor: ${escapeHtml(application.Supervisor || 'Pending Assignment')}`}
+                  </p>
+                </div>
+              `;
+            } else {
+              // Dual-Tier Approval Timeline
+              const supCompleted = Boolean(application.SupervisorApproval || application.ApprovalStage === 'pending_hr' || application.Status === 'Approved');
+              const supDeclined = application.Status === 'Declined' && !application.SupervisorApproval;
+              const supClass = supCompleted ? 'completed' : supDeclined ? 'declined' : 'current';
+
+              const hrCompleted = application.Status === 'Approved';
+              const hrCurrent = application.ApprovalStage === 'pending_hr';
+              const hrDeclined = application.Status === 'Declined' && application.SupervisorApproval;
+              const hrClass = hrCompleted ? 'completed' : hrCurrent ? 'current' : hrDeclined ? 'declined' : '';
+
+              return `
+                <div class="timeline-node ${supClass}">
+                  <p class="font-semibold text-gray-900">${supCompleted ? 'Tier 1: Supervisor Endorsed' : supDeclined ? 'Tier 1: Supervisor Declined' : 'Tier 1: Supervisor Review'}</p>
+                  <p class="text-gray-500">
+                    ${application.SupervisorApproval ? 'Endorsed by ' + escapeHtml(application.SupervisorApproval.approvedBy) : (application.Supervisor ? 'Supervisor: ' + escapeHtml(application.Supervisor) : 'Pending Review')}
+                  </p>
+                </div>
+                <div class="timeline-node ${hrClass}">
+                  <p class="font-semibold text-gray-900">${hrCompleted ? 'Tier 2: HR Approved' : hrCurrent ? 'Tier 2: Awaiting HR Sign-Off' : hrDeclined ? 'Tier 2: Declined by HR' : 'Tier 2: HR Endorsement'}</p>
+                  <p class="text-gray-500">
+                    ${hrCompleted ? (application.HRApproval ? 'Endorsed by ' + escapeHtml(application.HRApproval.approvedBy) : 'Final approval granted') : hrCurrent ? 'Pending final HR sign-off (> 5 days / specialized leave)' : 'Required for extended leaves'}
+                  </p>
+                </div>
+              `;
+            }
+          })()}
         </div>
       </div>
       
@@ -9544,6 +9896,51 @@
 
                 html += '</div>';
 
+                // ── HR Endorsement Queue (Tier-2 Sign-Off) ──────────────────────
+                const hrEndorsements = (result.data.applications && result.data.applications.hrEndorsements) ? result.data.applications.hrEndorsements : [];
+                html += '<div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-amber-200 p-6 mb-8">';
+                html += '<div class="flex flex-wrap items-center justify-between gap-3 mb-4">';
+                html += '<div><h3 class="text-lg font-bold text-gray-900 flex items-center gap-2"><i class="fas fa-user-check text-amber-600"></i> HR Endorsement Queue (Tier-2 Sign-Off)</h3><p class="text-xs text-gray-500 mt-0.5">Extended leaves (> 5 days) and specialized leaves (Study, Maternity, Paternity) endorsed by supervisors awaiting final HR approval</p></div>';
+                html += '<span class="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-bold">' + hrEndorsements.length + ' Pending Sign-Off</span>';
+                html += '</div>';
+
+                if (hrEndorsements.length === 0) {
+                    html += '<div class="p-5 bg-amber-50/40 border border-amber-100 rounded-xl text-center text-xs text-amber-800 flex items-center justify-center gap-2"><i class="fas fa-check-circle text-emerald-600 text-base"></i> All extended & specialized leaves are signed off. No pending HR endorsements.</div>';
+                } else {
+                    html += '<div class="overflow-x-auto rounded-xl border border-amber-100"><table class="w-full text-sm">';
+                    html += '<thead class="bg-amber-50/60 border-b border-amber-100 text-xs font-semibold text-gray-700 uppercase tracking-wider"><tr>';
+                    html += '<th class="py-3 px-4 text-left">Applicant</th>';
+                    html += '<th class="py-3 px-4 text-left">Leave Type</th>';
+                    html += '<th class="py-3 px-4 text-center">Period & Duration</th>';
+                    html += '<th class="py-3 px-4 text-left">Supervisor Endorsement</th>';
+                    html += '<th class="py-3 px-4 text-left">Coverage Reliever</th>';
+                    html += '<th class="py-3 px-4 text-center">Actions</th>';
+                    html += '</tr></thead><tbody class="divide-y divide-gray-100">';
+                    hrEndorsements.forEach(function (app) {
+                        var badgeClass = (app.LeaveType || '').replace(/\s+/g, '-').toLowerCase();
+                        var supName = (app.SupervisorApproval && app.SupervisorApproval.approvedBy) ? app.SupervisorApproval.approvedBy : (app.SupervisorEmail || 'Supervisor');
+                        var supComment = (app.SupervisorApproval && app.SupervisorApproval.comment) ? app.SupervisorApproval.comment : '';
+                        var hStatus = app.HandoverStatus === 'Accepted'
+                            ? '<span class="text-emerald-600 font-semibold"><i class="fas fa-check"></i> Accepted</span>'
+                            : (app.HandoverStatus === 'Declined'
+                                ? '<span class="text-red-500 font-semibold"><i class="fas fa-times"></i> Declined</span>'
+                                : '<span class="text-amber-600">Pending</span>');
+
+                        html += '<tr class="hover:bg-amber-50/30 transition-colors">';
+                        html += '<td class="py-3 px-4"><div class="font-bold text-gray-900">' + escapeHtml(app.Name || '') + '</div><div class="text-xs text-gray-500">' + escapeHtml(app.Department || '') + ' &bull; ' + escapeHtml(app.Email || '') + '</div></td>';
+                        html += '<td class="py-3 px-4"><span class="leave-type-badge ' + badgeClass + ' px-2.5 py-0.5 rounded-full text-xs font-semibold">' + escapeHtml(app.LeaveType || '') + '</span></td>';
+                        html += '<td class="py-3 px-4 text-center text-xs"><div class="font-semibold text-gray-900">' + (app.Duration || 0) + ' business days</div><div class="text-gray-500">' + formatDate(app.StartDate) + ' &ndash; ' + formatDate(app.EndDate) + '</div></td>';
+                        html += '<td class="py-3 px-4 text-xs"><div class="text-emerald-700 font-semibold flex items-center gap-1"><i class="fas fa-check text-[10px]"></i> Endorsed by ' + escapeHtml(supName) + '</div>' + (supComment ? '<div class="text-gray-600 italic mt-0.5">"' + escapeHtml(supComment) + '"</div>' : '') + '</td>';
+                        html += '<td class="py-3 px-4 text-xs"><div class="font-medium text-gray-800">' + escapeHtml(app.HandoverName || app.HandoverEmail || 'None') + '</div><div class="text-[11px]">' + hStatus + '</div></td>';
+                        html += '<td class="py-3 px-4 text-center"><div class="flex items-center justify-center gap-1.5">';
+                        html += '<button type="button" onclick="handleHREndorsementDecision(\'' + app.ID + '\', \'approve\')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1"><i class="fas fa-signature text-[10px]"></i> Endorse & Approve</button>';
+                        html += '<button type="button" onclick="handleHREndorsementDecision(\'' + app.ID + '\', \'decline\')" class="px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg text-xs font-semibold transition-all">Decline</button>';
+                        html += '</div></td></tr>';
+                    });
+                    html += '</tbody></table></div>';
+                }
+                html += '</div>';
+
                 // ── Staff Balances Table ────────────────────────────────────────
                 html += '<div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-emerald-100/80 p-6 mb-8">';
                 html += '<div class="flex items-center justify-between mb-4"><div><h3 class="text-lg font-bold text-gray-900 flex items-center gap-2"><i class="fas fa-wallet text-emerald-600"></i> Staff Leave Balances</h3><p class="text-xs text-gray-500 mt-0.5">Real-time balances across annual, brought forward, comp, and sick leave</p></div></div>';
@@ -9623,8 +10020,19 @@
                 html += '<div class="text-xs text-gray-400 py-3 text-center"><i class="fas fa-spinner fa-spin mr-1"></i> Loading blackout periods...</div>';
                 html += '</div></div>';
 
+                // ── Gazetted Public Holidays & Retroactive Recalibration ────────
+                html += '<div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-emerald-100/80 p-6 mt-8">';
+                html += '<div class="flex flex-wrap items-center justify-between gap-3 mb-4">';
+                html += '<div><h3 class="text-lg font-bold text-gray-900 flex items-center gap-2"><i class="fas fa-flag text-emerald-600"></i> Gazetted Public Holidays & Retroactive Recalibration</h3><p class="text-xs text-gray-500 mt-0.5">Manage state-gazetted holidays with 1-click automatic leave day refund & duration recalibration</p></div>';
+                html += '<button type="button" onclick="openGazettedHolidayModal()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5"><i class="fas fa-plus"></i> Gazette New Holiday</button>';
+                html += '</div>';
+                html += '<div id="gazettedHolidaysListContainer" class="space-y-3">';
+                html += '<div class="text-xs text-gray-400 py-3 text-center"><i class="fas fa-spinner fa-spin mr-1"></i> Loading gazetted holidays...</div>';
+                html += '</div></div>';
+
                 pageElement.innerHTML = html;
                 renderBlackoutPeriodsList('blackoutPeriodsList');
+                renderGazettedHolidaysList('gazettedHolidaysListContainer');
 
             } catch (error) {
                 hideLoading();
@@ -10790,6 +11198,444 @@
         window.checkBlackoutNotice = checkBlackoutNotice;
         window.renderTeamAvailabilityWallchart = renderTeamAvailabilityWallchart;
         window.navigateWallchartMonth = navigateWallchartMonth;
+
+        // ============================================================
+        // 1. GAZETTED PUBLIC HOLIDAY & RECALIBRATION UI
+        // ============================================================
+        function openGazettedHolidayModal() {
+            const modal = document.getElementById('gazettedHolidayModal');
+            if (!modal) return;
+            const form = document.getElementById('gazettedHolidayForm');
+            if (form) form.reset();
+            const dateInput = document.getElementById('holidayDateInput');
+            if (dateInput && !dateInput.value) {
+                dateInput.value = new Date().toISOString().split('T')[0];
+            }
+            modal.classList.remove('hidden');
+        }
+
+        function closeGazettedHolidayModal() {
+            const modal = document.getElementById('gazettedHolidayModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        async function handleSaveGazettedHoliday(event) {
+            event.preventDefault();
+            const name = document.getElementById('holidayNameInput')?.value?.trim();
+            const date = document.getElementById('holidayDateInput')?.value?.trim();
+            const description = document.getElementById('holidayDescInput')?.value?.trim();
+
+            if (!name || !date) {
+                showToast('warning', 'Missing Fields', 'Holiday name and date are required');
+                return;
+            }
+
+            showLoading('Saving gazetted holiday...');
+            try {
+                const res = await callGoogleScriptFunction('apiAddGazettedHoliday', { name, date, description });
+                hideLoading();
+                if (res.success) {
+                    showToast('success', 'Holiday Gazetted', `"${name}" added for ${date}`);
+                    closeGazettedHolidayModal();
+                    if (AppState.currentPage === 'hrDashboard') {
+                        loadHRDashboardPage();
+                    }
+                } else {
+                    showToast('error', 'Failed', res.error || 'Failed to add gazetted holiday');
+                }
+            } catch (err) {
+                hideLoading();
+                showToast('error', 'Error', err.message);
+            }
+        }
+
+        async function renderGazettedHolidaysList(containerId = 'gazettedHolidaysListContainer') {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            try {
+                const res = await callGoogleScriptFunction('apiGetGazettedHolidays');
+                if (res.success && Array.isArray(res.data)) {
+                    const holidays = res.data;
+                    if (holidays.length === 0) {
+                        container.innerHTML = '<p class="text-xs text-gray-500 italic py-3 text-center">No custom gazetted holidays registered. Standard Kenya public holidays apply automatically.</p>';
+                        return;
+                    }
+                    container.innerHTML = holidays.map(h => `
+                        <div class="flex flex-wrap items-center justify-between p-3.5 rounded-xl border border-emerald-100 bg-emerald-50/40 gap-3">
+                            <div class="flex items-center gap-3">
+                                <div class="h-9 w-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-xs shadow-sm">
+                                    <i class="fas fa-flag"></i>
+                                </div>
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <h4 class="font-bold text-gray-900 text-sm">${escapeHtml(h.name)}</h4>
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300">Gazetted</span>
+                                    </div>
+                                    <p class="text-xs text-gray-600 mt-0.5">
+                                        <i class="fas fa-calendar-day text-emerald-600 mr-1"></i> <strong>${h.date}</strong>
+                                        ${h.description ? `<span class="italic text-gray-500 ml-2">&mdash; "${escapeHtml(h.description)}"</span>` : ''}
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button type="button" onclick="handleRecalibrateHoliday('${h.date}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5" title="Recalibrate overlapping leaves and refund days to staff balances">
+                                    <i class="fas fa-sync-alt text-[10px]"></i> Recalibrate Leaves
+                                </button>
+                                <button type="button" onclick="handleDeleteGazettedHoliday('${h.id}')" class="px-2.5 py-1.5 border border-red-200 bg-white hover:bg-red-50 text-red-600 rounded-lg text-xs font-semibold shadow-sm transition-all" title="Delete holiday">
+                                    <i class="fas fa-trash-alt text-[10px]"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch (err) {
+                console.warn('Failed to load gazetted holidays:', err);
+                container.innerHTML = '<p class="text-xs text-red-500">Failed to load gazetted holidays.</p>';
+            }
+        }
+
+        async function handleDeleteGazettedHoliday(id) {
+            if (!confirm('Are you sure you want to remove this gazetted public holiday?')) return;
+            showLoading('Removing holiday...');
+            try {
+                const res = await callGoogleScriptFunction('apiDeleteGazettedHoliday', id);
+                hideLoading();
+                if (res.success) {
+                    showToast('success', 'Holiday Removed', 'Gazetted holiday removed successfully');
+                    if (AppState.currentPage === 'hrDashboard') {
+                        loadHRDashboardPage();
+                    }
+                } else {
+                    showToast('error', 'Failed', res.error || 'Failed to remove holiday');
+                }
+            } catch (err) {
+                hideLoading();
+                showToast('error', 'Error', err.message);
+            }
+        }
+
+        async function handleRecalibrateHoliday(holidayDate) {
+            if (!confirm(`Recalibrate all approved and pending leaves overlapping ${holidayDate}? Overlapping business days will be automatically refunded to employee balances.`)) return;
+            showLoading('Recalibrating overlapping leaves...');
+            try {
+                const res = await callGoogleScriptFunction('apiRecalibrateOverlappingLeaves', { date: holidayDate });
+                hideLoading();
+                if (res.success) {
+                    const affected = res.data?.affectedCount || 0;
+                    const refunded = res.data?.totalDaysRefunded || 0;
+                    showToast('success', 'Recalibration Complete', `Recalibrated ${affected} leave application(s). Refunded ${refunded} day(s) to employee balances.`);
+                    if (AppState.currentPage === 'hrDashboard') {
+                        loadHRDashboardPage();
+                    }
+                } else {
+                    showToast('error', 'Recalibration Failed', res.error || 'Failed to recalibrate');
+                }
+            } catch (err) {
+                hideLoading();
+                showToast('error', 'Error', err.message);
+            }
+        }
+
+        // ============================================================
+        // 2. HR ENDORSEMENT DECISION HANDLER (TIER 2 APPROVAL)
+        // ============================================================
+        async function handleHREndorsementDecision(appId, decision) {
+            const actionText = decision === 'approve' ? 'endorse & approve' : 'decline';
+            const comment = prompt(`Add an optional HR comment to ${actionText} this application:`, decision === 'approve' ? 'HR Endorsement Granted' : '');
+            if (comment === null) return;
+
+            showLoading(`Processing HR ${actionText}...`);
+            try {
+                const res = await callGoogleScriptFunction('apiProcessApplicationDecision', {
+                    appId: appId,
+                    decision: decision,
+                    comment: comment
+                });
+                hideLoading();
+                if (res.success) {
+                    showToast('success', 'Decision Recorded', res.message || `Application successfully ${decision === 'approve' ? 'approved & finalized' : 'declined'}`);
+                    if (AppState.currentPage === 'hrDashboard') {
+                        loadHRDashboardPage();
+                    }
+                } else {
+                    showToast('error', 'Process Failed', res.error || 'Failed to record decision');
+                }
+            } catch (err) {
+                hideLoading();
+                showToast('error', 'Error', err.message);
+            }
+        }
+
+        // ============================================================
+        // 3. GMAIL VACATION RESPONDER PREVIEW MODAL
+        // ============================================================
+        function closeVacationResponderModal() {
+            const modal = document.getElementById('vacationResponderModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        async function previewVacationResponder(appId) {
+            showLoading('Loading vacation responder preview...');
+            try {
+                const res = await callGoogleScriptFunction('apiGetVacationResponderPreview', appId);
+                hideLoading();
+                if (res.success && res.data) {
+                    const data = res.data;
+                    document.getElementById('vrSubject').textContent = data.subject || 'Out of Office';
+                    document.getElementById('vrWindow').textContent = `${data.startDate} to ${data.endDate}`;
+                    document.getElementById('vrCoverage').textContent = `${data.handoverName} (${data.handoverEmail})`;
+                    document.getElementById('vrBody').textContent = data.message || '';
+                    document.getElementById('vacationResponderModal')?.classList.remove('hidden');
+                } else {
+                    showToast('error', 'Preview Unavailable', res.error || 'Unable to load preview');
+                }
+            } catch (err) {
+                hideLoading();
+                showToast('error', 'Preview Error', err.message);
+            }
+        }
+
+        // ============================================================
+        // 4. HANDOVER REQUESTS & TASK CHECKLIST UI
+        // ============================================================
+        function openHandoverRequestsModal() {
+            const modal = document.getElementById('handoverRequestsModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                renderHandoverRequestsList();
+            }
+        }
+
+        function closeHandoverRequestsModal() {
+            const modal = document.getElementById('handoverRequestsModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        async function renderHandoverRequestsList() {
+            const listEl = document.getElementById('handoverRequestsList');
+            if (!listEl) return;
+            listEl.innerHTML = '<div class="text-center py-6 text-gray-400 text-xs"><i class="fas fa-spinner fa-spin mr-2"></i> Loading your coverage requests...</div>';
+            try {
+                const res = await callGoogleScriptFunction('apiGetMyHandoverRequests');
+                if (res.success && Array.isArray(res.data)) {
+                    const requests = res.data;
+                    if (requests.length === 0) {
+                        listEl.innerHTML = '<div class="p-8 text-center text-gray-500 text-xs"><i class="fas fa-check-circle text-emerald-500 text-2xl mb-2"></i><p class="font-bold text-gray-700">No Pending Handover Requests</p><p class="text-gray-400 mt-1">When colleagues nominate you to cover their duties while away, they will appear here.</p></div>';
+                        return;
+                    }
+                    listEl.innerHTML = requests.map(req => `
+                        <div class="p-4 bg-white rounded-xl border ${req.handoverStatus === 'Accepted' ? 'border-emerald-200' : req.handoverStatus === 'Declined' ? 'border-red-200' : 'border-amber-200'} shadow-sm space-y-3">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-bold text-gray-900 text-sm">${escapeHtml(req.applicantName)}</span>
+                                        <span class="text-xs text-gray-500">(${escapeHtml(req.department || '')})</span>
+                                    </div>
+                                    <p class="text-xs text-gray-600 mt-0.5">
+                                        <strong>${escapeHtml(req.leaveType)}</strong> • ${formatDate(req.startDate)} to ${formatDate(req.endDate)} (${req.duration} business days)
+                                    </p>
+                                </div>
+                                <div>
+                                    ${req.handoverStatus === 'Accepted'
+                                        ? '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800"><i class="fas fa-check-circle mr-1"></i> Accepted</span>'
+                                        : req.handoverStatus === 'Declined'
+                                            ? '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800"><i class="fas fa-times-circle mr-1"></i> Declined</span>'
+                                            : '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800"><i class="fas fa-clock mr-1"></i> Response Required</span>'
+                                    }
+                                </div>
+                            </div>
+                            ${req.handoverNotes ? `<p class="text-xs text-gray-700 bg-gray-50 p-2.5 rounded-lg border border-gray-200/60 italic">"${escapeHtml(req.handoverNotes)}"</p>` : ''}
+                            ${(Array.isArray(req.handoverTasks) && req.handoverTasks.length > 0) ? `
+                            <div class="pt-2 border-t border-gray-100">
+                                <p class="text-[11px] font-semibold text-gray-700 mb-1.5 flex items-center gap-1.5">
+                                    <i class="fas fa-tasks text-emerald-600"></i> Delegated Coverage Tasks:
+                                </p>
+                                <div class="space-y-1.5">
+                                    ${req.handoverTasks.map(t => `
+                                        <label class="flex items-start gap-2 p-2 rounded-lg bg-gray-50/70 border border-gray-200/50 text-xs text-gray-800 cursor-pointer hover:bg-emerald-50/30 transition-colors">
+                                            <input type="checkbox" ${t.completed ? 'checked' : ''} onchange="handleToggleHandoverTask('${req.applicationId}', '${t.id}', this.checked)" class="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500">
+                                            <span class="${t.completed ? 'line-through text-gray-400' : 'font-medium'}">${escapeHtml(t.text)}</span>
+                                            ${t.completed ? `<span class="ml-auto text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded">Done</span>` : ''}
+                                        </label>
+                                    `).join('')}
+                                </div>
+                            </div>
+                            ` : ''}
+                            ${(req.handoverStatus !== 'Accepted' && req.handoverStatus !== 'Declined') ? `
+                            <div class="pt-2 border-t border-gray-100 flex items-center justify-end gap-2">
+                                <button type="button" onclick="handleHandoverResponse('${req.applicationId}', 'decline')" class="px-3 py-1.5 border border-red-200 bg-white hover:bg-red-50 text-red-600 rounded-lg text-xs font-semibold shadow-sm transition-all">
+                                    Decline Coverage
+                                </button>
+                                <button type="button" onclick="handleHandoverResponse('${req.applicationId}', 'accept')" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1">
+                                    <i class="fas fa-check text-[10px]"></i> Accept Coverage
+                                </button>
+                            </div>
+                            ` : ''}
+                        </div>
+                    `).join('');
+                }
+            } catch (err) {
+                listEl.innerHTML = '<div class="p-4 text-center text-xs text-red-500">Failed to load handover requests.</div>';
+            }
+        }
+
+        async function handleHandoverResponse(appId, decision) {
+            const isAccept = decision === 'accept';
+            const notes = prompt(`Optional message to applicant for ${isAccept ? 'accepting' : 'declining'} coverage:`, '');
+            if (notes === null) return;
+
+            showLoading(`Submitting response...`);
+            try {
+                const res = await callGoogleScriptFunction('apiRespondToHandover', {
+                    appId,
+                    decision,
+                    notes
+                });
+                hideLoading();
+                if (res.success) {
+                    showToast('success', 'Handover Updated', isAccept ? 'Coverage accepted successfully' : 'Coverage declined');
+                    renderHandoverRequestsList();
+                    loadMyHandoverRequestsCount();
+                    if (!document.getElementById('applicationDetailsModal')?.classList.contains('hidden')) {
+                        viewApplicationDetails(appId);
+                    }
+                } else {
+                    showToast('error', 'Failed', res.error || 'Failed to record response');
+                }
+            } catch (err) {
+                hideLoading();
+                showToast('error', 'Error', err.message);
+            }
+        }
+
+        async function handleToggleHandoverTask(appId, taskId, completed) {
+            try {
+                const res = await callGoogleScriptFunction('apiToggleHandoverTask', {
+                    appId,
+                    taskId,
+                    completed
+                });
+                if (res.success) {
+                    showToast('success', 'Task Updated', 'Checklist task updated');
+                } else {
+                    showToast('error', 'Failed', res.error || 'Failed to toggle task');
+                }
+            } catch (err) {
+                showToast('error', 'Error', err.message);
+            }
+        }
+
+        async function loadMyHandoverRequestsCount() {
+            try {
+                const res = await callGoogleScriptFunction('apiGetMyHandoverRequests');
+                if (res.success && Array.isArray(res.data)) {
+                    const pending = res.data.filter(r => r.handoverStatus === 'Pending');
+                    const count = pending.length;
+                    const badge = document.getElementById('handoverBadgeCount');
+                    if (badge) {
+                        badge.textContent = count;
+                        badge.classList.toggle('hidden', count === 0);
+                    }
+                    const alertBanner = document.getElementById('handoverAlertBanner');
+                    if (alertBanner) {
+                        if (count > 0) {
+                            alertBanner.classList.remove('hidden');
+                            const cntEl = document.getElementById('handoverAlertCount');
+                            if (cntEl) cntEl.textContent = count;
+                        } else {
+                            alertBanner.classList.add('hidden');
+                        }
+                    }
+                }
+            } catch (err) {}
+        }
+
+        // ============================================================
+        // 5. TODAY'S TEAM ABSENCE DIGEST WIDGET & DISPATCH
+        // ============================================================
+        async function renderTodayAbsenceWidget(containerId = 'todayAbsencesWidget') {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            try {
+                const res = await callGoogleScriptFunction('apiGetTodayAbsenceDigest');
+                if (res.success && res.data) {
+                    const digest = res.data;
+                    const dateText = document.getElementById('presenceDateText');
+                    if (dateText) dateText.textContent = `${digest.formattedDate} • ${digest.overallStrength}% Team Strength`;
+
+                    const absences = digest.absences || [];
+                    if (absences.length === 0) {
+                        container.innerHTML = `
+                            <div class="p-3 bg-emerald-50/60 border border-emerald-200/70 rounded-xl flex items-center gap-2.5 text-xs text-emerald-800">
+                                <i class="fas fa-check-circle text-emerald-600 text-sm"></i>
+                                <div>
+                                    <span class="font-bold">Full team on duty today!</span>
+                                    <p class="text-[11px] text-emerald-700">No scheduled leaves or out-of-office absences.</p>
+                                </div>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    container.innerHTML = absences.map(a => `
+                        <div class="p-2.5 rounded-lg border border-gray-100 bg-gray-50/80 flex items-center justify-between text-xs">
+                            <div class="flex items-center gap-2">
+                                <div class="h-7 w-7 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold">
+                                    ${(a.name || 'S').substring(0, 1)}
+                                </div>
+                                <div>
+                                    <span class="font-bold text-gray-900">${escapeHtml(a.name)}</span>
+                                    <span class="text-gray-500">(${escapeHtml(a.department)})</span>
+                                    <div class="text-[10px] text-gray-500">
+                                        ${a.isHourly ? `${a.hours}h leave` : `${a.leaveType}`} • Reliever: <strong>${escapeHtml(a.handoverName)}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800">Away</span>
+                        </div>
+                    `).join('');
+                }
+            } catch (err) {
+                container.innerHTML = '<p class="text-xs text-gray-400 text-center py-2">Unable to load team presence.</p>';
+            }
+        }
+
+        async function triggerAbsenceDigestDispatch() {
+            if (!confirm("Dispatch today's absence digest to Google Chat Webhook and daily broadcast?")) return;
+            showLoading('Dispatching absence digest...');
+            try {
+                const res = await callGoogleScriptFunction('apiSendDailyAbsenceDigest');
+                hideLoading();
+                if (res.success) {
+                    showToast('success', 'Digest Dispatched', res.message || 'Daily absence digest broadcasted successfully');
+                } else {
+                    showToast('error', 'Dispatch Notice', res.error || 'Failed to dispatch webhook');
+                }
+            } catch (err) {
+                hideLoading();
+                showToast('error', 'Error', err.message);
+            }
+        }
+
+        // Window Exports for Enhancements
+        window.openGazettedHolidayModal = openGazettedHolidayModal;
+        window.closeGazettedHolidayModal = closeGazettedHolidayModal;
+        window.handleSaveGazettedHoliday = handleSaveGazettedHoliday;
+        window.renderGazettedHolidaysList = renderGazettedHolidaysList;
+        window.handleDeleteGazettedHoliday = handleDeleteGazettedHoliday;
+        window.handleRecalibrateHoliday = handleRecalibrateHoliday;
+        window.handleHREndorsementDecision = handleHREndorsementDecision;
+        window.openVacationResponderModal = openVacationResponderModal;
+        window.closeVacationResponderModal = closeVacationResponderModal;
+        window.previewVacationResponder = previewVacationResponder;
+        window.openHandoverRequestsModal = openHandoverRequestsModal;
+        window.closeHandoverRequestsModal = closeHandoverRequestsModal;
+        window.renderHandoverRequestsList = renderHandoverRequestsList;
+        window.handleHandoverResponse = handleHandoverResponse;
+        window.handleToggleHandoverTask = handleToggleHandoverTask;
+        window.loadMyHandoverRequestsCount = loadMyHandoverRequestsCount;
+        window.renderTodayAbsenceWidget = renderTodayAbsenceWidget;
+        window.triggerAbsenceDigestDispatch = triggerAbsenceDigestDispatch;
     </script>
 
     <!-- ── Mobile Bottom Navigation Bar ─────────────────────────── -->

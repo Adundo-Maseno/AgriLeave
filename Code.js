@@ -64,7 +64,8 @@ const SYSTEM = {
         LOGS: 'system_logs.json',
         ANNUAL_RESET: 'annual_reset_logs.json',
         COMPENSATION_CLAIMS: 'compensation_claims.json',
-        BLACKOUT_PERIODS: 'blackout_periods.json'
+        BLACKOUT_PERIODS: 'blackout_periods.json',
+        GAZETTED_HOLIDAYS: 'gazetted_holidays.json'
     },
 
     CACHE_KEYS: {
@@ -240,6 +241,20 @@ const Utils = {
                     return { name: `${h.name} (Observed)`, isHoliday: true };
                 }
             }
+        }
+
+        // 3. Custom HR-Gazetted Public Holidays (from gazetted_holidays.json)
+        try {
+            if (typeof HolidayManager !== 'undefined' && HolidayManager.getAllCustomHolidays) {
+                const dateStr = this.formatLocalDate(d);
+                const customHols = HolidayManager.getAllCustomHolidays();
+                const matched = customHols.find(ch => ch.date === dateStr);
+                if (matched) {
+                    return { name: matched.name, isHoliday: true, isCustom: true };
+                }
+            }
+        } catch (e) {
+            // Non-fatal if storage not yet initialized
         }
 
         return null;
@@ -2353,6 +2368,33 @@ const ApplicationsManager = {
                 }
             }
 
+            // Handover Tasks
+            let handoverTasks = [];
+            if (Array.isArray(applicationData.handoverTasks)) {
+                handoverTasks = applicationData.handoverTasks.map((t, idx) => {
+                    const taskText = typeof t === 'string' ? t.trim() : (t.task || t.title || t.text || '').trim();
+                    const taskId = (typeof t === 'object' && t !== null && t.id) ? String(t.id) : ('ht_' + (idx + 1));
+                    return {
+                        id: taskId,
+                        task: taskText,
+                        title: taskText,
+                        completed: Boolean(t && t.completed),
+                        completedAt: (t && t.completedAt) || null
+                    };
+                }).filter(t => t.task.length > 0);
+            } else if (typeof applicationData.handoverTasks === 'string' && applicationData.handoverTasks.trim()) {
+                handoverTasks = applicationData.handoverTasks.split(/[\n,;]+/).map((t, idx) => {
+                    const taskText = t.trim();
+                    return {
+                        id: 'ht_' + (idx + 1),
+                        task: taskText,
+                        title: taskText,
+                        completed: false,
+                        completedAt: null
+                    };
+                }).filter(t => t.task.length > 0);
+            }
+
             // Direct document attachment upload to Google Drive if file provided
             let attachmentUrl = (typeof applicationData.attachment === 'string') ? applicationData.attachment : '';
             let attachmentFileId = null;
@@ -2395,6 +2437,16 @@ const ApplicationsManager = {
                 ? BlackoutPeriodManager.checkConflict(user.Department, startDate, endDate)
                 : { hasConflict: false };
 
+            // Multi-tier approval routing:
+            // Standard routine leaves (<= 5 business days) need only supervisor approval.
+            // Extended leaves (> 5 business days) or specialized types (Study, Maternity, Paternity) require 2-tier approval (Supervisor + HR)
+            const isSpecializedLeave = [
+                SYSTEM.LEAVE_TYPES.STUDY,
+                SYSTEM.LEAVE_TYPES.MATERNITY,
+                SYSTEM.LEAVE_TYPES.PATERNITY
+            ].includes(applicationData.leaveType);
+            const requiresDualApproval = (businessDays > 5) || isSpecializedLeave;
+
             const application = {
                 ID: appId,
                 Email: userEmail,
@@ -2419,6 +2471,13 @@ const ApplicationsManager = {
                 HandoverColleagueEmail: handoverEmail,
                 HandoverColleagueName: handoverName,
                 HandoverNotes: handoverNotes,
+                HandoverStatus: handoverEmail ? 'Pending' : 'None',
+                HandoverTasks: handoverTasks,
+                RequiresDualApproval: requiresDualApproval,
+                ApprovalStage: requiresDualApproval ? 'pending_supervisor' : 'pending_single',
+                SupervisorApproval: null,
+                HRApproval: null,
+                VacationResponderConfigured: false,
                 Status: SYSTEM.STATUS.PENDING,
                 DateApplied: currentDate,
                 ProcessedDate: '',
@@ -2475,6 +2534,7 @@ const ApplicationsManager = {
 
             return Utils.createSuccessResponse({
                 applicationId: appId,
+                id: appId,
                 message: message,
                 application: {
                     id: appId,
@@ -2721,12 +2781,76 @@ const ApplicationsManager = {
                 return Utils.createErrorResponse('You are not authorized to process this application');
             }
 
+            // Check if dual approval is required:
+            // routine leaves (<= 5 days) need only single approval;
+            // leaves > 5 days or specialized leave types (Study, Maternity, Paternity) require 2 tiers.
+            const isSpecializedLeave = [
+                SYSTEM.LEAVE_TYPES.STUDY,
+                SYSTEM.LEAVE_TYPES.MATERNITY,
+                SYSTEM.LEAVE_TYPES.PATERNITY
+            ].includes(application.LeaveType);
+            const requiresDualApproval = Boolean(application.RequiresDualApproval || (application.Duration > 5) || isSpecializedLeave);
+
+            // If dual approval is required, decision is approve, and current user is Supervisor (not Admin/HR):
+            const isSupervisorApproval = (isSupervisor || isActingSupervisor) && !isAdmin && !isHR;
+            const isStage1 = application.ApprovalStage === 'pending_supervisor' || !application.ApprovalStage;
+
+            if (decision === 'approve' && requiresDualApproval && isSupervisorApproval && isStage1) {
+                // Tier 1 completed: Supervisor approved, forwarded to HR
+                application.ApprovalStage = 'pending_hr';
+                application.Status = SYSTEM.STATUS.PENDING;
+                application.SupervisorApproval = {
+                    approvedBy: currentUser + (isActingSupervisor ? ' (Acting Supervisor)' : ''),
+                    approvedAt: new Date().toISOString(),
+                    comment: comment || ''
+                };
+                application.Comment = (application.Comment ? application.Comment + ' | ' : '') + `Supervisor Approved: ${comment || 'Recommended for HR sign-off'}`;
+                if (!application.Metadata) application.Metadata = {};
+                application.Metadata.supervisorApprovedAt = new Date().toISOString();
+                if (isActingSupervisor) {
+                    application.Metadata.actedBySupervisor = true;
+                    application.Metadata.actingSupervisorEmail = currentUser;
+                }
+
+                DataManager.writeDataFile(SYSTEM.DATA_FILES.APPLICATIONS, applicationsFile);
+                EnhancedCacheManager.buildIndexes();
+
+                try {
+                    NotificationManager.notifyHREndorsementRequired(application);
+                } catch (nErr) {
+                    console.warn('HR endorsement notification error:', nErr.message);
+                }
+
+                Utils.logAction('SUPERVISOR_ENDORSE_LEAVE', {
+                    applicationId: appId,
+                    supervisor: currentUser,
+                    nextStage: 'pending_hr'
+                });
+
+                return Utils.createSuccessResponse({
+                    id: appId,
+                    applicationId: appId,
+                    status: SYSTEM.STATUS.PENDING,
+                    approvalStage: 'pending_hr',
+                    message: 'Application endorsed by supervisor. Forwarded to HR for final sign-off (extended/specialized leave).'
+                });
+            }
+
             const newStatus = decision === 'approve' ? SYSTEM.STATUS.APPROVED : SYSTEM.STATUS.DECLINED;
 
             applicationsFile.data[applicationIndex].Status = newStatus;
+            applicationsFile.data[applicationIndex].ApprovalStage = newStatus === SYSTEM.STATUS.APPROVED ? 'approved' : 'declined';
             applicationsFile.data[applicationIndex].ProcessedDate = new Date().toISOString();
             applicationsFile.data[applicationIndex].ProcessedBy = currentUser + (isActingSupervisor ? ' (Acting Supervisor)' : '');
             applicationsFile.data[applicationIndex].Comment = comment || '';
+
+            if (newStatus === SYSTEM.STATUS.APPROVED && (isAdmin || isHR)) {
+                applicationsFile.data[applicationIndex].HRApproval = {
+                    approvedBy: currentUser,
+                    approvedAt: new Date().toISOString(),
+                    comment: comment || ''
+                };
+            }
 
             if (!applicationsFile.data[applicationIndex].Metadata) {
                 applicationsFile.data[applicationIndex].Metadata = {};
@@ -2742,6 +2866,14 @@ const ApplicationsManager = {
                     CalendarSyncManager.syncLeaveToCalendar(application);
                 } catch (calErr) {
                     console.warn('Calendar sync error (non-fatal):', calErr.message);
+                }
+                try {
+                    if (typeof GmailSyncManager !== 'undefined') {
+                        GmailSyncManager.configureVacationResponder(application);
+                        applicationsFile.data[applicationIndex].VacationResponderConfigured = true;
+                    }
+                } catch (vErr) {
+                    console.warn('Vacation responder sync error (non-fatal):', vErr.message);
                 }
                 if (application.HandoverEmail) {
                     try {
@@ -2851,6 +2983,13 @@ const ApplicationsManager = {
                     CalendarSyncManager.removeLeaveFromCalendar(application);
                 } catch (calErr) {
                     console.warn('Calendar removal error (non-fatal):', calErr.message);
+                }
+                try {
+                    if (typeof GmailSyncManager !== 'undefined') {
+                        GmailSyncManager.disableVacationResponder();
+                    }
+                } catch (vErr) {
+                    console.warn('Vacation responder disable error (non-fatal):', vErr.message);
                 }
             }
 
@@ -3184,6 +3323,14 @@ const ApplicationsManager = {
                 CalendarSyncManager.updateLeaveCalendarEvent(app, newStartDate, newEndDate);
             } catch (calErr) {
                 console.warn('Calendar amendment sync error (non-fatal):', calErr.message);
+            }
+
+            if (app.Status === SYSTEM.STATUS.APPROVED && typeof GmailSyncManager !== 'undefined') {
+                try {
+                    GmailSyncManager.configureVacationResponder(app);
+                } catch (vErr) {
+                    console.warn('Vacation responder reconfigure notice:', vErr.message);
+                }
             }
 
             DataManager.writeDataFile(SYSTEM.DATA_FILES.APPLICATIONS, applicationsFile);
@@ -4547,6 +4694,82 @@ const NotificationManager = {
         }
     },
 
+    notifyHREndorsementRequired: function (application) {
+        try {
+            const hrEmails = this.getHREmails();
+            if (hrEmails.length === 0) return false;
+            const subject = `[Action Required] HR Endorsement Needed: ${application.Name} (${application.LeaveType}, ${application.Duration} days)`;
+            const body = `
+                <div style="font-family:sans-serif;padding:16px;color:#1f2937;">
+                    <h3 style="color:#2563eb;margin-top:0;">📋 HR Leave Endorsement Required</h3>
+                    <p>Dear HR Team,</p>
+                    <p>The leave application for <strong>${application.Name}</strong> has been endorsed by their supervisor and requires secondary HR review (policy rule: leave duration &gt; 5 business days or specialized category).</p>
+                    <table style="width:100%;border-collapse:collapse;margin:16px 0;background:#f9fafb;border-radius:8px;padding:12px;">
+                        <tr><td style="padding:6px;font-weight:bold;">Applicant:</td><td>${application.Name} (${application.Email})</td></tr>
+                        <tr><td style="padding:6px;font-weight:bold;">Department:</td><td>${application.Department}</td></tr>
+                        <tr><td style="padding:6px;font-weight:bold;">Leave Type:</td><td>${application.LeaveType}</td></tr>
+                        <tr><td style="padding:6px;font-weight:bold;">Duration:</td><td><strong>${application.Duration} business day(s)</strong></td></tr>
+                        <tr><td style="padding:6px;font-weight:bold;">Dates:</td><td>${Utils.formatDateForDisplay(application.StartDate)} to ${Utils.formatDateForDisplay(application.EndDate)}</td></tr>
+                        <tr><td style="padding:6px;font-weight:bold;">Supervisor Sign-off:</td><td>${application.SupervisorApproval ? application.SupervisorApproval.approvedBy : application.Supervisor}</td></tr>
+                    </table>
+                    <p style="font-size:13px;color:#6b7280;">Please log into the HR Dashboard to review and grant final approval.</p>
+                </div>
+            `;
+            hrEmails.forEach(email => {
+                MailApp.sendEmail({ to: email, subject: subject, htmlBody: body, name: SYSTEM.NAME });
+            });
+            return true;
+        } catch (e) {
+            console.error('notifyHREndorsementRequired error:', e);
+            return false;
+        }
+    },
+
+    notifyHandoverResponse: function (application, decision, notes) {
+        try {
+            if (!application.Email) return false;
+            const isAccepted = decision === 'Accepted' || decision === 'accept';
+            const subject = isAccepted
+                ? `[Handover Accepted] ${application.HandoverName || 'Colleague'} agreed to cover your leave`
+                : `[Handover Notice] ${application.HandoverName || 'Colleague'} was unable to accept coverage`;
+            const body = `
+                <div style="font-family:sans-serif;padding:16px;color:#1f2937;">
+                    <h3 style="color:${isAccepted ? '#059669' : '#dc2626'};margin-top:0;">${isAccepted ? '✅ Handover Accepted' : '⚠️ Handover Declined'}</h3>
+                    <p>Dear ${application.Name},</p>
+                    <p>Your designated coverage colleague <strong>${application.HandoverName || application.HandoverEmail}</strong> has <strong>${isAccepted ? 'accepted' : 'declined'}</strong> your handover request for ${Utils.formatDateForDisplay(application.StartDate)} to ${Utils.formatDateForDisplay(application.EndDate)}.</p>
+                    ${notes ? `<p><strong>Notes from colleague:</strong> "${notes}"</p>` : ''}
+                    ${!isAccepted ? `<p style="color:#b91c1c;">Please arrange an alternative reliever colleague if coverage is required for your role.</p>` : ''}
+                </div>
+            `;
+            MailApp.sendEmail({ to: application.Email, subject: subject, htmlBody: body, name: SYSTEM.NAME });
+            return true;
+        } catch (e) {
+            console.error('notifyHandoverResponse error:', e);
+            return false;
+        }
+    },
+
+    notifyLeaveRecalibrated: function (application, refundedDays, holidayName) {
+        try {
+            if (!application.Email) return false;
+            const subject = `[Leave Balance Refund] ${refundedDays} day(s) credited due to Gazetted Public Holiday`;
+            const body = `
+                <div style="font-family:sans-serif;padding:16px;color:#1f2937;">
+                    <h3 style="color:#059669;margin-top:0;">🎉 Leave Days Refunded</h3>
+                    <p>Dear ${application.Name},</p>
+                    <p>Following the official government gazetting of a public holiday on <strong>${holidayName}</strong>, your leave application (${application.ID}) spanning this date has been recalibrated.</p>
+                    <p><strong>${refundedDays} business day(s)</strong> have been automatically credited back to your leave balance.</p>
+                    <p style="font-size:13px;color:#6b7280;">Your updated duration for this leave is now ${application.Duration} business days.</p>
+                </div>
+            `;
+            MailApp.sendEmail({ to: application.Email, subject: subject, htmlBody: body, name: SYSTEM.NAME });
+            return true;
+        } catch (e) {
+            console.error('notifyLeaveRecalibrated error:', e);
+            return false;
+        }
+    },
+
     notifyEasterExpiryWarning: function (staff, remainingDays, easterDate, daysUntilEaster) {
         try {
             const easterStr = Utils.formatDateForDisplay(easterDate);
@@ -4912,6 +5135,17 @@ const MaintenanceManager = {
             });
         } catch (staleErr) {
             console.error('Heartbeat stale application reminder error:', staleErr.message);
+        }
+
+        // ── 4. Automated Daily Morning Absence Digest (Google Chat Webhook & Email) ───
+        try {
+            if (typeof AbsenceDigestManager !== 'undefined') {
+                const digestRes = AbsenceDigestManager.sendDailyDigest(today);
+                results.absenceDigest = digestRes;
+            }
+        } catch (dErr) {
+            console.error('Heartbeat daily digest error:', dErr.message);
+            results.absenceDigest = { sent: false, error: dErr.message };
         }
 
         return results;
@@ -5360,6 +5594,559 @@ const BlackoutPeriodManager = {
         } catch (error) {
             console.error('Error checking minimum staffing:', error);
             return { permitted: true, breach: false };
+        }
+    }
+};
+
+// =============================================
+// GMAIL OUT-OF-OFFICE (VACATION RESPONDER) MANAGER
+// =============================================
+
+const GmailSyncManager = {
+    configureVacationResponder: function (application) {
+        try {
+            if (typeof GmailApp === 'undefined' || !GmailApp.setVacationResponder) {
+                return { success: false, reason: 'GmailApp service not available in current execution context' };
+            }
+            const startDate = Utils.parseLocalDate(application.StartDate || application.HourlyDate);
+            const endDate = Utils.parseLocalDate(application.EndDate || application.HourlyDate || application.StartDate);
+            if (!startDate || !endDate) return { success: false, reason: 'Invalid dates' };
+
+            const handoverName = application.HandoverName || application.HandoverEmail || 'our team';
+            const handoverEmail = application.HandoverEmail || SYSTEM.ADMIN_EMAIL;
+            const applicantName = application.Name || 'Agri Experience Team';
+            const formattedStart = Utils.formatDateForDisplay(startDate);
+            const formattedEnd = Utils.formatDateForDisplay(endDate);
+
+            const subject = `Out of Office: ${applicantName} (${formattedStart} - ${formattedEnd})`;
+            const bodyHtml = `
+                <div style="font-family: Arial, sans-serif; font-size: 14px; color: #1f2937; line-height: 1.6;">
+                    <p>Hello,</p>
+                    <p>Thank you for reaching out. I am currently away on approved leave from <strong>${formattedStart}</strong> to <strong>${formattedEnd}</strong> and will have limited access to email.</p>
+                    <p>For urgent matters or immediate assistance during my absence, please contact my designated coverage colleague: <strong>${handoverName}</strong> at <a href="mailto:${handoverEmail}">${handoverEmail}</a>.</p>
+                    <p>I will attend to your email upon my return.</p>
+                    <p>Best regards,<br><strong>${applicantName}</strong><br>Agri Experience</p>
+                </div>
+            `.trim();
+
+            GmailApp.setVacationResponder(startDate, endDate, subject, bodyHtml, {
+                responseBodyHtml: bodyHtml,
+                restrictToContacts: false,
+                restrictToDomain: false
+            });
+
+            return {
+                success: true,
+                subject: subject,
+                startDate: formattedStart,
+                endDate: formattedEnd
+            };
+        } catch (error) {
+            console.warn('Gmail vacation responder notice (non-fatal):', error.message);
+            return { success: false, error: error.message };
+        }
+    },
+
+    disableVacationResponder: function () {
+        try {
+            if (typeof GmailApp === 'undefined' || !GmailApp.disableVacationResponder) return false;
+            GmailApp.disableVacationResponder();
+            return true;
+        } catch (error) {
+            console.warn('Gmail vacation responder disable notice (non-fatal):', error.message);
+            return false;
+        }
+    },
+
+    getResponderPreview: function (application) {
+        const startDate = Utils.parseLocalDate(application.StartDate || application.HourlyDate || new Date());
+        const endDate = Utils.parseLocalDate(application.EndDate || application.HourlyDate || application.StartDate || new Date());
+        const handoverName = application.HandoverName || application.HandoverEmail || 'colleague';
+        const handoverEmail = application.HandoverEmail || SYSTEM.ADMIN_EMAIL;
+        const applicantName = application.Name || 'Staff Member';
+        const formattedStart = Utils.formatDateForDisplay(startDate);
+        const formattedEnd = Utils.formatDateForDisplay(endDate);
+
+        return {
+            subject: `Out of Office: ${applicantName} (${formattedStart} - ${formattedEnd})`,
+            startDate: formattedStart,
+            endDate: formattedEnd,
+            handoverName,
+            handoverEmail,
+            message: `Thank you for reaching out. I am currently away on approved leave from ${formattedStart} to ${formattedEnd}. For urgent inquiries, please contact ${handoverName} at ${handoverEmail}.`
+        };
+    }
+};
+
+// =============================================
+// INTERACTIVE HANDOVER & TASK CHECKLIST MANAGER
+// =============================================
+
+const HandoverManager = {
+    getPendingHandovers: function (userEmail) {
+        try {
+            const email = (userEmail || Session.getActiveUser().getEmail() || '').toLowerCase().trim();
+            const appsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.APPLICATIONS);
+            const applications = (appsFile.data || []).filter(app => {
+                if (!app.HandoverEmail) return false;
+                const matchesEmail = app.HandoverEmail.toLowerCase().trim() === email;
+                const isActive = app.Status === SYSTEM.STATUS.PENDING || app.Status === SYSTEM.STATUS.APPROVED;
+                return matchesEmail && isActive;
+            });
+
+            return applications.map(app => ({
+                id: app.ID,
+                applicationId: app.ID,
+                applicantName: app.Name,
+                applicantEmail: app.Email,
+                department: app.Department,
+                leaveType: app.LeaveType,
+                startDate: app.StartDate,
+                endDate: app.EndDate,
+                duration: app.Duration,
+                handoverStatus: app.HandoverStatus || 'Pending',
+                handoverNotes: app.HandoverNotes || '',
+                handoverTasks: app.HandoverTasks || [],
+                status: app.Status
+            }));
+        } catch (error) {
+            console.error('Error in getPendingHandovers:', error);
+            return [];
+        }
+    },
+
+    respondToHandover: function (appId, decision, notes = '', callerEmail = null) {
+        try {
+            const currentUser = (callerEmail || Session.getActiveUser().getEmail() || '').toLowerCase().trim();
+            const appsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.APPLICATIONS);
+            const app = (appsFile.data || []).find(a => a.ID === appId);
+            if (!app) return Utils.createErrorResponse('Application not found');
+
+            const isDesignated = app.HandoverEmail && app.HandoverEmail.toLowerCase().trim() === currentUser;
+            const staff = StaffManager.getUserData(currentUser);
+            const isAdmin = staff && staff.Role === SYSTEM.ROLES.ADMIN;
+            if (!isDesignated && !isAdmin) {
+                return Utils.createErrorResponse('You are not the designated handover colleague for this application');
+            }
+
+            const isAccept = decision === 'accept' || decision === 'Accepted';
+            app.HandoverStatus = isAccept ? 'Accepted' : 'Declined';
+            app.HandoverResponseNotes = (notes || '').trim();
+            app.HandoverRespondedAt = new Date().toISOString();
+
+            if (!app.Metadata) app.Metadata = {};
+            app.Metadata.handoverResponse = {
+                decision: app.HandoverStatus,
+                respondedBy: currentUser,
+                timestamp: app.HandoverRespondedAt,
+                notes: app.HandoverResponseNotes
+            };
+
+            DataManager.writeDataFile(SYSTEM.DATA_FILES.APPLICATIONS, appsFile);
+            EnhancedCacheManager.buildIndexes();
+
+            try {
+                NotificationManager.notifyHandoverResponse(app, app.HandoverStatus, app.HandoverResponseNotes);
+            } catch (nErr) {
+                console.warn('Handover response notification notice (non-fatal):', nErr.message);
+            }
+
+            Utils.logAction('HANDOVER_RESPONSE', {
+                applicationId: appId,
+                colleague: currentUser,
+                decision: app.HandoverStatus,
+                notes: app.HandoverResponseNotes
+            });
+
+            return Utils.createSuccessResponse({
+                applicationId: appId,
+                handoverStatus: app.HandoverStatus,
+                message: isAccept ? 'Handover coverage accepted successfully' : 'Handover coverage declined'
+            });
+        } catch (error) {
+            return Utils.createErrorResponse('Failed to respond to handover: ' + error.message);
+        }
+    },
+
+    toggleHandoverTask: function (appId, taskId, completed, callerEmail = null) {
+        try {
+            const currentUser = (callerEmail || Session.getActiveUser().getEmail() || '').toLowerCase().trim();
+            const appsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.APPLICATIONS);
+            const app = (appsFile.data || []).find(a => a.ID === appId);
+            if (!app) return Utils.createErrorResponse('Application not found');
+
+            const isApplicant = app.Email && app.Email.toLowerCase().trim() === currentUser;
+            const isHandover = app.HandoverEmail && app.HandoverEmail.toLowerCase().trim() === currentUser;
+            const staff = StaffManager.getUserData(currentUser);
+            const isAdmin = staff && staff.Role === SYSTEM.ROLES.ADMIN;
+
+            if (!isApplicant && !isHandover && !isAdmin) {
+                return Utils.createErrorResponse('Not authorized to update tasks for this application');
+            }
+
+            if (!Array.isArray(app.HandoverTasks)) app.HandoverTasks = [];
+            const task = app.HandoverTasks.find(t => t.id === taskId);
+            if (!task) return Utils.createErrorResponse('Task not found');
+
+            task.completed = Boolean(completed);
+            task.completedAt = task.completed ? new Date().toISOString() : null;
+            task.completedBy = task.completed ? currentUser : null;
+
+            DataManager.writeDataFile(SYSTEM.DATA_FILES.APPLICATIONS, appsFile);
+            EnhancedCacheManager.buildIndexes();
+
+            return Utils.createSuccessResponse({
+                taskId,
+                completed: task.completed,
+                tasks: app.HandoverTasks
+            }, 'Task status updated');
+        } catch (error) {
+            return Utils.createErrorResponse('Failed to update task: ' + error.message);
+        }
+    }
+};
+
+// =============================================
+// AUTOMATED DAILY ABSENCE DIGEST MANAGER
+// =============================================
+
+const AbsenceDigestManager = {
+    getTodayAbsenceDigest: function (targetDateInput = null) {
+        try {
+            const targetDate = targetDateInput ? Utils.parseLocalDate(targetDateInput) : Utils.parseLocalDate(new Date());
+            const targetStr = Utils.formatLocalDate(targetDate);
+            const appsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.APPLICATIONS);
+            const staffFile = DataManager.readDataFile(SYSTEM.DATA_FILES.STAFF);
+
+            const activeStaff = (staffFile.data || []).filter(s => s.Metadata?.active !== false && s.EligibleForLeave);
+            const approvedApps = (appsFile.data || []).filter(a => a.Status === SYSTEM.STATUS.APPROVED);
+
+            const todayAbsences = [];
+            approvedApps.forEach(app => {
+                const start = Utils.parseLocalDate(app.StartDate || app.HourlyDate);
+                const end = Utils.parseLocalDate(app.EndDate || app.HourlyDate || app.StartDate);
+                if (start && end && targetDate >= start && targetDate <= end) {
+                    todayAbsences.push({
+                        applicationId: app.ID,
+                        name: app.Name,
+                        email: app.Email,
+                        department: app.Department || 'General',
+                        leaveType: app.LeaveType,
+                        leaveMode: app.LeaveMode || 'Daily',
+                        isHourly: app.LeaveMode === 'Hourly',
+                        hours: app.Hours,
+                        startDate: app.StartDate,
+                        endDate: app.EndDate,
+                        returnDate: Utils.formatLocalDate(new Date(end.getTime() + 86400000)),
+                        handoverName: app.HandoverName || 'Team',
+                        handoverEmail: app.HandoverEmail || ''
+                    });
+                }
+            });
+
+            // Departmental breakdown
+            const departmentStats = {};
+            activeStaff.forEach(s => {
+                const dept = s.Department || 'General';
+                if (!departmentStats[dept]) {
+                    departmentStats[dept] = { totalStaff: 0, awayCount: 0, onDutyCount: 0 };
+                }
+                departmentStats[dept].totalStaff++;
+            });
+
+            todayAbsences.forEach(ab => {
+                if (departmentStats[ab.department]) {
+                    departmentStats[ab.department].awayCount++;
+                }
+            });
+
+            Object.keys(departmentStats).forEach(dept => {
+                const d = departmentStats[dept];
+                d.onDutyCount = Math.max(0, d.totalStaff - d.awayCount);
+                d.coveragePercent = d.totalStaff > 0 ? Math.round((d.onDutyCount / d.totalStaff) * 100) : 100;
+            });
+
+            const totalStaffCount = activeStaff.length;
+            const totalAwayCount = todayAbsences.length;
+            const totalOnDuty = Math.max(0, totalStaffCount - totalAwayCount);
+            const overallStrength = totalStaffCount > 0 ? Math.round((totalOnDuty / totalStaffCount) * 100) : 100;
+
+            return {
+                date: targetStr,
+                formattedDate: Utils.formatDateForDisplay(targetDate),
+                totalStaffCount,
+                totalAwayCount,
+                totalOnDuty,
+                overallStrength,
+                absences: todayAbsences,
+                departmentStats
+            };
+        } catch (error) {
+            console.error('Error generating absence digest:', error);
+            return {
+                date: new Date().toISOString().split('T')[0],
+                totalStaffCount: 0,
+                totalAwayCount: 0,
+                absences: [],
+                departmentStats: {}
+            };
+        }
+    },
+
+    sendDailyDigest: function (targetDateInput = null, webhookUrl = null) {
+        try {
+            const digest = this.getTodayAbsenceDigest(targetDateInput);
+            const settingsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.SETTINGS);
+            const url = webhookUrl || settingsFile.data?.googleChatWebhookUrl || settingsFile.data?.GOOGLE_CHAT_WEBHOOK_URL;
+
+            let webhookSent = false;
+            let webhookResponse = null;
+
+            if (url && typeof UrlFetchApp !== 'undefined') {
+                const itemsText = digest.absences.length === 0
+                    ? '✅ <b>All staff are on duty today. No scheduled absences.</b>'
+                    : digest.absences.map(a =>
+                        `• <b>${a.name}</b> (${a.department}): <i>${a.leaveType}</i> ${a.isHourly ? `[${a.hours}h]` : ''} | Coverage: <b>${a.handoverName}</b>`
+                    ).join('<br>');
+
+                const cardPayload = {
+                    cardsV2: [{
+                        cardId: 'dailyAbsenceDigestCard',
+                        card: {
+                            header: {
+                                title: "🌿 Agri Experience — Today's Absence Digest",
+                                subtitle: `${digest.formattedDate} • Team Strength: ${digest.overallStrength}%`,
+                                imageUrl: "https://img.icons8.com/color/96/leave.png"
+                            },
+                            sections: [{
+                                header: `Out of Office (${digest.totalAwayCount} away, ${digest.totalOnDuty} on duty)`,
+                                widgets: [{
+                                    textParagraph: { text: itemsText }
+                                }]
+                            }]
+                        }
+                    }]
+                };
+
+                try {
+                    const resp = UrlFetchApp.fetch(url, {
+                        method: 'post',
+                        contentType: 'application/json',
+                        payload: JSON.stringify(cardPayload),
+                        muteHttpExceptions: true
+                    });
+                    webhookSent = resp.getResponseCode() >= 200 && resp.getResponseCode() < 300;
+                    webhookResponse = resp.getContentText();
+                } catch (fetchErr) {
+                    console.warn('Google Chat Webhook dispatch notice:', fetchErr.message);
+                }
+            }
+
+            return {
+                success: true,
+                digest,
+                webhookSent,
+                webhookResponse
+            };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    }
+};
+
+// =============================================
+// GAZETTED PUBLIC HOLIDAY & RECALIBRATION MANAGER
+// =============================================
+
+const HolidayManager = {
+    getAllCustomHolidays: function () {
+        try {
+            const file = DataManager.readDataFile(SYSTEM.DATA_FILES.GAZETTED_HOLIDAYS);
+            return file.data || [];
+        } catch (error) {
+            return [];
+        }
+    },
+
+    addCustomHoliday: function (holidayData, callerEmail = null) {
+        try {
+            const currentUser = (callerEmail || Session.getActiveUser().getEmail() || '').trim();
+            const user = StaffManager.getUserData(currentUser);
+            const isAdminOrHR = user && (user.Role === SYSTEM.ROLES.ADMIN || user.Role === SYSTEM.ROLES.HR);
+            if (!isAdminOrHR) {
+                return Utils.createErrorResponse('Only HR or System Administrators can gazette public holidays');
+            }
+
+            const name = (holidayData.name || '').trim();
+            const date = (holidayData.date || '').trim();
+            const description = (holidayData.description || '').trim();
+
+            if (!name) return Utils.createErrorResponse('Holiday name is required');
+            if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+                return Utils.createErrorResponse('Valid holiday date (YYYY-MM-DD) is required');
+            }
+
+            const file = DataManager.readDataFile(SYSTEM.DATA_FILES.GAZETTED_HOLIDAYS);
+            if (!file.data) file.data = [];
+
+            const existing = file.data.find(h => h.date === date);
+            if (existing) {
+                return Utils.createErrorResponse(`A public holiday is already registered for ${date}: "${existing.name}"`);
+            }
+
+            const newHoliday = {
+                id: 'HOL-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6).toUpperCase(),
+                name,
+                date,
+                description,
+                addedBy: currentUser,
+                addedAt: new Date().toISOString()
+            };
+
+            file.data.push(newHoliday);
+            file.metadata.recordCount = file.data.length;
+            DataManager.writeDataFile(SYSTEM.DATA_FILES.GAZETTED_HOLIDAYS, file);
+            EnhancedCacheManager.clearAll();
+
+            Utils.logAction('ADD_GAZETTED_HOLIDAY', {
+                holidayId: newHoliday.id,
+                name,
+                date,
+                addedBy: currentUser
+            });
+
+            return Utils.createSuccessResponse(newHoliday, 'Gazetted public holiday added successfully');
+        } catch (error) {
+            return Utils.createErrorResponse('Failed to add public holiday: ' + error.message);
+        }
+    },
+
+    deleteCustomHoliday: function (holidayId, callerEmail = null) {
+        try {
+            const currentUser = (callerEmail || Session.getActiveUser().getEmail() || '').trim();
+            const user = StaffManager.getUserData(currentUser);
+            const isAdminOrHR = user && (user.Role === SYSTEM.ROLES.ADMIN || user.Role === SYSTEM.ROLES.HR);
+            if (!isAdminOrHR) {
+                return Utils.createErrorResponse('Only HR or System Administrators can delete public holidays');
+            }
+
+            const file = DataManager.readDataFile(SYSTEM.DATA_FILES.GAZETTED_HOLIDAYS);
+            const idx = (file.data || []).findIndex(h => h.id === holidayId || h.date === holidayId);
+            if (idx === -1) return Utils.createErrorResponse('Holiday not found');
+
+            const deleted = file.data.splice(idx, 1)[0];
+            file.metadata.recordCount = file.data.length;
+            DataManager.writeDataFile(SYSTEM.DATA_FILES.GAZETTED_HOLIDAYS, file);
+            EnhancedCacheManager.clearAll();
+
+            Utils.logAction('DELETE_GAZETTED_HOLIDAY', {
+                holidayId: deleted.id,
+                name: deleted.name,
+                date: deleted.date,
+                deletedBy: currentUser
+            });
+
+            return Utils.createSuccessResponse(deleted, 'Gazetted public holiday removed');
+        } catch (error) {
+            return Utils.createErrorResponse('Failed to delete public holiday: ' + error.message);
+        }
+    },
+
+    recalibrateLeavesForHoliday: function (holidayDate, callerEmail = null) {
+        try {
+            const currentUser = (callerEmail || Session.getActiveUser().getEmail() || '').trim();
+            const user = StaffManager.getUserData(currentUser);
+            const isAdminOrHR = user && (user.Role === SYSTEM.ROLES.ADMIN || user.Role === SYSTEM.ROLES.HR);
+            if (!isAdminOrHR) {
+                return Utils.createErrorResponse('Only HR or System Administrators can recalibrate leave applications');
+            }
+
+            const holDate = Utils.parseLocalDate(holidayDate);
+            if (!holDate) return Utils.createErrorResponse('Valid holiday date is required');
+
+            // Check if holiday is on a weekend
+            const dayOfWeek = holDate.getDay();
+            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+            const appsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.APPLICATIONS);
+            const applications = appsFile.data || [];
+            const affectedApps = [];
+
+            applications.forEach(app => {
+                if (app.LeaveMode === 'Hourly') return;
+                if (app.Status !== SYSTEM.STATUS.PENDING && app.Status !== SYSTEM.STATUS.APPROVED) return;
+
+                const start = Utils.parseLocalDate(app.StartDate);
+                const end = Utils.parseLocalDate(app.EndDate);
+                if (!start || !end) return;
+
+                if (holDate >= start && holDate <= end) {
+                    const oldDuration = app.Duration;
+                    const accurateBusinessDays = Utils.getBusinessDays(app.StartDate, app.EndDate);
+
+                    if (accurateBusinessDays < oldDuration) {
+                        const dayDiff = oldDuration - accurateBusinessDays;
+                        app.Duration = accurateBusinessDays;
+                        if (!app.Metadata) app.Metadata = {};
+                        if (!Array.isArray(app.Metadata.recalibrations)) app.Metadata.recalibrations = [];
+
+                        app.Metadata.recalibrations.push({
+                            holidayDate,
+                            refund: dayDiff,
+                            oldDuration,
+                            newDuration: accurateBusinessDays,
+                            timestamp: new Date().toISOString()
+                        });
+
+                        // If approved, refund the deducted day
+                        if (app.Status === SYSTEM.STATUS.APPROVED) {
+                            if (app.DeductFromAnnual >= dayDiff) {
+                                app.DeductFromAnnual -= dayDiff;
+                            } else if (app.DeductFromBroughtForward >= dayDiff) {
+                                app.DeductFromBroughtForward -= dayDiff;
+                            } else if (app.DeductFromCompensation >= dayDiff) {
+                                app.DeductFromCompensation -= dayDiff;
+                            } else {
+                                app.DeductFromAnnual = Math.max(0, app.DeductFromAnnual - dayDiff);
+                            }
+                            EnhancedCacheManager.clearBalance(app.Email);
+                        }
+
+                        affectedApps.push({
+                            id: app.ID,
+                            email: app.Email,
+                            name: app.Name,
+                            oldDuration,
+                            newDuration: accurateBusinessDays,
+                            refunded: dayDiff,
+                            status: app.Status
+                        });
+
+                        try {
+                            NotificationManager.notifyLeaveRecalibrated(app, dayDiff, holidayDate);
+                        } catch (nErr) {}
+                    }
+                }
+            });
+
+            if (affectedApps.length > 0) {
+                DataManager.writeDataFile(SYSTEM.DATA_FILES.APPLICATIONS, appsFile);
+                EnhancedCacheManager.buildIndexes();
+                Utils.logAction('RECALIBRATE_LEAVES_HOLIDAY', {
+                    holidayDate,
+                    recalibratedBy: currentUser,
+                    affectedCount: affectedApps.length
+                });
+            }
+
+            return Utils.createSuccessResponse({
+                holidayDate,
+                affectedCount: affectedApps.length,
+                affectedApplications: affectedApps,
+                isWeekend
+            }, `Recalibrated ${affectedApps.length} overlapping application(s). Days refunded.`);
+        } catch (error) {
+            return Utils.createErrorResponse('Failed to recalibrate applications: ' + error.message);
         }
     }
 };
@@ -5969,6 +6756,9 @@ function apiGetPendingApplications() {
             // Must be pending
             if (app.Status !== SYSTEM.STATUS.PENDING) return false;
 
+            // If dual approval is awaiting HR endorsement, supervisor has already endorsed it
+            if (app.ApprovalStage === 'pending_hr') return false;
+
             // Must have this user as supervisor
             const supervisorEmail = app.SupervisorEmail || app.supervisorEmail;
             if (!supervisorEmail) return false;
@@ -6534,6 +7324,7 @@ function apiGetHRDashboard() {
 
         const pendingApps = allApps.filter(a => a.Status === SYSTEM.STATUS.PENDING);
         const approvedApps = allApps.filter(a => a.Status === SYSTEM.STATUS.APPROVED);
+        const hrEndorsements = pendingApps.filter(a => a.ApprovalStage === 'pending_hr');
 
         // Calculate leave liability across active eligible staff
         let totalAnnualDays = 0;
@@ -6563,12 +7354,15 @@ function apiGetHRDashboard() {
                 all: allApps,
                 pending: pendingApps,
                 approved: approvedApps,
-                pendingCount: pendingApps.length
+                pendingCount: pendingApps.length,
+                hrEndorsements: hrEndorsements,
+                hrEndorsementCount: hrEndorsements.length
             },
             summary: {
                 totalStaff: staffData.length,
                 eligibleStaff: staffData.filter(s => s.EligibleForLeave).length,
-                pendingApplications: pendingApps.length
+                pendingApplications: pendingApps.length,
+                pendingHREndorsements: hrEndorsements.length
             },
             liability
         });
@@ -7908,6 +8702,155 @@ function apiDeleteBlackoutPeriod(id) {
         return BlackoutPeriodManager.deletePeriod(id);
     } catch (error) {
         return Utils.createErrorResponse('Failed to delete blackout period: ' + error.message);
+    }
+}
+
+// 10. Interactive Handover Coverage & Task APIs
+function apiGetMyHandoverRequests() {
+    try {
+        const currentUser = Session.getActiveUser().getEmail();
+        const requests = HandoverManager.getPendingHandovers(currentUser);
+        return Utils.createSuccessResponse(requests, `Retrieved ${requests.length} handover request(s)`);
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to get handover requests: ' + error.message);
+    }
+}
+
+function apiRespondToHandover(params) {
+    try {
+        if (!params || !params.appId || !params.decision) {
+            return Utils.createErrorResponse('appId and decision are required');
+        }
+        return HandoverManager.respondToHandover(params.appId, params.decision, params.notes || '');
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to respond to handover: ' + error.message);
+    }
+}
+
+function apiToggleHandoverTask(params) {
+    try {
+        if (!params || !params.appId || !params.taskId) {
+            return Utils.createErrorResponse('appId and taskId are required');
+        }
+        return HandoverManager.toggleHandoverTask(params.appId, params.taskId, params.completed);
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to toggle handover task: ' + error.message);
+    }
+}
+
+// 11. Daily Absence Digest APIs
+function apiGetTodayAbsenceDigest(params) {
+    try {
+        const dateInput = (typeof params === 'string') ? params : (params && params.date ? params.date : null);
+        const digest = AbsenceDigestManager.getTodayAbsenceDigest(dateInput);
+        return Utils.createSuccessResponse(digest, 'Absence digest retrieved');
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to get absence digest: ' + error.message);
+    }
+}
+
+function apiSendDailyAbsenceDigest(params, optionalWebhookUrl) {
+    try {
+        let dateInput = null;
+        let webhookUrl = null;
+        if (typeof params === 'string') {
+            dateInput = params;
+            webhookUrl = optionalWebhookUrl || null;
+        } else if (params && typeof params === 'object') {
+            dateInput = params.date || null;
+            webhookUrl = params.webhookUrl || optionalWebhookUrl || null;
+        }
+        const result = AbsenceDigestManager.sendDailyDigest(dateInput, webhookUrl);
+        return result.success ? Utils.createSuccessResponse(result, 'Daily absence digest sent successfully') : Utils.createErrorResponse(result.error || 'Failed to dispatch digest');
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to send absence digest: ' + error.message);
+    }
+}
+
+// 12. Gazetted Public Holidays & Retroactive Recalibration APIs
+function apiGetGazettedHolidays() {
+    try {
+        const holidays = HolidayManager.getAllCustomHolidays();
+        return Utils.createSuccessResponse(holidays, `Retrieved ${holidays.length} gazetted holiday(s)`);
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to get gazetted holidays: ' + error.message);
+    }
+}
+
+function apiAddGazettedHoliday(params) {
+    try {
+        if (!params || !params.name || !params.date) {
+            return Utils.createErrorResponse('Holiday name and date are required');
+        }
+        return HolidayManager.addCustomHoliday(params);
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to add gazetted holiday: ' + error.message);
+    }
+}
+
+function apiDeleteGazettedHoliday(id) {
+    try {
+        if (typeof id === 'object' && id !== null) id = id.id || id.holidayId;
+        if (!id) return Utils.createErrorResponse('Holiday id is required');
+        return HolidayManager.deleteCustomHoliday(id);
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to delete gazetted holiday: ' + error.message);
+    }
+}
+
+function apiRecalibrateOverlappingLeaves(params) {
+    try {
+        const date = (params && typeof params === 'object') ? (params.date || params.holidayDate) : params;
+        if (!date) return Utils.createErrorResponse('Holiday date is required for recalibration');
+        return HolidayManager.recalibrateLeavesForHoliday(date);
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to recalibrate leaves: ' + error.message);
+    }
+}
+
+// 13. Multi-tier Approval & HR Endorsement Queue APIs
+function apiGetPendingHREndorsements() {
+    try {
+        const currentUser = Session.getActiveUser().getEmail();
+        const userRole = StaffManager.getUserRole(currentUser);
+        if (userRole !== SYSTEM.ROLES.HR && userRole !== SYSTEM.ROLES.ADMIN) {
+            return Utils.createErrorResponse('Unauthorized. Only HR or Admin can view the endorsement queue.');
+        }
+        const appsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.APPLICATIONS);
+        const apps = (appsFile.data || []).filter(a => a.Status === SYSTEM.STATUS.PENDING && a.ApprovalStage === 'pending_hr');
+        return Utils.createSuccessResponse(apps, `Retrieved ${apps.length} pending HR endorsement(s)`);
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to get pending HR endorsements: ' + error.message);
+    }
+}
+
+// 14. Gmail Vacation Responder APIs
+function apiConfigureVacationResponder(params) {
+    try {
+        let appId = params;
+        if (typeof params === 'object' && params !== null) appId = params.appId || params.id;
+        if (!appId) return Utils.createErrorResponse('Application appId is required');
+        const appsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.APPLICATIONS);
+        const app = (appsFile.data || []).find(a => a.ID === appId);
+        if (!app) return Utils.createErrorResponse('Application not found');
+        const res = GmailSyncManager.configureVacationResponder(app);
+        return res.success ? Utils.createSuccessResponse(res, 'Vacation responder configured') : Utils.createErrorResponse(res.error || res.reason || 'Failed to configure vacation responder');
+    } catch (error) {
+        return Utils.createErrorResponse('Vacation responder error: ' + error.message);
+    }
+}
+
+function apiGetVacationResponderPreview(appId) {
+    try {
+        if (typeof appId === 'object' && appId !== null) appId = appId.appId || appId.id;
+        if (!appId) return Utils.createErrorResponse('appId is required');
+        const appsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.APPLICATIONS);
+        const app = (appsFile.data || []).find(a => a.ID === appId);
+        if (!app) return Utils.createErrorResponse('Application not found');
+        const preview = GmailSyncManager.getResponderPreview(app);
+        return Utils.createSuccessResponse(preview, 'Preview generated');
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to generate preview: ' + error.message);
     }
 }
 
