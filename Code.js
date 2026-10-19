@@ -731,18 +731,37 @@ const EnhancedCacheManager = {
     },
     getPendingApplications: function (supervisorEmail) {
         if (!supervisorEmail) return [];
+        const supKey = supervisorEmail.toLowerCase().trim();
         let applications = [];
-        if (SYSTEM.PERFORMANCE.INDEXES.ENABLED) {
-            const allPending = this.indexes.applicationsByStatus.get(SYSTEM.STATUS.PENDING) || [];
-            applications = allPending.filter(app =>
-                app.SupervisorEmail && app.SupervisorEmail.toLowerCase() === supervisorEmail.toLowerCase()
-            );
-        } else {
-            const allPending = ApplicationsManager.getAllApplicationsData({ status: SYSTEM.STATUS.PENDING });
-            applications = allPending.filter(app =>
-                app.SupervisorEmail && app.SupervisorEmail.toLowerCase() === supervisorEmail.toLowerCase()
-            );
+        const allPending = SYSTEM.PERFORMANCE.INDEXES.ENABLED
+            ? (this.indexes.applicationsByStatus.get(SYSTEM.STATUS.PENDING) || [])
+            : ApplicationsManager.getAllApplicationsData({ status: SYSTEM.STATUS.PENDING });
+
+        // Include applications where supervisorEmail is direct supervisor OR acting supervisor
+        const delegatedSupervisors = new Set([supKey]);
+        try {
+            const staffData = StaffManager.getAllStaffData();
+            const today = Utils.parseLocalDate(new Date());
+
+            staffData.forEach(s => {
+                if (s.ActingSupervisor && s.ActingSupervisor.active) {
+                    const actEmail = (s.ActingSupervisor.actingEmail || s.ActingSupervisor.email || '').toLowerCase().trim();
+                    if (actEmail && actEmail === supKey) {
+                        const from = Utils.parseLocalDate(s.ActingSupervisor.startDate || s.ActingSupervisor.fromDate);
+                        const to = Utils.parseLocalDate(s.ActingSupervisor.endDate || s.ActingSupervisor.toDate);
+                        if (from && to && today >= from && today <= to) {
+                            if (s.Email) delegatedSupervisors.add(s.Email.toLowerCase().trim());
+                        }
+                    }
+                }
+            });
+        } catch (e) {
+            console.warn('Error evaluating acting supervisor delegations:', e.message);
         }
+
+        applications = allPending.filter(app =>
+            app.SupervisorEmail && delegatedSupervisors.has(app.SupervisorEmail.toLowerCase().trim())
+        );
         return applications;
     },
 
@@ -1791,6 +1810,73 @@ const StaffManager = {
             console.error('Error deleting staff member:', error);
             return Utils.createErrorResponse('Failed to delete staff member: ' + error.message);
         }
+    },
+
+    setActingSupervisor: function (supervisorEmail, actingEmailOrData, actingName, startDate, endDate, notes) {
+        try {
+            if (!supervisorEmail) return Utils.createErrorResponse('supervisorEmail is required');
+            const staffFile = DataManager.readDataFile(SYSTEM.DATA_FILES.STAFF);
+            const staffIndex = staffFile.data.findIndex(staff =>
+                staff.Email && staff.Email.toLowerCase().trim() === supervisorEmail.toLowerCase().trim()
+            );
+
+            if (staffIndex === -1) return Utils.createErrorResponse('Supervisor not found in staff records');
+
+            const supervisor = staffFile.data[staffIndex];
+            let actingEmail = '';
+            let fromDate = '';
+            let toDate = '';
+            let active = true;
+            let note = '';
+            let resolvedName = actingName || '';
+
+            if (typeof actingEmailOrData === 'object' && actingEmailOrData !== null) {
+                actingEmail = actingEmailOrData.actingEmail || actingEmailOrData.email || '';
+                resolvedName = actingEmailOrData.actingName || actingEmailOrData.name || resolvedName;
+                fromDate = actingEmailOrData.startDate || actingEmailOrData.fromDate || '';
+                toDate = actingEmailOrData.endDate || actingEmailOrData.toDate || '';
+                active = actingEmailOrData.active !== false;
+                note = actingEmailOrData.notes || actingEmailOrData.note || '';
+            } else {
+                actingEmail = actingEmailOrData || '';
+                fromDate = startDate || '';
+                toDate = endDate || '';
+                note = notes || '';
+            }
+
+            if (actingEmail && !resolvedName) {
+                const actingStaff = staffFile.data.find(s =>
+                    s.Email && s.Email.toLowerCase().trim() === actingEmail.toLowerCase().trim()
+                );
+                if (actingStaff) resolvedName = actingStaff.Name || '';
+            }
+
+            supervisor.ActingSupervisor = {
+                email: actingEmail ? actingEmail.trim() : '',
+                actingEmail: actingEmail ? actingEmail.trim() : '',
+                name: resolvedName || '',
+                actingName: resolvedName || '',
+                fromDate: fromDate || '',
+                startDate: fromDate || '',
+                toDate: toDate || '',
+                endDate: toDate || '',
+                active: active && Boolean(actingEmail),
+                notes: note || '',
+                updatedAt: new Date().toISOString()
+            };
+
+            DataManager.writeDataFile(SYSTEM.DATA_FILES.STAFF, staffFile);
+            EnhancedCacheManager.clearAll();
+            EnhancedCacheManager.buildIndexes();
+
+            return Utils.createSuccessResponse(
+                supervisor.ActingSupervisor,
+                active ? `Approval delegation set to ${actingName || actingEmail} from ${fromDate} to ${toDate}` : 'Approval delegation deactivated'
+            );
+        } catch (error) {
+            console.error('Error in setActingSupervisor:', error);
+            return Utils.createErrorResponse('Failed to set acting supervisor: ' + error.message);
+        }
     }
 };
 
@@ -2184,6 +2270,30 @@ const ApplicationsManager = {
                 }
             }
 
+            const applicationsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.APPLICATIONS);
+
+            // Overlap check: ensure applicant has no overlapping Pending or Approved applications
+            const reqStart = Utils.parseLocalDate(startDate);
+            const reqEnd = Utils.parseLocalDate(endDate);
+            if (reqStart && reqEnd) {
+                const userApps = (applicationsFile.data || []).filter(app =>
+                    app.Email && app.Email.toLowerCase().trim() === userEmail.toLowerCase().trim() &&
+                    (app.Status === SYSTEM.STATUS.PENDING || app.Status === SYSTEM.STATUS.APPROVED)
+                );
+                for (const ex of userApps) {
+                    const exStart = Utils.parseLocalDate(ex.StartDate || ex.HourlyDate);
+                    const exEnd = Utils.parseLocalDate(ex.EndDate || ex.HourlyDate || ex.StartDate);
+                    if (exStart && exEnd) {
+                        if (reqStart <= exEnd && reqEnd >= exStart) {
+                            return Utils.createErrorResponse(
+                                `You already have an active (${ex.Status}) leave application (${ex.ID}) from ` +
+                                `${Utils.formatDateForDisplay(exStart)} to ${Utils.formatDateForDisplay(exEnd)} that overlaps with these dates.`
+                            );
+                        }
+                    }
+                }
+            }
+
             const balanceCheck = this.checkLeaveBalanceWithPriority(userEmail, applicationData.leaveType, businessDays);
             if (!balanceCheck.success) return balanceCheck;
 
@@ -2203,6 +2313,17 @@ const ApplicationsManager = {
             if (supervisorEmail) {
                 const supervisorUser = StaffManager.getUserData(supervisorEmail);
                 supervisorName = supervisorUser ? supervisorUser.Name || '' : '';
+            }
+
+            // Handover colleague details
+            let handoverEmail = (applicationData.handoverEmail || '').trim();
+            let handoverName = (applicationData.handoverName || '').trim();
+            let handoverNotes = (applicationData.handoverNotes || '').trim();
+            if (handoverEmail && !handoverName) {
+                const handoverStaff = StaffManager.getUserData(handoverEmail);
+                if (handoverStaff) {
+                    handoverName = handoverStaff.Name || handoverEmail;
+                }
             }
 
             // Deficit check: total annual pool after this leave (BF deductions don't create a deficit
@@ -2229,6 +2350,11 @@ const ApplicationsManager = {
                 CalendarDays: calendarDays,
                 Reason: applicationData.reason,
                 Attachment: applicationData.attachment || '',
+                HandoverEmail: handoverEmail,
+                HandoverName: handoverName,
+                HandoverColleagueEmail: handoverEmail,
+                HandoverColleagueName: handoverName,
+                HandoverNotes: handoverNotes,
                 Status: SYSTEM.STATUS.PENDING,
                 DateApplied: currentDate,
                 ProcessedDate: '',
@@ -2247,17 +2373,24 @@ const ApplicationsManager = {
                     businessDays: businessDays,
                     holidaysExcluded: holidaysExcluded,
                     willCreateDeficit: willHaveDeficit,
-                    deficitAmount: willHaveDeficit ? Math.abs(availableAfter) : 0
+                    deficitAmount: willHaveDeficit ? Math.abs(availableAfter) : 0,
+                    handover: {
+                        email: handoverEmail,
+                        name: handoverName,
+                        notes: handoverNotes
+                    }
                 }
             };
 
-            const applicationsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.APPLICATIONS);
             applicationsFile.data.push(application);
             applicationsFile.metadata.recordCount = applicationsFile.data.length;
             DataManager.writeDataFile(SYSTEM.DATA_FILES.APPLICATIONS, applicationsFile);
             EnhancedCacheManager.buildIndexes();
             if (supervisorEmail) {
                 NotificationManager.notifyApplicationSubmitted(application);
+            }
+            if (handoverEmail) {
+                NotificationManager.notifyHandoverNominated(application);
             }
 
             Utils.logAction('SUBMIT_LEAVE_APPLICATION', {
@@ -2424,9 +2557,63 @@ const ApplicationsManager = {
             return Utils.createErrorResponse('Failed to check leave balance: ' + error.toString());
         }
     },
-    processApplicationDecision: function (appId, decision, comment = '') {
+    checkTeamLeaveClashes: function (email, startDate, endDate) {
         try {
-            const currentUser = Session.getActiveUser().getEmail();
+            if (!startDate || !endDate) return [];
+            const reqStart = Utils.parseLocalDate(startDate);
+            const reqEnd = Utils.parseLocalDate(endDate);
+            if (!reqStart || !reqEnd) return [];
+
+            const user = email ? StaffManager.getUserData(email) : null;
+            const department = user ? (user.Department || '') : '';
+            const supervisorEmail = user ? (user.Supervisor || '') : '';
+
+            const allApps = this.getAllApplicationsData({});
+            const activeApps = allApps.filter(app => {
+                if (email && app.Email && app.Email.toLowerCase().trim() === email.toLowerCase().trim()) return false;
+                if (app.Status !== SYSTEM.STATUS.PENDING && app.Status !== SYSTEM.STATUS.APPROVED) return false;
+
+                // Match department or supervisor
+                const sameDept = department && app.Department && app.Department.toLowerCase() === department.toLowerCase();
+                const sameSup = supervisorEmail && app.SupervisorEmail && app.SupervisorEmail.toLowerCase() === supervisorEmail.toLowerCase();
+                if (!sameDept && !sameSup) return false;
+
+                const appStart = Utils.parseLocalDate(app.StartDate || app.HourlyDate);
+                const appEnd = Utils.parseLocalDate(app.EndDate || app.HourlyDate || app.StartDate);
+                if (!appStart || !appEnd) return false;
+
+                return reqStart <= appEnd && reqEnd >= appStart;
+            });
+
+            return activeApps.map(app => ({
+                id: app.ID,
+                name: app.Name,
+                applicantName: app.Name,
+                email: app.Email,
+                applicantEmail: app.Email,
+                department: app.Department,
+                role: app.Role,
+                startDate: app.StartDate,
+                endDate: app.EndDate,
+                duration: app.Duration,
+                status: app.Status,
+                leaveType: app.LeaveType
+            }));
+        } catch (error) {
+            console.error('Error checking team clashes:', error);
+            return [];
+        }
+    },
+
+    getApplicationById: function (appId) {
+        if (!appId) return null;
+        const allApps = this.getAllApplicationsData({});
+        return allApps.find(app => app.ID === appId) || null;
+    },
+
+    processApplicationDecision: function (appId, decision, comment = '', callerEmail = null) {
+        try {
+            const currentUser = (callerEmail || Session.getActiveUser().getEmail() || '').trim();
             const user = StaffManager.getUserData(currentUser);
 
             if (!user) return Utils.createErrorResponse('User not found');
@@ -2442,11 +2629,29 @@ const ApplicationsManager = {
                 return Utils.createErrorResponse('Application is not in pending status');
             }
 
-            const isSupervisor = application.SupervisorEmail === currentUser;
+            const isSupervisor = application.SupervisorEmail && application.SupervisorEmail.toLowerCase().trim() === currentUser.toLowerCase().trim();
             const isAdmin = user.Role === SYSTEM.ROLES.ADMIN;
             const isHR = user.Role === SYSTEM.ROLES.HR;
 
-            if (!isSupervisor && !isAdmin && !isHR) {
+            // Check if current user is an active acting supervisor delegated by the primary supervisor
+            let isActingSupervisor = false;
+            if (application.SupervisorEmail) {
+                const primarySupervisor = StaffManager.getUserData(application.SupervisorEmail);
+                if (primarySupervisor && primarySupervisor.ActingSupervisor && primarySupervisor.ActingSupervisor.active) {
+                    const act = primarySupervisor.ActingSupervisor;
+                    const actEmail = (act.actingEmail || act.email || '').toLowerCase().trim();
+                    if (actEmail && actEmail === currentUser.toLowerCase().trim()) {
+                        const today = Utils.parseLocalDate(new Date());
+                        const actStart = Utils.parseLocalDate(act.startDate || act.fromDate);
+                        const actEnd = Utils.parseLocalDate(act.endDate || act.toDate);
+                        if (actStart && actEnd && today >= actStart && today <= actEnd) {
+                            isActingSupervisor = true;
+                        }
+                    }
+                }
+            }
+
+            if (!isSupervisor && !isAdmin && !isHR && !isActingSupervisor) {
                 return Utils.createErrorResponse('You are not authorized to process this application');
             }
 
@@ -2454,11 +2659,31 @@ const ApplicationsManager = {
 
             applicationsFile.data[applicationIndex].Status = newStatus;
             applicationsFile.data[applicationIndex].ProcessedDate = new Date().toISOString();
-            applicationsFile.data[applicationIndex].ProcessedBy = currentUser;
+            applicationsFile.data[applicationIndex].ProcessedBy = currentUser + (isActingSupervisor ? ' (Acting Supervisor)' : '');
             applicationsFile.data[applicationIndex].Comment = comment || '';
+
+            if (!applicationsFile.data[applicationIndex].Metadata) {
+                applicationsFile.data[applicationIndex].Metadata = {};
+            }
+            if (isActingSupervisor) {
+                applicationsFile.data[applicationIndex].Metadata.actedBySupervisor = true;
+                applicationsFile.data[applicationIndex].Metadata.actingSupervisorEmail = currentUser;
+            }
 
             if (newStatus === SYSTEM.STATUS.APPROVED) {
                 this.updateStaffLeaveBalances(application);
+                try {
+                    CalendarSyncManager.syncLeaveToCalendar(application);
+                } catch (calErr) {
+                    console.warn('Calendar sync error (non-fatal):', calErr.message);
+                }
+                if (application.HandoverEmail) {
+                    try {
+                        NotificationManager.notifyHandoverAssigned(application);
+                    } catch (hErr) {
+                        console.warn('Handover notify error (non-fatal):', hErr.message);
+                    }
+                }
             }
 
             DataManager.writeDataFile(SYSTEM.DATA_FILES.APPLICATIONS, applicationsFile);
@@ -2479,6 +2704,7 @@ const ApplicationsManager = {
                 decision: decision,
                 newStatus: newStatus,
                 processedBy: currentUser,
+                isActingSupervisor: isActingSupervisor,
                 applicant: application.Email,
                 emailSent: emailSent
             });
@@ -2496,9 +2722,20 @@ const ApplicationsManager = {
             return Utils.createErrorResponse('Failed to process application: ' + error.toString());
         }
     },
-    cancelApplication: function (appId, reason) {
+    cancelApplication: function (appId, reasonOrUserEmail, optionalReason) {
         try {
-            const currentUser = Session.getActiveUser().getEmail();
+            let callerEmail = Session.getActiveUser().getEmail();
+            let reason = '';
+            if (optionalReason !== undefined) {
+                if (reasonOrUserEmail && typeof reasonOrUserEmail === 'string' && reasonOrUserEmail.includes('@')) {
+                    callerEmail = reasonOrUserEmail;
+                }
+                reason = optionalReason;
+            } else if (typeof reasonOrUserEmail === 'string') {
+                reason = reasonOrUserEmail;
+            }
+
+            const currentUser = callerEmail;
             const user = StaffManager.getUserData(currentUser);
             if (!user) return Utils.createErrorResponse('User not found');
 
@@ -2541,9 +2778,14 @@ const ApplicationsManager = {
                 }
             }
 
-            // If it was already approved, roll back all deductions from staff balances
+            // If it was already approved, roll back all deductions from staff balances & remove from Google Calendar
             if (wasApproved) {
                 this.rollbackStaffLeaveBalances(application);
+                try {
+                    CalendarSyncManager.removeLeaveFromCalendar(application);
+                } catch (calErr) {
+                    console.warn('Calendar removal error (non-fatal):', calErr.message);
+                }
             }
 
             // Mark as cancelled
@@ -4046,6 +4288,332 @@ const NotificationManager = {
             console.error('Error in notifyBFExpired:', error);
             return false;
         }
+    },
+
+    notifyHandoverNominated: function (application) {
+        try {
+            if (!application.HandoverEmail) return false;
+            const subject = `[Handover Request] You are nominated as reliever for ${application.Name}`;
+            const body = `
+                <div style="font-family:sans-serif;padding:16px;color:#1f2937;">
+                    <h3 style="color:#059669;margin-top:0;">🌿 Handover Nomination</h3>
+                    <p>Dear Colleague,</p>
+                    <p><strong>${application.Name}</strong> (${application.Email}) has submitted a leave application and nominated you as their handover / reliever contact.</p>
+                    <table style="width:100%;border-collapse:collapse;margin:16px 0;background:#f9fafb;border-radius:8px;padding:12px;">
+                        <tr><td style="padding:6px;font-weight:bold;">Leave Type:</td><td>${application.LeaveType}</td></tr>
+                        <tr><td style="padding:6px;font-weight:bold;">Period:</td><td>${Utils.formatDateForDisplay(application.StartDate)} to ${Utils.formatDateForDisplay(application.EndDate)}</td></tr>
+                        <tr><td style="padding:6px;font-weight:bold;">Duration:</td><td>${application.Duration} business day(s)</td></tr>
+                        ${application.HandoverNotes ? `<tr><td style="padding:6px;font-weight:bold;">Handover Notes:</td><td>${application.HandoverNotes}</td></tr>` : ''}
+                    </table>
+                    <p style="font-size:13px;color:#6b7280;">This request is currently pending supervisor approval. You will receive another notification once approved.</p>
+                </div>
+            `;
+            MailApp.sendEmail({ to: application.HandoverEmail, subject: subject, htmlBody: body, name: SYSTEM.NAME });
+            return true;
+        } catch (e) {
+            console.error('notifyHandoverNominated error:', e);
+            return false;
+        }
+    },
+
+    notifyHandoverAssigned: function (application) {
+        try {
+            if (!application.HandoverEmail) return false;
+            const subject = `[Handover Confirmed] Leave Approved for ${application.Name}`;
+            const body = `
+                <div style="font-family:sans-serif;padding:16px;color:#1f2937;">
+                    <h3 style="color:#059669;margin-top:0;">🌿 Handover Coverage Confirmed</h3>
+                    <p>Dear Colleague,</p>
+                    <p>The leave application for <strong>${application.Name}</strong> has been approved.</p>
+                    <table style="width:100%;border-collapse:collapse;margin:16px 0;background:#f9fafb;border-radius:8px;padding:12px;">
+                        <tr><td style="padding:6px;font-weight:bold;">Coverage Period:</td><td>${Utils.formatDateForDisplay(application.StartDate)} to ${Utils.formatDateForDisplay(application.EndDate)}</td></tr>
+                        <tr><td style="padding:6px;font-weight:bold;">Duration:</td><td>${application.Duration} business day(s)</td></tr>
+                        ${application.HandoverNotes ? `<tr><td style="padding:6px;font-weight:bold;">Handover Notes:</td><td>${application.HandoverNotes}</td></tr>` : ''}
+                    </table>
+                    <p style="font-size:13px;color:#6b7280;">Thank you for assisting your teammate during their absence.</p>
+                </div>
+            `;
+            MailApp.sendEmail({ to: application.HandoverEmail, subject: subject, htmlBody: body, name: SYSTEM.NAME });
+            return true;
+        } catch (e) {
+            console.error('notifyHandoverAssigned error:', e);
+            return false;
+        }
+    },
+
+    notifyEasterExpiryWarning: function (staff, remainingDays, easterDate, daysUntilEaster) {
+        try {
+            const easterStr = Utils.formatDateForDisplay(easterDate);
+            const subject = `[Action Required] ${remainingDays} Carried Forward Leave Day(s) Expiring on Easter (${easterStr})`;
+            const body = `
+                <div style="font-family:sans-serif;padding:16px;color:#1f2937;">
+                    <h3 style="color:#b45309;margin-top:0;">⏰ Carried Forward Leave Expiry Reminder</h3>
+                    <p>Dear ${staff.Name},</p>
+                    <p>You have <strong>${remainingDays.toFixed(3)}</strong> days of carried-forward leave expiring on Easter Sunday, <strong>${easterStr}</strong> (in ${daysUntilEaster} days).</p>
+                    <p>Under company policy, all brought-forward days not consumed by Easter are forfeited. Please log in to submit your leave application before ${easterStr}.</p>
+                </div>
+            `;
+            MailApp.sendEmail({ to: staff.Email, subject: subject, htmlBody: body, name: SYSTEM.NAME });
+            return true;
+        } catch (e) {
+            console.error('notifyEasterExpiryWarning error:', e);
+            return false;
+        }
+    },
+
+    notifySupervisorStaleApplications: function (supervisorEmail, applications) {
+        try {
+            if (!supervisorEmail || !applications || applications.length === 0) return false;
+            const subject = `[Reminder] You have ${applications.length} pending leave application(s) awaiting review`;
+            const appRows = applications.map(a =>
+                `<li><strong>${a.Name}</strong>: ${a.LeaveType} (${a.Duration} days, ${Utils.formatDateForDisplay(a.StartDate)} to ${Utils.formatDateForDisplay(a.EndDate)})</li>`
+            ).join('');
+            const body = `
+                <div style="font-family:sans-serif;padding:16px;color:#1f2937;">
+                    <h3 style="color:#059669;margin-top:0;">⏰ Pending Leave Applications Reminder</h3>
+                    <p>The following leave applications have been pending for more than 48 hours and require your review:</p>
+                    <ul>${appRows}</ul>
+                    <p>Please log in to your supervisor dashboard to approve or decline these requests.</p>
+                </div>
+            `;
+            MailApp.sendEmail({ to: supervisorEmail, subject: subject, htmlBody: body, name: SYSTEM.NAME });
+            return true;
+        } catch (e) {
+            console.error('notifySupervisorStaleApplications error:', e);
+            return false;
+        }
+    }
+};
+
+// =============================================
+// GOOGLE CALENDAR SYNC MANAGER
+// =============================================
+
+const CalendarSyncManager = {
+    getLeaveCalendar: function () {
+        try {
+            if (typeof CalendarApp === 'undefined') return null;
+            const scriptProps = PropertiesService.getScriptProperties();
+            const calId = scriptProps.getProperty('LEAVE_CALENDAR_ID');
+            if (calId) {
+                try {
+                    const cal = CalendarApp.getCalendarById(calId);
+                    if (cal) return cal;
+                } catch (e) {
+                    console.warn('Configured leave calendar not accessible, using default calendar');
+                }
+            }
+            return CalendarApp.getDefaultCalendar();
+        } catch (error) {
+            console.warn('CalendarApp error in getLeaveCalendar:', error.message);
+            return null;
+        }
+    },
+
+    syncLeaveToCalendar: function (application) {
+        try {
+            if (typeof CalendarApp === 'undefined') return null;
+            const cal = this.getLeaveCalendar();
+            if (!cal) return null;
+
+            const start = Utils.parseLocalDate(application.StartDate || application.HourlyDate);
+            const end = Utils.parseLocalDate(application.EndDate || application.HourlyDate || application.StartDate);
+            if (!start || !end) return null;
+
+            // Google Calendar all-day events are exclusive of the end date (start of next day)
+            const calEnd = new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1);
+
+            const title = `🌿 [Leave] ${application.Name} - ${application.LeaveType}`;
+            const description = [
+                `Agri Experience Leave Management System`,
+                `Application ID: ${application.ID}`,
+                `Staff: ${application.Name} (${application.Email})`,
+                `Department: ${application.Department || 'N/A'}`,
+                `Leave Type: ${application.LeaveType}`,
+                `Duration: ${application.Duration} day(s)`,
+                `Period: ${Utils.formatDateForDisplay(start)} - ${Utils.formatDateForDisplay(end)}`,
+                `Approved by: ${application.ProcessedBy || 'Supervisor'}`,
+                application.HandoverName ? `Handover / Reliever: ${application.HandoverName} (${application.HandoverEmail || ''})` : '',
+                `Reason: ${application.Reason || 'N/A'}`
+            ].filter(Boolean).join('\n');
+
+            const event = cal.createAllDayEvent(title, start, calEnd, {
+                description: description,
+                location: 'Agri Experience - ' + (application.Department || 'Office')
+            });
+
+            if (event) {
+                const eventId = event.getId();
+                application.Metadata = application.Metadata || {};
+                application.Metadata.calendarEventId = eventId;
+                console.log(`📅 Created calendar event: ${eventId} for application ${application.ID}`);
+                return eventId;
+            }
+        } catch (error) {
+            console.warn('Calendar sync error (non-fatal):', error.message);
+        }
+        return null;
+    },
+
+    removeLeaveFromCalendar: function (application) {
+        try {
+            if (typeof CalendarApp === 'undefined') return false;
+            const eventId = application.Metadata?.calendarEventId;
+            if (!eventId) return false;
+
+            const cal = this.getLeaveCalendar();
+            if (!cal) return false;
+
+            const event = cal.getEventById(eventId);
+            if (event) {
+                event.deleteEvent();
+                console.log(`📅 Deleted calendar event: ${eventId} for cancelled application ${application.ID}`);
+                if (application.Metadata) application.Metadata.calendarEventId = null;
+                return true;
+            }
+        } catch (error) {
+            console.warn('Calendar event deletion error (non-fatal):', error.message);
+        }
+        return false;
+    }
+};
+
+// =============================================
+// DAILY MAINTENANCE & HEARTBEAT MANAGER
+// =============================================
+
+const MaintenanceManager = {
+    runDailyHeartbeat: function () {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const currentYear = today.getFullYear();
+        const results = {
+            timestamp: new Date().toISOString(),
+            easterCheck: null,
+            easterWarningsSent: 0,
+            forfeitedStaffCount: 0,
+            accrualCheck: null,
+            staleApplicationsReminded: 0
+        };
+
+        // ── 1. Dynamic Movable Easter check & auto-forfeiture ────────────────
+        const easter = Utils.calculateEasterDate(currentYear);
+        easter.setHours(0, 0, 0, 0);
+
+        if (today >= easter) {
+            // Forfeit remaining brought-forward leave from previous year
+            const staffFile = DataManager.readDataFile(SYSTEM.DATA_FILES.STAFF);
+            let staffModified = false;
+
+            staffFile.data.forEach(staff => {
+                if (staff.LeaveBroughtForward && !staff.LeaveBroughtForward.isExpired) {
+                    const bf = staff.LeaveBroughtForward;
+                    const acqYear = bf.yearEarned || (currentYear - 1);
+                    const expiryYear = bf.yearExpires || (acqYear + 1);
+
+                    if (currentYear >= expiryYear) {
+                        const rawRemaining = bf.daysCarriedFromPreviousYear || 0;
+                        bf.isExpired = true;
+                        bf.isForfeited = true;
+                        bf.forfeitedDays = rawRemaining;
+                        bf.daysCarriedFromPreviousYear = 0;
+                        bf.forfeitedAt = today.toISOString();
+                        bf.note = (bf.note || '') + ` [Forfeited on Easter ${currentYear}: ${rawRemaining.toFixed(3)} days]`;
+
+                        results.forfeitedStaffCount++;
+                        staffModified = true;
+
+                        EnhancedCacheManager.clearBalance(staff.Email);
+                        try {
+                            NotificationManager.notifyBFExpired(staff, rawRemaining, easter);
+                        } catch (e) {
+                            console.error('Error notifying BF expired:', e.message);
+                        }
+                    }
+                }
+            });
+
+            if (staffModified) {
+                DataManager.writeDataFile(SYSTEM.DATA_FILES.STAFF, staffFile);
+                EnhancedCacheManager.buildIndexes();
+                Utils.logAction('EASTER_BF_EXPIRY_RUN', {
+                    date: today.toISOString(),
+                    forfeitedStaffCount: results.forfeitedStaffCount,
+                    easterDate: Utils.formatLocalDate(easter)
+                });
+            }
+            results.easterCheck = `Easter passed (${Utils.formatLocalDate(easter)}). ${results.forfeitedStaffCount} staff BF forfeited.`;
+        } else {
+            // Proximity warnings (14 days, 7 days, 3 days before Easter)
+            const diffTime = easter.getTime() - today.getTime();
+            const daysUntilEaster = Math.round(diffTime / (1000 * 60 * 60 * 24));
+            results.easterCheck = `Easter is in ${daysUntilEaster} days (${Utils.formatLocalDate(easter)}).`;
+
+            if (daysUntilEaster === 14 || daysUntilEaster === 7 || daysUntilEaster === 3) {
+                const staffFile = DataManager.readDataFile(SYSTEM.DATA_FILES.STAFF);
+                staffFile.data.forEach(staff => {
+                    if (staff.LeaveBroughtForward && !staff.LeaveBroughtForward.isExpired) {
+                        const rem = staff.LeaveBroughtForward.daysCarriedFromPreviousYear || 0;
+                        if (rem > 0) {
+                            NotificationManager.notifyEasterExpiryWarning(staff, rem, easter, daysUntilEaster);
+                            results.easterWarningsSent++;
+                        }
+                    }
+                });
+            }
+        }
+
+        // ── 2. Monthly Accrual Auto-Heal ─────────────────────────────────────
+        try {
+            const startOfMonth = new Date(currentYear, today.getMonth(), 1);
+            const staffFile = DataManager.readDataFile(SYSTEM.DATA_FILES.STAFF);
+            const eligibleStaff = staffFile.data.filter(s => s.EligibleForLeave && s.LeaveAccrual?.eligible && s.Metadata?.active !== false);
+            const missedAccrual = eligibleStaff.some(s => {
+                const nextAccrual = s.LeaveAccrual?.nextAccrualDate ? new Date(s.LeaveAccrual.nextAccrualDate) : null;
+                return nextAccrual && today >= nextAccrual;
+            });
+
+            if (missedAccrual) {
+                console.log('🔄 Heartbeat detected missed monthly accrual, executing accrual...');
+                const accrualRes = AccrualManager.processMonthlyAccrual();
+                results.accrualCheck = `Auto-healed accrual for ${accrualRes.processedCount || 0} staff`;
+            } else {
+                results.accrualCheck = 'Accruals up to date';
+            }
+        } catch (accErr) {
+            console.error('Heartbeat accrual check error:', accErr.message);
+            results.accrualCheck = 'Error checking accrual: ' + accErr.message;
+        }
+
+        // ── 3. Stale Pending Applications Reminder (> 48h) ───────────────────
+        try {
+            const appsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.APPLICATIONS);
+            const pendingApps = (appsFile.data || []).filter(app => app.Status === SYSTEM.STATUS.PENDING);
+            const staleBySupervisor = {};
+
+            pendingApps.forEach(app => {
+                if (app.DateApplied) {
+                    const applied = Utils.parseLocalDate(app.DateApplied);
+                    if (applied) {
+                        const daysPending = Math.round((today - applied) / (1000 * 60 * 60 * 24));
+                        if (daysPending >= 2 && app.SupervisorEmail) {
+                            staleBySupervisor[app.SupervisorEmail] = staleBySupervisor[app.SupervisorEmail] || [];
+                            staleBySupervisor[app.SupervisorEmail].push(app);
+                        }
+                    }
+                }
+            });
+
+            Object.keys(staleBySupervisor).forEach(supEmail => {
+                const apps = staleBySupervisor[supEmail];
+                NotificationManager.notifySupervisorStaleApplications(supEmail, apps);
+                results.staleApplicationsReminded += apps.length;
+            });
+        } catch (staleErr) {
+            console.error('Heartbeat stale application reminder error:', staleErr.message);
+        }
+
+        return results;
     }
 };
 
@@ -5220,6 +5788,33 @@ function apiGetHRDashboard() {
         const pendingApps = allApps.filter(a => a.Status === SYSTEM.STATUS.PENDING);
         const approvedApps = allApps.filter(a => a.Status === SYSTEM.STATUS.APPROVED);
 
+        // Calculate leave liability across active eligible staff
+        let totalAnnualDays = 0;
+        let totalBroughtForwardDays = 0;
+        let totalCompensationDays = 0;
+
+        staffWithBalances.forEach(s => {
+            if (s.eligibleForLeave && s.balance) {
+                totalAnnualDays += (s.balance.annual?.available || 0);
+                totalBroughtForwardDays += (s.balance.broughtForward?.available || 0);
+                totalCompensationDays += (s.compensationBalance || 0);
+            }
+        });
+
+        const totalUnconsumedDays = Number((totalAnnualDays + totalBroughtForwardDays + totalCompensationDays).toFixed(2));
+        const estimatedDailyWage = 3500; // Benchmark KES / day
+        const estimatedTotalLiability = Math.round(totalUnconsumedDays * estimatedDailyWage);
+
+        const liability = {
+            totalUnconsumedDays,
+            totalAnnualDays: Number(totalAnnualDays.toFixed(2)),
+            totalBroughtForwardDays: Number(totalBroughtForwardDays.toFixed(2)),
+            totalCompensationDays: Number(totalCompensationDays.toFixed(2)),
+            estimatedDailyWage,
+            estimatedTotalLiability,
+            currency: 'KES'
+        };
+
         return Utils.createSuccessResponse({
             staff: staffWithBalances,
             applications: {
@@ -5232,7 +5827,8 @@ function apiGetHRDashboard() {
                 totalStaff: staffData.length,
                 eligibleStaff: staffData.filter(s => s.EligibleForLeave).length,
                 pendingApplications: pendingApps.length
-            }
+            },
+            liability
         });
     } catch (error) {
         return Utils.createErrorResponse('Failed to load HR dashboard: ' + error.message);
@@ -5465,11 +6061,12 @@ function doGet(e) {
 // TRIGGER SETUP — run once from Script Editor
 // =============================================
 
-// Call this function ONCE from the GAS Script Editor to install the monthly trigger.
+// Call this function ONCE from the GAS Script Editor to install the automatic triggers.
 function setupAutomaticAccrual() {
     try {
         // Remove all existing managed triggers to avoid duplicates
         const managedHandlers = [
+            'scheduledDailyHeartbeat',
             'scheduledMonthlyAccrual',
             'scheduledYearEnd',
             'scheduledEasterWarning',
@@ -5481,6 +6078,15 @@ function setupAutomaticAccrual() {
                 ScriptApp.deleteTrigger(trigger);
             }
         });
+
+        // ── 0. Daily Maintenance Heartbeat — daily at 06:00 ─────────────────
+        // Computes dynamic movable Easter warnings, Easter auto-forfeiture,
+        // missed accrual auto-heal, and stale application digests.
+        ScriptApp.newTrigger('scheduledDailyHeartbeat')
+            .timeBased()
+            .everyDays(1)
+            .atHour(6)
+            .create();
 
         // ── 1. Monthly accrual — 1st of each month at 01:00 ─────────────────
         ScriptApp.newTrigger('scheduledMonthlyAccrual')
@@ -5521,6 +6127,7 @@ function setupAutomaticAccrual() {
         console.log('✅ All automatic triggers registered');
         return (
             'Triggers registered:\n' +
+            '  • Daily Heartbeat: Daily at 06:00 (Easter, Accrual Heal, Stale App Reminders)\n' +
             '  • Monthly accrual: 1st of each month at 01:00\n' +
             '  • Year-end reset:  Jan 1st at 00:30\n' +
             '  • BF warning:      Mar 15th at 08:00 (fires only when 14 days from Easter)\n' +
@@ -5530,6 +6137,38 @@ function setupAutomaticAccrual() {
     } catch (error) {
         console.error('❌ Failed to setup triggers:', error);
         return 'Failed to setup triggers: ' + error.message;
+    }
+}
+
+// ── Fires daily at 06:00 — automated maintenance heartbeat ─────────────────
+function scheduledDailyHeartbeat() {
+    console.log('⏰ Scheduled daily maintenance heartbeat started...');
+    try {
+        EnhancedCacheManager.initialize();
+        EnhancedCacheManager.buildIndexes();
+        const results = MaintenanceManager.runDailyHeartbeat();
+        console.log('✅ Daily heartbeat completed successfully:', JSON.stringify(results));
+        return results;
+    } catch (error) {
+        console.error('❌ Scheduled daily heartbeat failed:', error);
+        return { error: error.message };
+    }
+}
+
+// API endpoint to trigger heartbeat manually (Admin or HR)
+function apiTriggerDailyHeartbeat() {
+    try {
+        const currentUser = Session.getActiveUser().getEmail();
+        const userRole = StaffManager.getUserRole(currentUser);
+        if (userRole !== SYSTEM.ROLES.ADMIN && userRole !== SYSTEM.ROLES.HR) {
+            return Utils.createErrorResponse('Insufficient permissions — Admin or HR required');
+        }
+        EnhancedCacheManager.initialize();
+        EnhancedCacheManager.buildIndexes();
+        const results = MaintenanceManager.runDailyHeartbeat();
+        return Utils.createSuccessResponse(results, 'Daily heartbeat executed successfully');
+    } catch (error) {
+        return Utils.createErrorResponse('Heartbeat execution failed: ' + error.message);
     }
 }
 // ── Fires Jan 1st at 00:30 — runs year-end reset once ────────────────────
@@ -6067,6 +6706,238 @@ function apiFixAllStaffLeaveData() {
         return Utils.createErrorResponse('Failed to fix all staff: ' + error.message);
     }
 }
+
+// =============================================
+// ENHANCEMENT API ENDPOINTS
+// =============================================
+
+// 1. Team Leave Clash & Coverage Checker
+function apiCheckTeamLeaveClashes(startDate, endDate, email) {
+    try {
+        let sDate = startDate;
+        let eDate = endDate;
+        let applicantEmail = email;
+
+        if (typeof startDate === 'object' && startDate !== null) {
+            sDate = startDate.startDate;
+            eDate = startDate.endDate;
+            applicantEmail = startDate.email;
+        }
+
+        if (!applicantEmail) {
+            applicantEmail = Session.getActiveUser().getEmail();
+        }
+
+        const clashes = ApplicationsManager.checkTeamLeaveClashes(applicantEmail, sDate, eDate);
+        return Utils.createSuccessResponse(clashes, `Found ${clashes.length} colleague leave clash(es)`);
+    } catch (error) {
+        return Utils.createErrorResponse('Error checking team clashes: ' + error.message);
+    }
+}
+
+// 2. Acting Supervisor Delegation
+function apiSetActingSupervisor(params) {
+    try {
+        const currentUser = Session.getActiveUser().getEmail();
+        const userRole = StaffManager.getUserRole(currentUser);
+        
+        let supervisorEmail = currentUser;
+        if (params && params.supervisorEmail && (userRole === SYSTEM.ROLES.ADMIN || userRole === SYSTEM.ROLES.HR)) {
+            supervisorEmail = params.supervisorEmail;
+        }
+
+        const actingEmail = params?.actingEmail || null;
+        const actingName = params?.actingName || '';
+        const startDate = params?.startDate || null;
+        const endDate = params?.endDate || null;
+        const notes = params?.notes || '';
+
+        return StaffManager.setActingSupervisor(supervisorEmail, actingEmail, actingName, startDate, endDate, notes);
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to set acting supervisor: ' + error.message);
+    }
+}
+
+function apiGetActingSupervisor() {
+    try {
+        const currentUser = Session.getActiveUser().getEmail();
+        const user = StaffManager.getUserData(currentUser);
+        const delegation = user?.ActingSupervisor || null;
+        
+        // Also find if current user is acting for any supervisors currently
+        const allStaff = StaffManager.getAllStaffData();
+        const todayStr = Utils.formatLocalDate(new Date());
+        const actingFor = allStaff.filter(s => {
+            const act = s.ActingSupervisor;
+            if (!act || !act.actingEmail) return false;
+            if (act.actingEmail.toLowerCase().trim() !== currentUser.toLowerCase().trim()) return false;
+            if (act.startDate && act.startDate > todayStr) return false;
+            if (act.endDate && act.endDate < todayStr) return false;
+            return true;
+        }).map(s => ({
+            supervisorEmail: s.Email,
+            supervisorName: s.Name,
+            startDate: s.ActingSupervisor.startDate,
+            endDate: s.ActingSupervisor.endDate,
+            notes: s.ActingSupervisor.notes
+        }));
+
+        return Utils.createSuccessResponse({
+            delegation,
+            actingFor
+        });
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to get acting supervisor details: ' + error.message);
+    }
+}
+
+// 3. Calendar Sync Trigger
+function apiSyncCalendar(appId) {
+    try {
+        if (typeof appId === 'object' && appId !== null) {
+            appId = appId.appId || appId.id;
+        }
+        const app = ApplicationsManager.getApplicationById(appId);
+        if (!app) return Utils.createErrorResponse('Application not found');
+        const eventId = CalendarSyncManager.syncLeaveToCalendar(app);
+        if (eventId) {
+            return Utils.createSuccessResponse({ eventId }, 'Calendar event created/synced successfully');
+        } else {
+            return Utils.createErrorResponse('Calendar sync returned no event ID');
+        }
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to sync calendar: ' + error.message);
+    }
+}
+
+// 4. Data Export (CSV) for HR & Supervisors
+function apiExportSystemData(dataType) {
+    try {
+        const currentUser = Session.getActiveUser().getEmail();
+        const userRole = StaffManager.getUserRole(currentUser);
+
+        if (userRole !== SYSTEM.ROLES.HR && userRole !== SYSTEM.ROLES.ADMIN && userRole !== SYSTEM.ROLES.SUPERVISOR) {
+            return Utils.createErrorResponse('Insufficient permissions for data export');
+        }
+
+        if (typeof dataType === 'object' && dataType !== null) {
+            dataType = dataType.dataType || dataType.type;
+        }
+        dataType = dataType || 'applications';
+
+        function escapeCsv(val) {
+            if (val === null || val === undefined) return '""';
+            const str = String(val).replace(/"/g, '""');
+            return `"${str}"`;
+        }
+
+        let csvRows = [];
+        let filename = `agri_leave_export_${dataType}_${Utils.formatLocalDate(new Date())}.csv`;
+
+        if (dataType === 'applications') {
+            const appsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.APPLICATIONS);
+            const allApps = appsFile.data || [];
+            csvRows.push([
+                'Application ID', 'Applicant Name', 'Applicant Email', 'Department',
+                'Supervisor Email', 'Leave Type', 'Start Date', 'End Date',
+                'Working Days', 'Status', 'Date Applied', 'Decision Date',
+                'Handover Colleague', 'Handover Email', 'Handover Notes', 'Reason'
+            ].map(escapeCsv).join(','));
+
+            allApps.forEach(a => {
+                csvRows.push([
+                    a.ID || '',
+                    a.ApplicantName || a.Name || '',
+                    a.ApplicantEmail || a.Email || '',
+                    a.Department || '',
+                    a.SupervisorEmail || '',
+                    a.LeaveType || '',
+                    a.StartDate || '',
+                    a.EndDate || '',
+                    a.Duration !== undefined ? a.Duration : (a.WorkingDays || a.Days || 0),
+                    a.Status || '',
+                    a.DateApplied || '',
+                    a.ProcessedDate || a.DecisionDate || '',
+                    a.HandoverColleagueName || a.HandoverName || '',
+                    a.HandoverColleagueEmail || a.HandoverEmail || '',
+                    a.HandoverNotes || '',
+                    a.Reason || ''
+                ].map(escapeCsv).join(','));
+            });
+        } else if (dataType === 'staff_balances' || dataType === 'balances') {
+            const staffData = StaffManager.getAllStaffData().filter(s => s.Metadata?.active !== false);
+            csvRows.push([
+                'Staff Name', 'Email', 'Role', 'Department', 'Eligible For Leave',
+                'Join Date', 'Annual Rate', 'Annual Accrued YTD', 'Annual Used YTD',
+                'Annual Available', 'Brought Forward Available', 'Brought Forward Forfeited',
+                'Compensation Balance', 'Total Available Balance', 'Sick Used YTD'
+            ].map(escapeCsv).join(','));
+
+            staffData.forEach(s => {
+                const bal = DashboardManager.calculateUserBalance(s.Email) || {};
+                csvRows.push([
+                    s.Name || '',
+                    s.Email || '',
+                    s.Role || '',
+                    s.Department || '',
+                    s.EligibleForLeave ? 'Yes' : 'No',
+                    s.JoinDate || '',
+                    s.LeaveAccrual?.monthlyRate || 1.75,
+                    bal.annual?.accrued || 0,
+                    bal.annual?.used || 0,
+                    bal.annual?.available || 0,
+                    bal.broughtForward?.available || 0,
+                    bal.broughtForward?.forfeited || 0,
+                    s.CompensationLeave?.balance || 0,
+                    bal.total?.available || 0,
+                    bal.sick?.used || 0
+                ].map(escapeCsv).join(','));
+            });
+        } else if (dataType === 'liability' || dataType === 'leave_liability') {
+            const staffData = StaffManager.getAllStaffData().filter(s => s.Metadata?.active !== false && s.EligibleForLeave);
+            const dailyWage = 3500;
+            csvRows.push([
+                'Staff Name', 'Email', 'Department', 'Annual Days Available',
+                'Brought Forward Days', 'Compensation Days', 'Total Unconsumed Days',
+                'Daily Wage Benchmark (KES)', 'Estimated Liability (KES)'
+            ].map(escapeCsv).join(','));
+
+            staffData.forEach(s => {
+                const bal = DashboardManager.calculateUserBalance(s.Email) || {};
+                const annual = bal.annual?.available || 0;
+                const bf = bal.broughtForward?.available || 0;
+                const comp = s.CompensationLeave?.balance || 0;
+                const total = Number((annual + bf + comp).toFixed(2));
+                const liability = Math.round(total * dailyWage);
+
+                csvRows.push([
+                    s.Name || '',
+                    s.Email || '',
+                    s.Department || '',
+                    annual,
+                    bf,
+                    comp,
+                    total,
+                    dailyWage,
+                    liability
+                ].map(escapeCsv).join(','));
+            });
+        } else {
+            return Utils.createErrorResponse('Unknown export data type: ' + dataType);
+        }
+
+        const csvContent = csvRows.join('\r\n');
+        return Utils.createSuccessResponse({
+            csvContent,
+            filename,
+            rowCount: csvRows.length - 1
+        }, `Exported ${csvRows.length - 1} records successfully`);
+
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to export data: ' + error.message);
+    }
+}
+
 // =============================================
 // END OF COMPLETE BACKEND CODE
 // VERSION 3.4.0 - CRYSTAL CLEAR NAMING
