@@ -3522,9 +3522,13 @@
                     updatePendingAppsBadge();
 
                     let pageHTML = `
-        <div class="flex justify-end items-center mb-6">
-          <button id="newApplicationBtn" class="btn-primary px-6 py-3 rounded-lg font-medium">
-            <i class="fas fa-plus mr-2"></i> New Application
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <div>
+            <h1 class="text-2xl font-bold text-gray-900">My Leave Applications</h1>
+            <p class="text-gray-500 text-sm">Track, review, and manage your leave requests</p>
+          </div>
+          <button id="newApplicationBtn" class="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-xl text-sm font-semibold shadow-sm transition-all flex items-center gap-2">
+            <i class="fas fa-plus"></i> New Application
           </button>
         </div>
       `;
@@ -3540,40 +3544,68 @@
 
                         pageHTML += `
           <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-              <p class="text-sm text-gray-600">Total</p>
-              <p class="text-2xl font-bold text-gray-900">${stats.total}</p>
+            <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:border-gray-200 transition-all">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Total</p>
+                  <p class="text-2xl font-bold text-gray-900 mt-1">${stats.total}</p>
+                </div>
+                <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-gray-500 to-gray-600 text-white flex items-center justify-center shadow-sm shadow-gray-200">
+                  <i class="fas fa-file-alt text-base"></i>
+                </div>
+              </div>
             </div>
-            <div class="bg-white rounded-xl shadow-sm border border-green-200 p-4">
-              <p class="text-sm text-gray-600">Approved</p>
-              <p class="text-2xl font-bold text-green-600">${stats.approved}</p>
+            <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-emerald-100 p-4 hover:border-emerald-200 transition-all">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Approved</p>
+                  <p class="text-2xl font-bold text-emerald-700 mt-1">${stats.approved}</p>
+                </div>
+                <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white flex items-center justify-center shadow-sm shadow-emerald-200">
+                  <i class="fas fa-check-circle text-base"></i>
+                </div>
+              </div>
             </div>
-            <div class="bg-white rounded-xl shadow-sm border border-amber-200 p-4">
-              <p class="text-sm text-gray-600">Pending</p>
-              <p class="text-2xl font-bold text-amber-600">${stats.pending}</p>
+            <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-amber-100 p-4 hover:border-amber-200 transition-all">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-xs font-semibold text-amber-600 uppercase tracking-wider">Pending</p>
+                  <p class="text-2xl font-bold text-amber-700 mt-1">${stats.pending}</p>
+                </div>
+                <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-white flex items-center justify-center shadow-sm shadow-amber-200">
+                  <i class="fas fa-clock text-base"></i>
+                </div>
+              </div>
             </div>
-            <div class="bg-white rounded-xl shadow-sm border border-red-200 p-4">
-              <p class="text-sm text-gray-600">Declined</p>
-              <p class="text-2xl font-bold text-red-600">${stats.declined}</p>
+            <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-red-100 p-4 hover:border-red-200 transition-all">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-xs font-semibold text-red-600 uppercase tracking-wider">Declined</p>
+                  <p class="text-2xl font-bold text-red-700 mt-1">${stats.declined}</p>
+                </div>
+                <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-red-500 to-red-600 text-white flex items-center justify-center shadow-sm shadow-red-200">
+                  <i class="fas fa-times-circle text-base"></i>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-gray-200/80 overflow-hidden">
             <div class="overflow-x-auto">
               <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
+                <thead class="bg-gradient-to-r from-gray-50 to-emerald-50/30">
                   <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Period</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
+                    <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Type</th>
+                    <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Period</th>
+                    <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Duration</th>
+                    <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                    <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
                   ${applications.map(app => `
-                  <tr class="hover:bg-gray-50">
+                  <tr class="hover:bg-gray-50/80 transition-colors">
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${formatDate(app.DateApplied)}</td>
                     <td class="px-6 py-4 whitespace-nowrap">
                       <span class="leave-type-badge ${(app.LeaveType || '').replace(/\s+/g, '-').toLowerCase()} px-3 py-1 rounded-full text-xs font-medium">
@@ -3606,9 +3638,9 @@
                       ${app.ProcessedDate ? `<br><span class="text-xs text-gray-500">${formatDate(app.ProcessedDate)}</span>` : ''}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button class="text-primary-600 hover:text-primary-900 mr-3 view-application-btn" data-id="${app.ID || ''}">View</button>
+                      <button class="text-emerald-600 hover:text-emerald-800 font-semibold mr-3 view-application-btn" data-id="${app.ID || ''}">View</button>
                       ${(app.Status === 'Pending' || app.Status === 'Approved') ? `
-                      <button class="text-red-600 hover:text-red-900 cancel-application-btn" data-id="${app.ID || ''}" title="${app.Status === 'Approved' ? 'Cancel approved leave and restore balance' : 'Cancel pending leave'}">Cancel</button>
+                      <button class="text-red-600 hover:text-red-800 font-semibold cancel-application-btn" data-id="${app.ID || ''}" title="${app.Status === 'Approved' ? 'Cancel approved leave and restore balance' : 'Cancel pending leave'}">Cancel</button>
                       ` : ''}
                     </td>
                   </tr>
@@ -3620,14 +3652,14 @@
         `;
                     } else {
                         pageHTML += `
-          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
-            <div class="h-20 w-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <i class="fas fa-file-alt text-gray-400 text-3xl"></i>
+          <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-sm border border-emerald-100 p-12 text-center">
+            <div class="h-20 w-20 bg-gradient-to-br from-emerald-50 to-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm border border-emerald-200">
+              <i class="fas fa-file-alt text-3xl"></i>
             </div>
-            <h3 class="text-xl font-bold text-gray-900 mb-3">No Applications Yet</h3>
-            <p class="text-gray-600 max-w-md mx-auto mb-8">You haven't submitted any leave applications yet. When you do, they'll appear here for tracking.</p>
-            <button id="applyFirstLeaveFromPage" class="btn-primary px-8 py-4 rounded-lg font-medium text-lg">
-              <i class="fas fa-calendar-plus mr-3"></i> Apply for Your First Leave
+            <h3 class="text-xl font-bold text-gray-900 mb-2">No Applications Yet</h3>
+            <p class="text-gray-600 max-w-md mx-auto mb-8 text-sm">You haven't submitted any leave applications yet. When you do, they'll appear here for real-time tracking.</p>
+            <button id="applyFirstLeaveFromPage" class="px-6 py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-xl text-sm font-semibold shadow-sm transition-all inline-flex items-center gap-2">
+              <i class="fas fa-calendar-plus"></i> Apply for Your First Leave
             </button>
           </div>
         `;
@@ -3639,15 +3671,13 @@
             } catch (error) {
                 console.error('Failed to load applications page:', error);
                 pageElement.innerHTML = `
-      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div class="text-center py-12">
-          <div class="h-16 w-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <i class="fas fa-exclamation-triangle text-red-600 text-2xl"></i>
-          </div>
-          <h3 class="text-xl font-bold text-gray-900 mb-2">Unable to Load Applications</h3>
-          <p class="text-gray-600 mb-6">There was an error loading your leave applications.</p>
-          <button onclick="loadMyApplicationsPage()" class="btn-primary px-6 py-3 rounded-lg font-medium">Try Again</button>
+      <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-sm border border-red-100 p-12 text-center">
+        <div class="h-16 w-16 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-red-200">
+          <i class="fas fa-exclamation-triangle text-2xl"></i>
         </div>
+        <h3 class="text-xl font-bold text-gray-900 mb-2">Unable to Load Applications</h3>
+        <p class="text-gray-600 mb-6 text-sm">There was an error loading your leave applications.</p>
+        <button onclick="loadMyApplicationsPage()" class="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-xl text-sm font-semibold shadow-sm transition-all">Try Again</button>
       </div>
     `;
             }
@@ -4164,13 +4194,13 @@
         <p class="text-gray-600">Submit a new leave application request</p>
       </div>
 
-      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-sm border border-emerald-100 p-8">
         <form id="pageLeaveApplicationForm">
           <div class="space-y-6">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Leave Type *</label>
-                <select id="pageLeaveType" name="leaveType" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" required>
+                <label class="block text-sm font-semibold text-gray-700 mb-1.5">Leave Type *</label>
+                <select id="pageLeaveType" name="leaveType" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white" required>
                   <option value="">Select leave type</option>
                   <option value="Annual Leave">Annual Leave</option>
                   <option value="Sick Leave">Sick Leave</option>
@@ -4183,69 +4213,86 @@
               </div>
 
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Leave Mode *</label>
-                <div class="flex space-x-6">
-                  <label class="inline-flex items-center">
-                    <input type="radio" name="pageLeaveMode" value="Daily" checked class="text-primary-600 focus:ring-primary-500">
-                    <span class="ml-2 text-sm text-gray-700">Daily</span>
+                <label class="block text-sm font-semibold text-gray-700 mb-1.5">Leave Mode *</label>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label class="relative flex items-center p-3 rounded-xl border border-gray-200 cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/20 transition-all">
+                    <input type="radio" name="pageLeaveMode" value="Daily" checked class="text-emerald-600 focus:ring-emerald-500 h-4 w-4">
+                    <div class="ml-2.5">
+                      <span class="block text-sm font-semibold text-gray-900">Daily Leave</span>
+                      <span class="block text-xs text-gray-500">Full business days</span>
+                    </div>
                   </label>
-                  <label class="inline-flex items-center">
-                    <input type="radio" name="pageLeaveMode" value="Hourly" class="text-primary-600 focus:ring-primary-500">
-                    <span class="ml-2 text-sm text-gray-700">Hourly</span>
+                  <label class="relative flex items-center p-3 rounded-xl border border-gray-200 cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/20 transition-all">
+                    <input type="radio" name="pageLeaveMode" value="Hourly" class="text-emerald-600 focus:ring-emerald-500 h-4 w-4">
+                    <div class="ml-2.5">
+                      <span class="block text-sm font-semibold text-gray-900">Hourly Leave</span>
+                      <span class="block text-xs text-gray-500">Partial day (1-8 hrs)</span>
+                    </div>
                   </label>
                 </div>
               </div>
             </div>
 
-            <div id="pageDailyLeaveSection">
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div id="pageDailyLeaveSection" class="p-4 bg-gray-50/70 border border-gray-200/80 rounded-xl space-y-3">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-2">Start Date *</label>
-                  <input type="date" id="pageStartDate" name="startDate" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" required>
+                  <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1.5">Start Date *</label>
+                  <input type="date" id="pageStartDate" name="startDate" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white transition-all" required>
                 </div>
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-2">End Date *</label>
-                  <input type="date" id="pageEndDate" name="endDate" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" required>
+                  <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1.5">End Date *</label>
+                  <input type="date" id="pageEndDate" name="endDate" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white transition-all" required>
                 </div>
               </div>
-              <p class="text-sm text-gray-500 mt-2" id="pageBusinessDaysInfo">Business days: 0</p>
+              <div class="flex items-center justify-between text-xs text-emerald-800 bg-emerald-50 border border-emerald-100 rounded-lg p-2.5">
+                <span class="font-medium" id="pageBusinessDaysInfo"><i class="fas fa-calendar-check mr-1.5"></i>Business days: 0</span>
+                <span class="text-[11px] text-gray-500">Excludes weekends & holidays</span>
+              </div>
             </div>
 
-            <div id="pageHourlyLeaveSection" class="hidden">
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div id="pageHourlyLeaveSection" class="hidden p-4 bg-gray-50/70 border border-gray-200/80 rounded-xl space-y-3">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-2">Date *</label>
-                  <input type="date" id="pageHourlyDate" name="hourlyDate" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                  <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1.5">Date *</label>
+                  <input type="date" id="pageHourlyDate" name="hourlyDate" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white transition-all">
                 </div>
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-2">Hours (1-8) *</label>
-                  <input type="number" id="pageHours" name="hours" min="1" max="8" step="0.001" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="e.g., 4">
+                  <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1.5">Hours (1-8) *</label>
+                  <input type="number" id="pageHours" name="hours" min="1" max="8" step="0.001" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white transition-all" placeholder="e.g., 4">
                 </div>
               </div>
-              <p class="text-sm text-gray-500 mt-2">Working hours per day: <span id="pageWorkingHoursPerDay">8</span></p>
+              <p class="text-xs text-gray-500 flex items-center">
+                <i class="fas fa-clock mr-1 text-gray-400"></i> Working hours per day: <span id="pageWorkingHoursPerDay" class="font-semibold ml-1">8</span>
+              </p>
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">Reason *</label>
-              <textarea id="pageReason" name="reason" rows="4" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Please provide a detailed reason for your leave request (minimum 10 characters)" required></textarea>
-              <p class="text-sm text-gray-500 mt-2" id="pageCharCount">0 characters</p>
+              <div class="flex justify-between items-center mb-1.5">
+                <label class="block text-sm font-semibold text-gray-700">Reason *</label>
+                <span class="text-xs text-gray-400" id="pageCharCount">0 characters</span>
+              </div>
+              <textarea id="pageReason" name="reason" rows="3" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all" placeholder="Please provide a detailed reason for your leave request (minimum 10 characters)" required></textarea>
             </div>
 
-            <div id="pageBalanceCheckResult" class="hidden p-6 rounded-lg border border-gray-200">
-              <div class="flex items-center justify-between mb-4">
+            <div id="pageBalanceCheckResult" class="hidden p-4 rounded-xl border border-emerald-100 bg-emerald-50/40">
+              <div class="flex items-center justify-between mb-3">
                 <div>
-                  <p class="font-medium text-gray-900">Balance Check Result</p>
-                  <p class="text-sm text-gray-600" id="pageBalanceCheckMessage">Checking balance...</p>
+                  <p class="font-bold text-gray-900 text-sm">Balance Check Result</p>
+                  <p class="text-xs text-gray-600" id="pageBalanceCheckMessage">Checking balance...</p>
                 </div>
                 <div id="pageBalanceCheckStatusIcon"></div>
               </div>
-              <div class="text-sm" id="pageBalanceCheckDetails"></div>
+              <div class="text-xs" id="pageBalanceCheckDetails"></div>
             </div>
 
-            <div class="flex justify-end space-x-4 pt-6 border-t border-gray-200">
-              <button type="button" onclick="navigateToPage('dashboard')" class="px-6 py-3 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
-              <button type="button" id="pageCheckBalanceBtn" class="px-6 py-3 bg-secondary-600 text-white rounded-lg text-sm font-medium hover:bg-secondary-700">Check Balance</button>
-              <button type="submit" id="pageSubmitLeaveApplication" class="px-6 py-3 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed" disabled>Submit Application</button>
+            <div class="flex justify-end space-x-3 pt-6 border-t border-gray-100">
+              <button type="button" onclick="navigateToPage('dashboard')" class="px-5 py-2.5 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors">Cancel</button>
+              <button type="button" id="pageCheckBalanceBtn" class="px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm flex items-center">
+                <i class="fas fa-calculator mr-1.5"></i> Check Balance
+              </button>
+              <button type="submit" id="pageSubmitLeaveApplication" class="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-xl text-sm font-semibold shadow-sm transition-all flex items-center disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                <i class="fas fa-paper-plane mr-2"></i> Submit Application
+              </button>
             </div>
           </div>
         </form>
@@ -4332,55 +4379,66 @@
             const pageElement = document.getElementById('staffManagementPage');
 
             pageElement.innerHTML = `
-    <div class="flex justify-end items-center mb-6 space-x-3">
-      <button id="awardCompGlobalBtn" onclick="openCompensationModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-lg font-medium shadow-sm transition-colors flex items-center">
-        <i class="fas fa-award mr-2"></i> Award Compensation
-      </button>
-      <button id="addStaffBtn" class="btn-primary px-6 py-3 rounded-lg font-medium">
-        <i class="fas fa-plus mr-2"></i> Add Staff
-      </button>
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">Staff Management</h1>
+        <p class="text-gray-500 text-sm">Directory, system roles, leave eligibility, and compensation awards</p>
+      </div>
+      <div class="flex items-center space-x-3">
+        <button id="awardCompGlobalBtn" onclick="openCompensationModal()" class="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white rounded-xl text-sm font-semibold shadow-sm transition-all flex items-center gap-2">
+          <i class="fas fa-award"></i> Award Compensation
+        </button>
+        <button id="addStaffBtn" class="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-xl text-sm font-semibold shadow-sm transition-all flex items-center gap-2">
+          <i class="fas fa-plus"></i> Add Staff
+        </button>
+      </div>
     </div>
 
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <input type="text" id="staffSearch" placeholder="Search by name or email" class="px-4 py-2 border border-gray-300 rounded-lg">
-        <select id="roleFilter" class="px-4 py-2 border border-gray-300 rounded-lg">
+    <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-emerald-100 p-4 mb-6">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div class="relative">
+          <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+          <input type="text" id="staffSearch" placeholder="Search by name or email" class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white">
+        </div>
+        <select id="roleFilter" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white">
           <option value="">All Roles</option>
           <option value="admin">Admin</option>
           <option value="hr">HR</option>
           <option value="supervisor">Supervisor</option>
           <option value="staff">Staff</option>
         </select>
-        <select id="eligibilityFilter" class="px-4 py-2 border border-gray-300 rounded-lg">
+        <select id="eligibilityFilter" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white">
           <option value="">All Staff</option>
           <option value="true">Eligible Only</option>
           <option value="false">Not Eligible</option>
         </select>
-        <button id="applyStaffFilters" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">Apply Filters</button>
+        <button id="applyStaffFilters" class="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-xl text-sm font-semibold shadow-sm transition-all flex items-center justify-center gap-2">
+          <i class="fas fa-filter"></i> Apply Filters
+        </button>
       </div>
     </div>
 
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-gray-200/80 overflow-hidden">
       <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50">
+          <thead class="bg-gradient-to-r from-gray-50 to-emerald-50/30">
             <tr>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supervisor</th>
-              <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Eligible</th>
-              <th class="px-6 py-3 text-center text-xs font-medium text-indigo-700 uppercase tracking-wider bg-indigo-50/50">Comp Days</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Name</th>
+              <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Email</th>
+              <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Role</th>
+              <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Department</th>
+              <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Supervisor</th>
+              <th class="px-6 py-3.5 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Eligible</th>
+              <th class="px-6 py-3.5 text-center text-xs font-semibold text-indigo-700 uppercase tracking-wider bg-indigo-50/50">Comp Days</th>
+              <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody id="staffTableBody" class="divide-y divide-gray-200">
             <tr>
-              <td colspan="8" class="px-6 py-4 text-center text-gray-500">
+              <td colspan="8" class="px-6 py-8 text-center text-gray-500">
                 <div class="flex justify-center items-center">
-                  <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600 mr-3"></div>
-                  Loading staff data...
+                  <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600 mr-3"></div>
+                  Loading staff directory...
                 </div>
               </td>
             </tr>
@@ -4824,13 +4882,13 @@
 
             pageElement.innerHTML = `
     <!-- Header with Export Button -->
-    <div class="flex justify-between items-center mb-6">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
       <div>
         <h1 class="text-2xl font-bold text-gray-900">Team Overview</h1>
-        <p class="text-gray-600">Team leave utilization and analytics</p>
+        <p class="text-gray-500 text-sm">Team leave utilization, balances, and operational analytics</p>
       </div>
-      <button id="exportTeamOverviewBtn" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center shadow-sm">
-        <i class="fas fa-download mr-2"></i>
+      <button id="exportTeamOverviewBtn" class="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-xl text-sm font-semibold shadow-sm transition-all flex items-center gap-2">
+        <i class="fas fa-download"></i>
         Export Team Data
       </button>
     </div>
@@ -4841,32 +4899,33 @@
     </div>
 
     <!-- Team Balances Table -->
-    <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-      <div class="bg-gradient-to-r from-primary-600 to-secondary-600 px-6 py-4">
-        <h3 class="text-lg font-semibold text-white flex items-center">
-          <i class="fas fa-users mr-3"></i>
+    <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-emerald-100/80 overflow-hidden">
+      <div class="bg-gradient-to-r from-emerald-600 to-teal-700 px-6 py-4 flex items-center justify-between">
+        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+          <i class="fas fa-users"></i>
           Team Leave Balances
         </h3>
+        <span class="text-emerald-100 text-xs font-medium">Real-time team accrual view</span>
       </div>
       
       <div class="p-6">
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto rounded-xl border border-gray-200/80">
           <table class="w-full text-sm" id="teamOverviewTable">
             <thead>
-              <tr class="border-b-2 border-gray-200 bg-gray-50/50">
-                <th class="text-left py-4 px-4 font-semibold text-gray-700 rounded-tl-lg">Staff</th>
-                <th class="text-center py-4 px-4 font-semibold text-gray-700">Annual</th>
-                <th class="text-center py-4 px-4 font-semibold text-gray-700">Brought Forward</th>
-                <th class="text-center py-4 px-4 font-semibold text-gray-700">Sick</th>
-                <th class="text-center py-4 px-4 font-semibold text-gray-700">Total</th>
-                <th class="text-center py-4 px-4 font-semibold text-gray-700 rounded-tr-lg">Deficit</th>
+              <tr class="bg-gradient-to-r from-gray-50 to-emerald-50/30 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                <th class="text-left py-3.5 px-4">Staff</th>
+                <th class="text-center py-3.5 px-4 bg-blue-50/30 text-blue-700">Annual</th>
+                <th class="text-center py-3.5 px-4 bg-amber-50/30 text-amber-700">Brought Forward</th>
+                <th class="text-center py-3.5 px-4 bg-emerald-50/30 text-emerald-700">Sick</th>
+                <th class="text-center py-3.5 px-4 text-gray-800">Total</th>
+                <th class="text-center py-3.5 px-4 bg-red-50/30 text-red-700">Deficit</th>
               </tr>
             </thead>
             <tbody id="teamBalanceTableBody" class="divide-y divide-gray-100">
               <tr>
                 <td colspan="6" class="text-center py-12 text-gray-500">
-                  <i class="fas fa-spinner fa-spin text-3xl text-primary-500 mb-3"></i>
-                  <p>Loading team data...</p>
+                  <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto mb-3"></div>
+                  <p class="text-sm">Loading team data...</p>
                 </td>
               </tr>
             </tbody>
@@ -5040,79 +5099,79 @@
 
                         // Stats Cards - IMPROVED with icons and better visual hierarchy
                         document.getElementById('teamStats').innerHTML = `
-          <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-shadow duration-300">
+          <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-emerald-100 p-5 hover:border-emerald-200 transition-all">
             <div class="flex items-center justify-between mb-3">
               <div>
-                <p class="text-sm font-medium text-gray-500 uppercase tracking-wider">Team Size</p>
+                <p class="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Team Size</p>
                 <p class="text-3xl font-bold text-gray-900 mt-1">${stats.teamSize}</p>
               </div>
-              <div class="h-12 w-12 rounded-lg bg-gradient-to-br from-primary-100 to-primary-200 flex items-center justify-center">
-                <i class="fas fa-users text-primary-600 text-xl"></i>
+              <div class="h-12 w-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white flex items-center justify-center shadow-sm shadow-emerald-200">
+                <i class="fas fa-users text-lg"></i>
               </div>
             </div>
-            <div class="flex items-center text-sm">
-              <span class="text-green-600 font-medium">${stats.eligibleTeamSize} eligible</span>
-              <span class="text-gray-400 mx-2">•</span>
+            <div class="flex items-center text-xs text-gray-600 font-medium">
+              <span class="text-emerald-700 font-semibold">${stats.eligibleTeamSize} eligible</span>
+              <span class="text-gray-300 mx-2">•</span>
               <span class="text-gray-500">${stats.teamSize - stats.eligibleTeamSize} ineligible</span>
             </div>
-            <div class="mt-3 h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
-              <div class="h-full bg-primary-500 rounded-full" style="width: ${(stats.eligibleTeamSize / stats.teamSize) * 100}%"></div>
+            <div class="mt-3 h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+              <div class="h-full bg-emerald-500 rounded-full" style="width: ${(stats.eligibleTeamSize / (stats.teamSize || 1)) * 100}%"></div>
             </div>
           </div>
 
-          <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-shadow duration-300">
+          <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-amber-100 p-5 hover:border-amber-200 transition-all">
             <div class="flex items-center justify-between mb-3">
               <div>
-                <p class="text-sm font-medium text-gray-500 uppercase tracking-wider">Pending</p>
+                <p class="text-xs font-semibold text-amber-600 uppercase tracking-wider">Pending</p>
                 <p class="text-3xl font-bold text-amber-600 mt-1">${stats.pendingCount}</p>
               </div>
-              <div class="h-12 w-12 rounded-lg bg-gradient-to-br from-amber-100 to-amber-200 flex items-center justify-center">
-                <i class="fas fa-clock text-amber-600 text-xl"></i>
+              <div class="h-12 w-12 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-white flex items-center justify-center shadow-sm shadow-amber-200">
+                <i class="fas fa-clock text-lg"></i>
               </div>
             </div>
-            <p class="text-sm text-gray-600">
+            <p class="text-xs text-gray-500">
               ${stats.pendingCount === 1 ? 'Application' : 'Applications'} awaiting review
             </p>
           </div>
 
-          <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-shadow duration-300">
+          <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-blue-100 p-5 hover:border-blue-200 transition-all">
             <div class="flex items-center justify-between mb-3">
               <div>
-                <p class="text-sm font-medium text-gray-500 uppercase tracking-wider">Utilization</p>
+                <p class="text-xs font-semibold text-blue-600 uppercase tracking-wider">Utilization</p>
                 <p class="text-3xl font-bold text-blue-600 mt-1">${stats.utilizationRate}%</p>
               </div>
-              <div class="h-12 w-12 rounded-lg bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
-                <i class="fas fa-chart-pie text-blue-600 text-xl"></i>
+              <div class="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center shadow-sm shadow-blue-200">
+                <i class="fas fa-chart-pie text-lg"></i>
               </div>
             </div>
-            <div class="space-y-2">
-              <div class="flex justify-between text-sm">
-                <span class="text-gray-600">Used: ${stats.summary.totalUsed.toFixed(3)} days</span>
-                <span class="text-gray-600">Total: ${stats.summary.totalTheoreticalAllocation.toFixed(3)} days</span>
+            <div class="space-y-1.5">
+              <div class="flex justify-between text-xs text-gray-500">
+                <span>Used: ${stats.summary.totalUsed.toFixed(1)}d</span>
+                <span>Total: ${stats.summary.totalTheoreticalAllocation.toFixed(1)}d</span>
               </div>
-              <div class="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
-                <div class="h-full bg-blue-500 rounded-full" style="width: ${stats.utilizationRate}%"></div>
+              <div class="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+                <div class="h-full bg-blue-500 rounded-full" style="width: ${Math.min(100, stats.utilizationRate)}%"></div>
               </div>
             </div>
           </div>
 
-          <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-shadow duration-300">
+          <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-red-100 p-5 hover:border-red-200 transition-all">
             <div class="flex items-center justify-between mb-3">
               <div>
-                <p class="text-sm font-medium text-gray-500 uppercase tracking-wider">In Deficit</p>
+                <p class="text-xs font-semibold text-red-600 uppercase tracking-wider">In Deficit</p>
                 <p class="text-3xl font-bold text-red-600 mt-1">${stats.deficitStaff.length}</p>
               </div>
-              <div class="h-12 w-12 rounded-lg bg-gradient-to-br from-red-100 to-red-200 flex items-center justify-center">
-                <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
+              <div class="h-12 w-12 rounded-xl bg-gradient-to-br from-red-500 to-red-600 text-white flex items-center justify-center shadow-sm shadow-red-200">
+                <i class="fas fa-exclamation-triangle text-lg"></i>
               </div>
             </div>
-            <div class="space-y-2">
-              <p class="text-sm text-gray-600">
-                Total deficit: <span class="font-medium text-red-600">${stats.summary.totalDeficit.toFixed(3)} days</span>
+            <div class="space-y-1.5">
+              <p class="text-xs text-gray-500">
+                Total deficit: <span class="font-semibold text-red-600">${stats.summary.totalDeficit.toFixed(2)} days</span>
               </p>
               ${stats.deficitStaff.length > 0 ? `
-                <div class="mt-2 p-2 bg-red-50 rounded-lg">
-                  <p class="text-xs text-red-700">
+                <div class="p-1.5 bg-red-50 rounded-lg border border-red-100">
+                  <p class="text-[11px] text-red-700 font-medium">
                     <i class="fas fa-info-circle mr-1"></i>
                     ${stats.deficitStaff.length} staff member${stats.deficitStaff.length > 1 ? 's' : ''} in deficit
                   </p>
@@ -5223,17 +5282,17 @@
             const currentYear = new Date().getFullYear();
 
             pageElement.innerHTML = `
-    <div class="mb-8">
-      <h1 class="text-2xl font-bold text-gray-900 mb-2">Reports & Analytics</h1>
-      <p class="text-gray-600">Leave insights and workforce analytics</p>
+    <div class="mb-6">
+      <h1 class="text-2xl font-bold text-gray-900">Reports & Analytics</h1>
+      <p class="text-gray-500 text-sm">Leave insights, workforce trends, and organizational audit reports</p>
     </div>
 
     <!-- Filters -->
-    <div class="bg-white rounded-xl border border-gray-200 p-6 mb-8">
+    <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-emerald-100 p-6 mb-6">
       <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div class="md:col-span-2">
-          <label class="block text-sm font-medium text-gray-700 mb-2">Report Type</label>
-          <select id="reportType" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+          <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Report Type</label>
+          <select id="reportType" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white">
             <option value="overview">Overview Report</option>
             <option value="utilization">Leave Utilization</option>
             <option value="deficit">Deficit Analysis</option>
@@ -5242,16 +5301,16 @@
           </select>
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Year</label>
-          <select id="reportYear" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+          <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Year</label>
+          <select id="reportYear" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white">
             <option value="${currentYear}">${currentYear}</option>
             <option value="${currentYear - 1}">${currentYear - 1}</option>
             <option value="${currentYear - 2}">${currentYear - 2}</option>
           </select>
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Department</label>
-          <select id="reportDepartment" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+          <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Department</label>
+          <select id="reportDepartment" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white">
             <option value="all">All Departments</option>
             <option value="Tech Team">Tech Team</option>
             <option value="Admin Team">Admin Team</option>
@@ -5259,17 +5318,17 @@
           </select>
         </div>
         <div class="flex items-end">
-          <button id="generateReportBtn" class="w-full bg-primary-600 text-white px-4 py-2.5 rounded-lg hover:bg-primary-700 transition-colors font-medium">
-            <i class="fas fa-chart-bar mr-2"></i> Generate
+          <button id="generateReportBtn" class="w-full px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-xl text-sm font-semibold shadow-sm transition-all flex items-center justify-center gap-2">
+            <i class="fas fa-chart-bar"></i> Generate
           </button>
         </div>
       </div>
     </div>
 
     <!-- Export Button -->
-    <div class="flex justify-end mb-4">
-      <button id="exportReportBtn" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center">
-        <i class="fas fa-download mr-2"></i> Export to CSV
+    <div class="flex justify-end mb-6">
+      <button id="exportReportBtn" class="px-4 py-2.5 bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-sm font-semibold shadow-sm transition-all flex items-center gap-2">
+        <i class="fas fa-download"></i> Export to CSV
       </button>
     </div>
 
@@ -5359,44 +5418,44 @@
             return `
     <!-- Summary Cards -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-      <div class="bg-white rounded-xl border border-gray-200 p-6">
+      <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-blue-100 p-5 hover:border-blue-200 transition-all">
         <div class="flex items-center justify-between mb-2">
-          <p class="text-sm text-gray-600">Total Staff</p>
-          <span class="h-8 w-8 rounded-lg bg-primary-100 flex items-center justify-center">
-            <i class="fas fa-users text-primary-600"></i>
+          <p class="text-xs font-semibold text-blue-600 uppercase tracking-wider">Total Staff</p>
+          <span class="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center shadow-sm shadow-blue-200">
+            <i class="fas fa-users text-sm"></i>
           </span>
         </div>
         <p class="text-2xl font-bold text-gray-900" id="totalStaffCount">-</p>
         <p class="text-xs text-gray-500 mt-1">Active employees</p>
       </div>
 
-      <div class="bg-white rounded-xl border border-gray-200 p-6">
+      <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-indigo-100 p-5 hover:border-indigo-200 transition-all">
         <div class="flex items-center justify-between mb-2">
-          <p class="text-sm text-gray-600">Applications</p>
-          <span class="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center">
-            <i class="fas fa-file-alt text-blue-600"></i>
+          <p class="text-xs font-semibold text-indigo-600 uppercase tracking-wider">Applications</p>
+          <span class="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 text-white flex items-center justify-center shadow-sm shadow-indigo-200">
+            <i class="fas fa-file-alt text-sm"></i>
           </span>
         </div>
         <p class="text-2xl font-bold text-gray-900" id="totalApplications">-</p>
         <p class="text-xs text-gray-500 mt-1" id="applicationsPeriod">YTD</p>
       </div>
 
-      <div class="bg-white rounded-xl border border-gray-200 p-6">
+      <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-emerald-100 p-5 hover:border-emerald-200 transition-all">
         <div class="flex items-center justify-between mb-2">
-          <p class="text-sm text-gray-600">Utilization</p>
-          <span class="h-8 w-8 rounded-lg bg-green-100 flex items-center justify-center">
-            <i class="fas fa-percent text-green-600"></i>
+          <p class="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Utilization</p>
+          <span class="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white flex items-center justify-center shadow-sm shadow-emerald-200">
+            <i class="fas fa-percent text-sm"></i>
           </span>
         </div>
         <p class="text-2xl font-bold text-gray-900" id="utilizationRate">-</p>
         <p class="text-xs text-gray-500 mt-1">Annual leave used</p>
       </div>
 
-      <div class="bg-white rounded-xl border border-gray-200 p-6">
+      <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-red-100 p-5 hover:border-red-200 transition-all">
         <div class="flex items-center justify-between mb-2">
-          <p class="text-sm text-gray-600">In Deficit</p>
-          <span class="h-8 w-8 rounded-lg bg-red-100 flex items-center justify-center">
-            <i class="fas fa-exclamation-triangle text-red-600"></i>
+          <p class="text-xs font-semibold text-red-600 uppercase tracking-wider">In Deficit</p>
+          <span class="h-10 w-10 rounded-xl bg-gradient-to-br from-red-500 to-red-600 text-white flex items-center justify-center shadow-sm shadow-red-200">
+            <i class="fas fa-exclamation-triangle text-sm"></i>
           </span>
         </div>
         <p class="text-2xl font-bold text-gray-900" id="staffInDeficit">-</p>
@@ -5407,41 +5466,47 @@
     <!-- Charts Row -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
       <!-- Leave Distribution -->
-      <div class="bg-white rounded-xl border border-gray-200 p-6">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">Leave Distribution by Type</h3>
+      <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-gray-200/80 p-6">
+        <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+          <i class="fas fa-chart-pie text-emerald-600"></i> Leave Distribution by Type
+        </h3>
         <div class="min-h-[300px]" id="leaveDistributionChart">
-          <div class="text-center py-12 text-gray-500">
+          <div class="text-center py-12 text-gray-400">
             <i class="fas fa-chart-pie text-5xl mb-3 opacity-30"></i>
-            <p>Select filters to view</p>
+            <p class="text-sm">Select filters to view</p>
           </div>
         </div>
       </div>
 
       <!-- Monthly Trends -->
-      <div class="bg-white rounded-xl border border-gray-200 p-6">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">Monthly Leave Trends</h3>
+      <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-gray-200/80 p-6">
+        <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+          <i class="fas fa-chart-line text-blue-600"></i> Monthly Leave Trends
+        </h3>
         <div class="min-h-[300px]" id="monthlyTrendsChart">
-          <div class="text-center py-12 text-gray-500">
+          <div class="text-center py-12 text-gray-400">
             <i class="fas fa-chart-line text-5xl mb-3 opacity-30"></i>
-            <p>Select filters to view</p>
+            <p class="text-sm">Select filters to view</p>
           </div>
         </div>
       </div>
     </div>
 
     <!-- Department Summary -->
-    <div class="bg-white rounded-xl border border-gray-200 p-6">
-      <h3 class="text-lg font-semibold text-gray-900 mb-4">Department Summary</h3>
-      <div class="overflow-x-auto">
+    <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-gray-200/80 p-6">
+      <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+        <i class="fas fa-building text-amber-600"></i> Department Summary
+      </h3>
+      <div class="overflow-x-auto rounded-xl border border-gray-200/80">
         <table class="w-full text-sm" id="departmentTable">
           <thead>
-            <tr class="bg-gray-50 border-b border-gray-200">
-              <th class="text-left py-3 px-4 font-semibold text-gray-700">Department</th>
-              <th class="text-center py-3 px-4 font-semibold text-gray-700">Staff</th>
-              <th class="text-center py-3 px-4 font-semibold text-gray-700 bg-blue-50/30">Leave Used</th>
-              <th class="text-center py-3 px-4 font-semibold text-gray-700 bg-green-50/30">Avg/Staff</th>
-              <th class="text-center py-3 px-4 font-semibold text-gray-700">Utilization</th>
-              <th class="text-center py-3 px-4 font-semibold text-gray-700 bg-red-50/30">Deficit</th>
+            <tr class="bg-gradient-to-r from-gray-50 to-emerald-50/30 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+              <th class="text-left py-3.5 px-4">Department</th>
+              <th class="text-center py-3.5 px-4">Staff</th>
+              <th class="text-center py-3.5 px-4 bg-blue-50/30 text-blue-700">Leave Used</th>
+              <th class="text-center py-3.5 px-4 bg-green-50/30 text-emerald-700">Avg/Staff</th>
+              <th class="text-center py-3.5 px-4">Utilization</th>
+              <th class="text-center py-3.5 px-4 bg-red-50/30 text-red-700">Deficit</th>
             </tr>
           </thead>
           <tbody id="departmentTableBody" class="divide-y divide-gray-100">
@@ -5454,51 +5519,53 @@
     </div>
 
     <!-- Staff Details - WITH DEFICIT & COMPENSATION COLUMNS -->
-    <div class="bg-white rounded-xl border border-gray-200 p-6">
-      <h3 class="text-lg font-semibold text-gray-900 mb-4">Staff Leave Details</h3>
-      <div class="overflow-x-auto">
+    <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-gray-200/80 p-6">
+      <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+        <i class="fas fa-users-cog text-emerald-600"></i> Staff Leave Details
+      </h3>
+      <div class="overflow-x-auto rounded-xl border border-gray-200/80">
         <table class="w-full text-sm" id="staffReportTable">
           <thead>
-            <tr class="bg-gray-50 border-b border-gray-200">
-              <th rowspan="2" class="text-left py-3 px-4 font-semibold text-gray-700 border-r">Staff</th>
-              <th rowspan="2" class="text-left py-3 px-4 font-semibold text-gray-700 border-r">Department</th>
+            <tr class="bg-gradient-to-r from-gray-50 to-emerald-50/30 border-b border-gray-200 text-xs font-semibold text-gray-700 uppercase tracking-wider">
+              <th rowspan="2" class="text-left py-3 px-4 border-r">Staff</th>
+              <th rowspan="2" class="text-left py-3 px-4 border-r">Department</th>
               
               <!-- Annual Leave Group -->
-              <th colspan="3" class="text-center py-3 px-4 font-semibold text-gray-700 bg-blue-50/30 border-r">Annual Leave</th>
+              <th colspan="3" class="text-center py-3 px-4 bg-blue-50/50 text-blue-800 border-r">Annual Leave</th>
               
               <!-- Brought Forward Group -->
-              <th colspan="3" class="text-center py-3 px-4 font-semibold text-gray-700 bg-amber-50/30 border-r">Brought Forward</th>
+              <th colspan="3" class="text-center py-3 px-4 bg-amber-50/50 text-amber-800 border-r">Brought Forward</th>
               
               <!-- Sick Leave Group -->
-              <th colspan="2" class="text-center py-3 px-4 font-semibold text-gray-700 bg-green-50/30 border-r">Sick Leave</th>
+              <th colspan="2" class="text-center py-3 px-4 bg-emerald-50/50 text-emerald-800 border-r">Sick Leave</th>
 
               <!-- Compensation Leave Group -->
-              <th colspan="2" class="text-center py-3 px-4 font-semibold text-gray-700 bg-indigo-50/30 border-r">Compensation Leave</th>
+              <th colspan="2" class="text-center py-3 px-4 bg-indigo-50/50 text-indigo-800 border-r">Compensation Leave</th>
               
               <!-- Deficit Column -->
-              <th rowspan="2" class="text-center py-3 px-4 font-semibold text-gray-700 bg-red-50/30 border-r">Deficit</th>
+              <th rowspan="2" class="text-center py-3 px-4 bg-red-50/50 text-red-800 border-r">Deficit</th>
               
               <!-- Total -->
-              <th rowspan="2" class="text-center py-3 px-4 font-semibold text-gray-700 bg-purple-50/30">Total Available</th>
+              <th rowspan="2" class="text-center py-3 px-4 bg-purple-50/50 text-purple-800">Total Available</th>
             </tr>
-            <tr class="bg-gray-50">
+            <tr class="bg-gray-50/70 border-b border-gray-200 text-[11px] font-semibold text-gray-600 uppercase tracking-wider">
               <!-- Annual Leave Subheaders -->
-              <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 bg-blue-50/30">Used</th>
-              <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 bg-blue-50/30">Accrued</th>
-              <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 bg-blue-50/30 border-r">Remaining</th>
+              <th class="text-center py-2 px-3 bg-blue-50/30 text-blue-700">Used</th>
+              <th class="text-center py-2 px-3 bg-blue-50/30 text-blue-700">Accrued</th>
+              <th class="text-center py-2 px-3 bg-blue-50/30 text-blue-700 border-r">Remaining</th>
               
               <!-- Brought Forward Subheaders -->
-              <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 bg-amber-50/30">Brought Forward</th>
-              <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 bg-amber-50/30">Used</th>
-              <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 bg-amber-50/30 border-r">Remaining</th>
+              <th class="text-center py-2 px-3 bg-amber-50/30 text-amber-700">Brought Forward</th>
+              <th class="text-center py-2 px-3 bg-amber-50/30 text-amber-700">Used</th>
+              <th class="text-center py-2 px-3 bg-amber-50/30 text-amber-700 border-r">Remaining</th>
               
               <!-- Sick Leave Subheaders -->
-              <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 bg-green-50/30">Used</th>
-              <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 bg-green-50/30 border-r">Remaining</th>
+              <th class="text-center py-2 px-3 bg-emerald-50/30 text-emerald-700">Used</th>
+              <th class="text-center py-2 px-3 bg-emerald-50/30 text-emerald-700 border-r">Remaining</th>
 
               <!-- Compensation Leave Subheaders -->
-              <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 bg-indigo-50/30">Used</th>
-              <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 bg-indigo-50/30 border-r">Balance</th>
+              <th class="text-center py-2 px-3 bg-indigo-50/30 text-indigo-700">Used</th>
+              <th class="text-center py-2 px-3 bg-indigo-50/30 text-indigo-700 border-r">Balance</th>
             </tr>
           </thead>
           <tbody id="staffReportTableBody" class="divide-y divide-gray-100">
@@ -5508,10 +5575,11 @@
           </tbody>
         </table>
       </div>
-      <p class="text-xs text-gray-500 mt-2">Deficit subtracts from available days • Total Available = Annual Remaining + Brought Forward Remaining + Compensation Balance + Deficit</p>
+      <p class="text-xs text-gray-500 mt-3">Deficit subtracts from available days • Total Available = Annual Remaining + Brought Forward Remaining + Compensation Balance + Deficit</p>
     </div>
   `;
         }
+
         // Render applications audit view
         function renderApplicationsAudit(applications, staff, year) {
             // Create a map of staff emails to names for quick lookup
@@ -5536,35 +5604,35 @@
 
             return `
     <!-- Applications Summary Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-      <div class="bg-white rounded-xl border border-gray-200 p-4">
-        <p class="text-sm text-gray-600">Total Applications</p>
-        <p class="text-2xl font-bold text-gray-900">${totalApps}</p>
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+      <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:border-gray-200 transition-all">
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Applications</p>
+        <p class="text-2xl font-bold text-gray-900 mt-1">${totalApps}</p>
       </div>
-      <div class="bg-white rounded-xl border border-amber-200 p-4">
-        <p class="text-sm text-gray-600">Pending</p>
-        <p class="text-2xl font-bold text-amber-600">${pendingApps}</p>
+      <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-amber-100 p-4 hover:border-amber-200 transition-all">
+        <p class="text-xs font-semibold text-amber-600 uppercase tracking-wider">Pending</p>
+        <p class="text-2xl font-bold text-amber-700 mt-1">${pendingApps}</p>
       </div>
-      <div class="bg-white rounded-xl border border-green-200 p-4">
-        <p class="text-sm text-gray-600">Approved</p>
-        <p class="text-2xl font-bold text-green-600">${approvedApps}</p>
+      <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-emerald-100 p-4 hover:border-emerald-200 transition-all">
+        <p class="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Approved</p>
+        <p class="text-2xl font-bold text-emerald-700 mt-1">${approvedApps}</p>
       </div>
-      <div class="bg-white rounded-xl border border-red-200 p-4">
-        <p class="text-sm text-gray-600">Declined</p>
-        <p class="text-2xl font-bold text-red-600">${declinedApps}</p>
+      <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-red-100 p-4 hover:border-red-200 transition-all">
+        <p class="text-xs font-semibold text-red-600 uppercase tracking-wider">Declined</p>
+        <p class="text-2xl font-bold text-red-700 mt-1">${declinedApps}</p>
       </div>
-      <div class="bg-white rounded-xl border border-gray-200 p-4">
-        <p class="text-sm text-gray-600">Cancelled</p>
-        <p class="text-2xl font-bold text-gray-600">${cancelledApps}</p>
+      <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:border-gray-200 transition-all">
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Cancelled</p>
+        <p class="text-2xl font-bold text-gray-700 mt-1">${cancelledApps}</p>
       </div>
     </div>
 
     <!-- Filters -->
-    <div class="bg-white rounded-xl border border-gray-200 p-4">
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-emerald-100 p-4 mb-6">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
-          <select id="appStatusFilter" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+          <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Status</label>
+          <select id="appStatusFilter" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white">
             <option value="all">All Statuses</option>
             <option value="Pending">Pending</option>
             <option value="Approved">Approved</option>
@@ -5573,8 +5641,8 @@
           </select>
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Leave Type</label>
-          <select id="appTypeFilter" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+          <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Leave Type</label>
+          <select id="appTypeFilter" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white">
             <option value="all">All Types</option>
             <option value="Annual Leave">Annual Leave</option>
             <option value="Sick Leave">Sick Leave</option>
@@ -5582,33 +5650,38 @@
           </select>
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Search</label>
-          <input type="text" id="appSearchFilter" placeholder="Name or email..." class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+          <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Search</label>
+          <input type="text" id="appSearchFilter" placeholder="Name or email..." class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white">
         </div>
         <div class="flex items-end">
-          <button id="applyAppFilters" class="w-full bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700">
-            Apply Filters
+          <button id="applyAppFilters" class="w-full px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-xl text-sm font-semibold shadow-sm transition-all flex items-center justify-center gap-2">
+            <i class="fas fa-filter"></i> Apply Filters
           </button>
         </div>
       </div>
     </div>
 
     <!-- Applications Table -->
-    <div class="bg-white rounded-xl border border-gray-200 p-6">
-      <h3 class="text-lg font-semibold text-gray-900 mb-4">All Applications - ${year}</h3>
-      <div class="overflow-x-auto">
+    <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-gray-200/80 p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+          <i class="fas fa-list-check text-blue-600"></i> All Applications — ${year}
+        </h3>
+        <span class="text-xs text-gray-500">${applications.length} applications recorded</span>
+      </div>
+      <div class="overflow-x-auto rounded-xl border border-gray-200/80">
         <table class="w-full text-sm" id="applicationsAuditTable">
           <thead>
-            <tr class="bg-gray-50 border-b border-gray-200">
-              <th class="text-left py-3 px-3 font-semibold text-gray-700">Date</th>
-              <th class="text-left py-3 px-3 font-semibold text-gray-700">Staff</th>
-              <th class="text-left py-3 px-3 font-semibold text-gray-700">Email</th>
-              <th class="text-left py-3 px-3 font-semibold text-gray-700">Type</th>
-              <th class="text-center py-3 px-3 font-semibold text-gray-700">Period</th>
-              <th class="text-center py-3 px-3 font-semibold text-gray-700">Days</th>
-              <th class="text-center py-3 px-3 font-semibold text-gray-700">Status</th>
-              <th class="text-center py-3 px-3 font-semibold text-gray-700">Processed</th>
-              <th class="text-left py-3 px-3 font-semibold text-gray-700">Reason</th>
+            <tr class="bg-gradient-to-r from-gray-50 to-emerald-50/30 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+              <th class="text-left py-3.5 px-3">Date</th>
+              <th class="text-left py-3.5 px-3">Staff</th>
+              <th class="text-left py-3.5 px-3">Email</th>
+              <th class="text-left py-3.5 px-3">Type</th>
+              <th class="text-center py-3.5 px-3">Period</th>
+              <th class="text-center py-3.5 px-3">Days</th>
+              <th class="text-center py-3.5 px-3">Status</th>
+              <th class="text-center py-3.5 px-3">Processed</th>
+              <th class="text-left py-3.5 px-3">Reason</th>
             </tr>
           </thead>
           <tbody id="applicationsAuditBody" class="divide-y divide-gray-100">
@@ -5632,20 +5705,20 @@
                 const reason = (app.Reason || app.reason || '').substring(0, 30) + ((app.Reason?.length || 0) > 30 ? '...' : '');
 
                 return `
-                <tr class="hover:bg-gray-50" data-id="${app.ID || ''}">
-                  <td class="px-3 py-3 whitespace-nowrap">${dateApplied}</td>
-                  <td class="px-3 py-3 whitespace-nowrap font-medium">${escapeHtml(staffName)}</td>
-                  <td class="px-3 py-3 whitespace-nowrap text-xs">${escapeHtml(email)}</td>
-                  <td class="px-3 py-3 whitespace-nowrap">${escapeHtml(type)}</td>
-                  <td class="px-3 py-3 whitespace-nowrap text-center text-xs">${period}</td>
-                  <td class="px-3 py-3 whitespace-nowrap text-center">${displayDuration}</td>
+                <tr class="hover:bg-gray-50/80 transition-colors" data-id="${app.ID || ''}">
+                  <td class="px-3 py-3 whitespace-nowrap text-xs text-gray-600">${dateApplied}</td>
+                  <td class="px-3 py-3 whitespace-nowrap font-medium text-gray-900">${escapeHtml(staffName)}</td>
+                  <td class="px-3 py-3 whitespace-nowrap text-xs text-gray-500">${escapeHtml(email)}</td>
+                  <td class="px-3 py-3 whitespace-nowrap"><span class="leave-type-badge ${(type || '').replace(/\s+/g, '-').toLowerCase()} px-2.5 py-0.5 rounded-full text-xs font-medium">${escapeHtml(type)}</span></td>
+                  <td class="px-3 py-3 whitespace-nowrap text-center text-xs text-gray-700">${period}</td>
+                  <td class="px-3 py-3 whitespace-nowrap text-center font-semibold text-gray-900">${displayDuration}</td>
                   <td class="px-3 py-3 whitespace-nowrap text-center">
-                    <span class="status-badge ${statusClass} px-2 py-1 rounded-full text-xs font-medium">${status}</span>
+                    <span class="status-badge ${statusClass} px-2.5 py-1 rounded-full text-xs font-medium">${status}</span>
                   </td>
-                  <td class="px-3 py-3 whitespace-nowrap text-center text-xs">
-                    ${processedBy}<br>${processedDate}
+                  <td class="px-3 py-3 whitespace-nowrap text-center text-xs text-gray-600">
+                    ${processedBy}${processedDate ? `<br><span class="text-[11px] text-gray-400">${processedDate}</span>` : ''}
                   </td>
-                  <td class="px-3 py-3 max-w-xs truncate" title="${escapeHtml(app.Reason || app.reason || '')}">
+                  <td class="px-3 py-3 max-w-xs truncate text-xs text-gray-600" title="${escapeHtml(app.Reason || app.reason || '')}">
                     ${escapeHtml(reason)}
                   </td>
                 </tr>
@@ -8686,26 +8759,58 @@
                 const summary = result.data.summary || {};
 
                 // ── Summary Cards ──────────────────────────────────────────────
-                let html = '<div class="mb-6"><h1 class="text-2xl font-bold text-gray-900">HR Dashboard</h1><p class="text-gray-600">All staff balances and leave applications</p></div>';
+                let html = '<div class="mb-6"><h1 class="text-2xl font-bold text-gray-900">HR Dashboard</h1><p class="text-gray-500 text-sm">Comprehensive view of all staff leave balances, accruals, and applications</p></div>';
 
                 html += '<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">';
-                html += '<div class="bg-white rounded-xl border border-gray-200 p-6"><p class="text-sm text-gray-600">Total Staff</p><p class="text-3xl font-bold text-gray-900">' + (summary.totalStaff || 0) + '</p><p class="text-xs text-gray-500 mt-1">' + (summary.eligibleStaff || 0) + ' eligible for leave</p></div>';
-                html += '<div class="bg-white rounded-xl border border-amber-200 p-6"><p class="text-sm text-gray-600">Pending Applications</p><p class="text-3xl font-bold text-amber-600">' + (summary.pendingApplications || 0) + '</p></div>';
-                html += '<div class="bg-white rounded-xl border border-gray-200 p-6"><p class="text-sm text-gray-600">Total Applications</p><p class="text-3xl font-bold text-gray-900">' + allApps.length + '</p></div>';
+                html += '<div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-blue-100 p-6 hover:border-blue-200 transition-all">' +
+                    '<div class="flex items-center justify-between">' +
+                    '<div>' +
+                    '<p class="text-xs font-semibold text-blue-600 uppercase tracking-wider">Total Staff</p>' +
+                    '<p class="text-3xl font-bold text-gray-900 mt-1">' + (summary.totalStaff || 0) + '</p>' +
+                    '<p class="text-xs text-gray-500 mt-1"><i class="fas fa-check text-blue-500 mr-1"></i>' + (summary.eligibleStaff || 0) + ' eligible for leave</p>' +
+                    '</div>' +
+                    '<div class="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center shadow-sm shadow-blue-200">' +
+                    '<i class="fas fa-users text-lg"></i>' +
+                    '</div>' +
+                    '</div></div>';
+
+                html += '<div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-amber-100 p-6 hover:border-amber-200 transition-all">' +
+                    '<div class="flex items-center justify-between">' +
+                    '<div>' +
+                    '<p class="text-xs font-semibold text-amber-600 uppercase tracking-wider">Pending Applications</p>' +
+                    '<p class="text-3xl font-bold text-amber-600 mt-1">' + (summary.pendingApplications || 0) + '</p>' +
+                    '<p class="text-xs text-gray-500 mt-1"><i class="fas fa-clock text-amber-500 mr-1"></i>Awaiting review</p>' +
+                    '</div>' +
+                    '<div class="h-12 w-12 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-white flex items-center justify-center shadow-sm shadow-amber-200">' +
+                    '<i class="fas fa-hourglass-half text-lg"></i>' +
+                    '</div>' +
+                    '</div></div>';
+
+                html += '<div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-emerald-100 p-6 hover:border-emerald-200 transition-all">' +
+                    '<div class="flex items-center justify-between">' +
+                    '<div>' +
+                    '<p class="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Total Applications</p>' +
+                    '<p class="text-3xl font-bold text-gray-900 mt-1">' + allApps.length + '</p>' +
+                    '<p class="text-xs text-gray-500 mt-1"><i class="fas fa-history text-emerald-500 mr-1"></i>All-time recorded</p>' +
+                    '</div>' +
+                    '<div class="h-12 w-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white flex items-center justify-center shadow-sm shadow-emerald-200">' +
+                    '<i class="fas fa-file-invoice text-lg"></i>' +
+                    '</div>' +
+                    '</div></div>';
                 html += '</div>';
 
                 // ── Staff Balances Table ────────────────────────────────────────
-                html += '<div class="bg-white rounded-xl border border-gray-200 p-6 mb-8">';
-                html += '<h3 class="text-lg font-semibold text-gray-900 mb-4">Staff Leave Balances</h3>';
-                html += '<div class="overflow-x-auto"><table class="w-full text-sm">';
-                html += '<thead><tr class="bg-gray-50 border-b border-gray-200">';
-                html += '<th class="text-left py-3 px-4 font-semibold">Staff</th>';
-                html += '<th class="text-left py-3 px-4 font-semibold">Dept</th>';
-                html += '<th class="text-center py-3 px-4 font-semibold bg-blue-50">Annual</th>';
-                html += '<th class="text-center py-3 px-4 font-semibold bg-amber-50">Brought Fwd</th>';
-                html += '<th class="text-center py-3 px-4 font-semibold bg-yellow-50">Comp</th>';
-                html += '<th class="text-center py-3 px-4 font-semibold bg-green-50">Sick</th>';
-                html += '<th class="text-center py-3 px-4 font-semibold bg-red-50">Deficit</th>';
+                html += '<div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-emerald-100/80 p-6 mb-8">';
+                html += '<div class="flex items-center justify-between mb-4"><div><h3 class="text-lg font-bold text-gray-900 flex items-center gap-2"><i class="fas fa-wallet text-emerald-600"></i> Staff Leave Balances</h3><p class="text-xs text-gray-500 mt-0.5">Real-time balances across annual, brought forward, comp, and sick leave</p></div></div>';
+                html += '<div class="overflow-x-auto rounded-xl border border-gray-200/80"><table class="w-full text-sm">';
+                html += '<thead class="bg-gradient-to-r from-gray-50 to-emerald-50/30 border-b border-gray-200"><tr class="text-xs font-semibold text-gray-600 uppercase tracking-wider">';
+                html += '<th class="text-left py-3.5 px-4">Staff</th>';
+                html += '<th class="text-left py-3.5 px-4">Dept</th>';
+                html += '<th class="text-center py-3.5 px-4 bg-blue-50/50 text-blue-700">Annual</th>';
+                html += '<th class="text-center py-3.5 px-4 bg-amber-50/50 text-amber-700">Brought Fwd</th>';
+                html += '<th class="text-center py-3.5 px-4 bg-indigo-50/50 text-indigo-700">Comp</th>';
+                html += '<th class="text-center py-3.5 px-4 bg-emerald-50/50 text-emerald-700">Sick</th>';
+                html += '<th class="text-center py-3.5 px-4 bg-red-50/50 text-red-700">Deficit</th>';
                 html += '</tr></thead><tbody class="divide-y divide-gray-100">';
 
                 staffList.filter(function (s) { return s.eligibleForLeave; }).forEach(function (s) {
@@ -8713,31 +8818,31 @@
                     var bf = s.balance && s.balance.broughtForward ? s.balance.broughtForward : null;
                     var sick = s.balance && s.balance.sick ? s.balance.sick : {};
                     var hasDeficit = ann.hasDeficit;
-                    html += '<tr class="hover:bg-gray-50">';
+                    html += '<tr class="hover:bg-gray-50/80 transition-colors">';
                     html += '<td class="px-4 py-3"><div class="font-medium text-gray-900">' + escapeHtml(s.name || '') + '</div><div class="text-xs text-gray-500">' + escapeHtml(s.email || '') + '</div></td>';
-                    html += '<td class="px-4 py-3 text-gray-600">' + escapeHtml(s.department || '—') + '</td>';
-                    html += '<td class="px-4 py-3 text-center bg-blue-50 font-medium">' + ((ann.available || 0).toFixed(2)) + '</td>';
-                    html += '<td class="px-4 py-3 text-center bg-amber-50 font-medium">' + (bf ? ((bf.remaining || 0).toFixed(2)) : '—') + '</td>';
-                    html += '<td class="px-4 py-3 text-center bg-yellow-50 font-medium">' + ((s.compensationBalance || 0).toFixed(2)) + '</td>';
-                    html += '<td class="px-4 py-3 text-center bg-green-50 font-medium">' + ((sick.balance || 0).toFixed(2)) + '</td>';
-                    html += '<td class="px-4 py-3 text-center bg-red-50 font-medium ' + (hasDeficit ? 'text-red-600' : 'text-gray-400') + '">' + (hasDeficit ? ((ann.deficitAmount || 0).toFixed(2)) : '0.00') + '</td>';
+                    html += '<td class="px-4 py-3 text-gray-600 text-xs">' + escapeHtml(s.department || '—') + '</td>';
+                    html += '<td class="px-4 py-3 text-center bg-blue-50/30 font-semibold text-blue-700">' + ((ann.available || 0).toFixed(2)) + '</td>';
+                    html += '<td class="px-4 py-3 text-center bg-amber-50/30 font-semibold text-amber-700">' + (bf ? ((bf.remaining || 0).toFixed(2)) : '—') + '</td>';
+                    html += '<td class="px-4 py-3 text-center bg-indigo-50/30 font-semibold text-indigo-700">' + ((s.compensationBalance || 0).toFixed(2)) + '</td>';
+                    html += '<td class="px-4 py-3 text-center bg-emerald-50/30 font-semibold text-emerald-700">' + ((sick.balance || 0).toFixed(2)) + '</td>';
+                    html += '<td class="px-4 py-3 text-center bg-red-50/30 font-semibold ' + (hasDeficit ? 'text-red-600' : 'text-gray-400') + '">' + (hasDeficit ? ((ann.deficitAmount || 0).toFixed(2)) : '0.00') + '</td>';
                     html += '</tr>';
                 });
 
                 html += '</tbody></table></div></div>';
 
                 // ── All Applications Table ──────────────────────────────────────
-                html += '<div class="bg-white rounded-xl border border-gray-200 p-6">';
-                html += '<h3 class="text-lg font-semibold text-gray-900 mb-4">All Leave Applications</h3>';
-                html += '<div class="overflow-x-auto"><table class="w-full text-sm">';
-                html += '<thead><tr class="bg-gray-50 border-b border-gray-200">';
-                html += '<th class="text-left py-3 px-4 font-semibold">Date</th>';
-                html += '<th class="text-left py-3 px-4 font-semibold">Staff</th>';
-                html += '<th class="text-left py-3 px-4 font-semibold">Type</th>';
-                html += '<th class="text-center py-3 px-4 font-semibold">Period</th>';
-                html += '<th class="text-center py-3 px-4 font-semibold">Days</th>';
-                html += '<th class="text-center py-3 px-4 font-semibold">Status</th>';
-                html += '<th class="text-left py-3 px-4 font-semibold">Processed By</th>';
+                html += '<div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-gray-200/80 p-6">';
+                html += '<div class="flex items-center justify-between mb-4"><div><h3 class="text-lg font-bold text-gray-900 flex items-center gap-2"><i class="fas fa-list-check text-blue-600"></i> All Leave Applications</h3><p class="text-xs text-gray-500 mt-0.5">Recent organizational leave filings and audit trail</p></div></div>';
+                html += '<div class="overflow-x-auto rounded-xl border border-gray-200/80"><table class="w-full text-sm">';
+                html += '<thead class="bg-gradient-to-r from-gray-50 to-emerald-50/30 border-b border-gray-200"><tr class="text-xs font-semibold text-gray-600 uppercase tracking-wider">';
+                html += '<th class="text-left py-3.5 px-4">Date</th>';
+                html += '<th class="text-left py-3.5 px-4">Staff</th>';
+                html += '<th class="text-left py-3.5 px-4">Type</th>';
+                html += '<th class="text-center py-3.5 px-4">Period</th>';
+                html += '<th class="text-center py-3.5 px-4">Days</th>';
+                html += '<th class="text-center py-3.5 px-4">Status</th>';
+                html += '<th class="text-left py-3.5 px-4">Processed By</th>';
                 html += '</tr></thead><tbody class="divide-y divide-gray-100">';
 
                 var displayApps = allApps.slice(0, 100);
@@ -8746,13 +8851,13 @@
                     var statusClass = (app.Status || '').toLowerCase();
                     var period = formatDate(app.StartDate);
                     if (app.EndDate && app.StartDate !== app.EndDate) { period += ' \u2013 ' + formatDate(app.EndDate); }
-                    html += '<tr class="hover:bg-gray-50">';
-                    html += '<td class="px-4 py-3 whitespace-nowrap text-gray-600">' + formatDate(app.DateApplied) + '</td>';
-                    html += '<td class="px-4 py-3"><div class="font-medium">' + escapeHtml(app.Name || '') + '</div><div class="text-xs text-gray-500">' + escapeHtml(app.Department || '') + '</div></td>';
-                    html += '<td class="px-4 py-3"><span class="leave-type-badge ' + badgeClass + ' px-2 py-1 rounded text-xs font-medium">' + (app.LeaveType || '—') + '</span></td>';
-                    html += '<td class="px-4 py-3 whitespace-nowrap text-center">' + period + '</td>';
-                    html += '<td class="px-4 py-3 text-center font-medium">' + (app.Duration || 0) + '</td>';
-                    html += '<td class="px-4 py-3 text-center"><span class="status-badge ' + statusClass + ' px-2 py-1 rounded text-xs font-medium">' + (app.Status || '—') + '</span></td>';
+                    html += '<tr class="hover:bg-gray-50/80 transition-colors">';
+                    html += '<td class="px-4 py-3 whitespace-nowrap text-gray-600 text-xs">' + formatDate(app.DateApplied) + '</td>';
+                    html += '<td class="px-4 py-3"><div class="font-medium text-gray-900">' + escapeHtml(app.Name || '') + '</div><div class="text-xs text-gray-500">' + escapeHtml(app.Department || '') + '</div></td>';
+                    html += '<td class="px-4 py-3"><span class="leave-type-badge ' + badgeClass + ' px-2.5 py-1 rounded-full text-xs font-medium">' + (app.LeaveType || '—') + '</span></td>';
+                    html += '<td class="px-4 py-3 whitespace-nowrap text-center text-xs text-gray-700">' + period + '</td>';
+                    html += '<td class="px-4 py-3 text-center font-semibold text-gray-900">' + (app.Duration || 0) + '</td>';
+                    html += '<td class="px-4 py-3 text-center"><span class="status-badge ' + statusClass + ' px-2.5 py-1 rounded-full text-xs font-medium">' + (app.Status || '—') + '</span></td>';
                     html += '<td class="px-4 py-3 text-gray-600 text-xs">' + escapeHtml(app.ProcessedBy || '—') + '</td>';
                     html += '</tr>';
                 });
