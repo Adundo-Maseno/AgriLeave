@@ -62,7 +62,9 @@ const SYSTEM = {
         APPLICATIONS: 'leave_applications.json',
         SETTINGS: 'system_settings.json',
         LOGS: 'system_logs.json',
-        ANNUAL_RESET: 'annual_reset_logs.json'
+        ANNUAL_RESET: 'annual_reset_logs.json',
+        COMPENSATION_CLAIMS: 'compensation_claims.json',
+        BLACKOUT_PERIODS: 'blackout_periods.json'
     },
 
     CACHE_KEYS: {
@@ -287,6 +289,14 @@ const Utils = {
             current.setDate(current.getDate() + 1);
         }
         return count;
+    },
+
+    getCalendarDays: function (startDate, endDate) {
+        const start = this.parseLocalDate(startDate);
+        const end = this.parseLocalDate(endDate);
+        if (!start || !end || start > end) return 0;
+        const diffTime = Math.abs(end.getTime() - start.getTime());
+        return Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1;
     },
 
     calculateEasterDate: function (year) {
@@ -2294,6 +2304,23 @@ const ApplicationsManager = {
                 }
             }
 
+            // Blackout period check (seasonal peak dates)
+            if (applicationData.leaveMode !== 'Hourly' && startDate && endDate) {
+                const blackoutConflict = BlackoutPeriodManager.checkConflict(user.Department, startDate, endDate);
+                if (blackoutConflict.hasConflict) {
+                    if (blackoutConflict.isStrict && user.Role !== SYSTEM.ROLES.ADMIN && user.Role !== SYSTEM.ROLES.HR) {
+                        const firstStrict = blackoutConflict.conflicts.find(c => c.severity === 'strict') || blackoutConflict.conflicts[0];
+                        return Utils.createErrorResponse(
+                            `Leave blocked: Requested dates fall during a strict company blackout period: "${firstStrict.name}" (${firstStrict.reason || 'Operational peak period'})`
+                        );
+                    }
+                }
+            }
+
+            const staffingCheck = (applicationData.leaveMode !== 'Hourly' && startDate && endDate)
+                ? BlackoutPeriodManager.checkMinimumStaffing(user.Department, startDate, endDate, userEmail)
+                : { breach: false };
+
             const balanceCheck = this.checkLeaveBalanceWithPriority(userEmail, applicationData.leaveType, businessDays);
             if (!balanceCheck.success) return balanceCheck;
 
@@ -2326,6 +2353,35 @@ const ApplicationsManager = {
                 }
             }
 
+            // Direct document attachment upload to Google Drive if file provided
+            let attachmentUrl = (typeof applicationData.attachment === 'string') ? applicationData.attachment : '';
+            let attachmentFileId = null;
+            let attachmentFileName = null;
+            const attPayload = (applicationData.attachmentFile && applicationData.attachmentFile.base64Data)
+                ? applicationData.attachmentFile
+                : (applicationData.attachment && typeof applicationData.attachment === 'object' && applicationData.attachment.base64Data)
+                    ? applicationData.attachment
+                    : null;
+
+            if (attPayload) {
+                try {
+                    const uploadRes = AttachmentManager.uploadAttachment({
+                        fileName: attPayload.fileName,
+                        mimeType: attPayload.mimeType,
+                        base64Data: attPayload.base64Data,
+                        appId: appId,
+                        applicantEmail: userEmail
+                    });
+                    if (uploadRes.success && uploadRes.data) {
+                        attachmentUrl = uploadRes.data.fileUrl;
+                        attachmentFileId = uploadRes.data.fileId;
+                        attachmentFileName = uploadRes.data.fileName;
+                    }
+                } catch (uErr) {
+                    console.warn('Attachment upload error (non-fatal):', uErr.message);
+                }
+            }
+
             // Deficit check: total annual pool after this leave (BF deductions don't create a deficit
             // in the annual accrual — they draw from a separate expiring pool).
             const availableAfter = AccrualManager.calculateAvailableBalance(user) - (deductions.annual || 0);
@@ -2334,6 +2390,10 @@ const ApplicationsManager = {
             const holidaysExcluded = (applicationData.leaveMode !== 'Hourly' && startDate && endDate)
                 ? Utils.getHolidaysInRange(startDate, endDate).filter(h => !h.isWeekend).map(h => h.name)
                 : [];
+
+            const blackoutCheck = (applicationData.leaveMode !== 'Hourly' && startDate && endDate)
+                ? BlackoutPeriodManager.checkConflict(user.Department, startDate, endDate)
+                : { hasConflict: false };
 
             const application = {
                 ID: appId,
@@ -2349,7 +2409,11 @@ const ApplicationsManager = {
                 Duration: parseFloat(businessDays.toFixed(3)),
                 CalendarDays: calendarDays,
                 Reason: applicationData.reason,
-                Attachment: applicationData.attachment || '',
+                Attachment: attachmentUrl,
+                AttachmentUrl: attachmentUrl,
+                AttachmentFileId: attachmentFileId,
+                AttachmentFileName: attachmentFileName,
+                AttachmentName: attachmentFileName,
                 HandoverEmail: handoverEmail,
                 HandoverName: handoverName,
                 HandoverColleagueEmail: handoverEmail,
@@ -2374,6 +2438,8 @@ const ApplicationsManager = {
                     holidaysExcluded: holidaysExcluded,
                     willCreateDeficit: willHaveDeficit,
                     deficitAmount: willHaveDeficit ? Math.abs(availableAfter) : 0,
+                    blackoutNotice: blackoutCheck.hasConflict ? blackoutCheck.conflicts.map(c => c.name).join(', ') : null,
+                    minimumStaffingNotice: staffingCheck.breach || false,
                     handover: {
                         email: handoverEmail,
                         name: handoverName,
@@ -3014,6 +3080,146 @@ const ApplicationsManager = {
         } catch (error) {
             console.error('Error rolling back staff leave balances:', error);
             EnhancedCacheManager.logOperation('rollbackStaffLeaveBalances(error)', startTime, { error: error.message });
+        }
+    },
+
+    amendLeaveDates: function (appId, newStartDate, newEndDate, reason, callerEmail) {
+        try {
+            const currentUser = (callerEmail || Session.getActiveUser().getEmail() || '').trim();
+            const user = StaffManager.getUserData(currentUser);
+            if (!user) return Utils.createErrorResponse('User not found');
+
+            const applicationsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.APPLICATIONS);
+            const appIndex = applicationsFile.data.findIndex(app => app.ID === appId);
+            if (appIndex === -1) return Utils.createErrorResponse('Application not found');
+
+            const app = applicationsFile.data[appIndex];
+            if (app.Status !== SYSTEM.STATUS.APPROVED) {
+                return Utils.createErrorResponse('Only Approved leave applications can be amended');
+            }
+
+            const isOwner = app.Email.toLowerCase() === currentUser.toLowerCase();
+            const isAdmin = user.Role === SYSTEM.ROLES.ADMIN;
+            const isHR = user.Role === SYSTEM.ROLES.HR;
+            const isSupervisor = app.SupervisorEmail && app.SupervisorEmail.toLowerCase() === currentUser.toLowerCase();
+
+            if (!isOwner && !isAdmin && !isHR && !isSupervisor) {
+                return Utils.createErrorResponse('You are not authorized to amend this application');
+            }
+
+            const start = Utils.parseLocalDate(newStartDate);
+            const end = Utils.parseLocalDate(newEndDate);
+            if (!start || !end || start > end) {
+                return Utils.createErrorResponse('Invalid amendment date range');
+            }
+
+            const staffFile = DataManager.readDataFile(SYSTEM.DATA_FILES.STAFF);
+            const sIdx = staffFile.data.findIndex(s => s.Email.toLowerCase() === app.Email.toLowerCase());
+            if (sIdx === -1) return Utils.createErrorResponse('Applicant staff record not found');
+            const applicantUser = staffFile.data[sIdx];
+
+            // Overlap check against applicant's OTHER active applications
+            const otherActiveApps = applicationsFile.data.filter(a =>
+                a.ID !== appId &&
+                a.Email.toLowerCase() === app.Email.toLowerCase() &&
+                (a.Status === SYSTEM.STATUS.PENDING || a.Status === SYSTEM.STATUS.APPROVED)
+            );
+
+            for (const other of otherActiveApps) {
+                const oStart = Utils.parseLocalDate(other.StartDate || other.HourlyDate);
+                const oEnd = Utils.parseLocalDate(other.EndDate || other.HourlyDate || other.StartDate);
+                if (oStart && oEnd && start <= oEnd && end >= oStart) {
+                    return Utils.createErrorResponse(
+                        `Amended dates overlap with existing ${other.Status} application (${other.ID}) from ${Utils.formatDateForDisplay(oStart)} to ${Utils.formatDateForDisplay(oEnd)}`
+                    );
+                }
+            }
+
+            const newDuration = Utils.getBusinessDays(newStartDate, newEndDate);
+            const oldDuration = app.Duration;
+            const dayDifference = Number((newDuration - oldDuration).toFixed(3));
+
+            // Adjust staff leave balance if duration changed
+            if (dayDifference > 0) {
+                const available = AccrualManager.calculateAvailableBalance(applicantUser);
+                if (available < dayDifference) {
+                    return Utils.createErrorResponse(
+                        `Insufficient leave balance for requested extension of ${dayDifference} day(s). Available: ${available.toFixed(2)}`
+                    );
+                }
+                applicantUser.LeaveAccrual.usedYearToDate = (applicantUser.LeaveAccrual.usedYearToDate || 0) + dayDifference;
+                applicantUser.LeaveAccrual.availableBalance = Math.max(0, (applicantUser.LeaveAccrual.availableBalance || 0) - dayDifference);
+                app.DeductFromAnnual = (app.DeductFromAnnual || 0) + dayDifference;
+            } else if (dayDifference < 0) {
+                const refundDays = Math.abs(dayDifference);
+                applicantUser.LeaveAccrual.usedYearToDate = Math.max(0, (applicantUser.LeaveAccrual.usedYearToDate || 0) - refundDays);
+                applicantUser.LeaveAccrual.availableBalance = (applicantUser.LeaveAccrual.availableBalance || 0) + refundDays;
+                app.DeductFromAnnual = Math.max(0, (app.DeductFromAnnual || 0) - refundDays);
+            }
+
+            DataManager.writeDataFile(SYSTEM.DATA_FILES.STAFF, staffFile);
+
+            app.Metadata = app.Metadata || {};
+            app.Metadata.amendments = app.Metadata.amendments || [];
+            app.Metadata.amendments.push({
+                amendedAt: new Date().toISOString(),
+                amendedBy: currentUser,
+                oldStartDate: app.StartDate,
+                oldEndDate: app.EndDate,
+                oldDuration: oldDuration,
+                newStartDate: newStartDate,
+                newEndDate: newEndDate,
+                newDuration: newDuration,
+                dayDifference: dayDifference,
+                reason: reason || 'Leave dates amended'
+            });
+
+            app.StartDate = newStartDate;
+            app.EndDate = newEndDate;
+            app.Duration = newDuration;
+            app.CalendarDays = Utils.getCalendarDays(newStartDate, newEndDate);
+            app.Comment = (app.Comment ? app.Comment + ' | ' : '') + `Dates amended to ${newStartDate}..${newEndDate} by ${currentUser}`;
+
+            try {
+                CalendarSyncManager.updateLeaveCalendarEvent(app, newStartDate, newEndDate);
+            } catch (calErr) {
+                console.warn('Calendar amendment sync error (non-fatal):', calErr.message);
+            }
+
+            DataManager.writeDataFile(SYSTEM.DATA_FILES.APPLICATIONS, applicationsFile);
+            EnhancedCacheManager.buildIndexes();
+            EnhancedCacheManager.clearBalance(app.Email);
+
+            try {
+                NotificationManager.notifyLeaveAmended(app, dayDifference, reason);
+            } catch (nErr) {
+                console.warn('Amendment notification error:', nErr.message);
+            }
+
+            Utils.logAction('AMEND_APPLICATION', {
+                appId,
+                applicant: app.Email,
+                amendedBy: currentUser,
+                oldDates: `${oldDuration} days (${app.Metadata.amendments[app.Metadata.amendments.length - 1].oldStartDate}..${app.Metadata.amendments[app.Metadata.amendments.length - 1].oldEndDate})`,
+                newDates: `${newDuration} days (${newStartDate}..${newEndDate})`,
+                dayDifference
+            });
+
+            return Utils.createSuccessResponse({
+                applicationId: appId,
+                newStartDate,
+                newEndDate,
+                newDuration,
+                dayDifference,
+                diff: dayDifference,
+                message: dayDifference < 0
+                    ? `Leave shortened by ${Math.abs(dayDifference)} day(s); days refunded to balance.`
+                    : (dayDifference > 0 ? `Leave extended by ${dayDifference} day(s); deducted from balance.` : 'Dates updated.')
+            }, 'Leave application dates amended successfully');
+
+        } catch (error) {
+            console.error('Error in amendLeaveDates:', error);
+            return Utils.createErrorResponse('Failed to amend leave dates: ' + error.message);
         }
     }
 };
@@ -4382,6 +4588,81 @@ const NotificationManager = {
             console.error('notifySupervisorStaleApplications error:', e);
             return false;
         }
+    },
+
+    notifyCompensationClaimSubmitted: function (claim) {
+        try {
+            if (!claim.SupervisorEmail) return false;
+            const subject = `[Compensation Claim] New TOIL Claim from ${claim.Name} (${claim.DaysEarned} day(s))`;
+            const body = `
+                <div style="font-family:sans-serif;padding:16px;color:#1f2937;">
+                    <h3 style="color:#059669;margin-top:0;">⏱️ New Compensation Leave (TOIL) Claim</h3>
+                    <p>Dear Supervisor,</p>
+                    <p><strong>${claim.Name}</strong> has submitted a Time-Off In Lieu (TOIL) claim for overtime/weekend duty:</p>
+                    <ul>
+                        <li><strong>Date Worked:</strong> ${claim.DateWorked}</li>
+                        <li><strong>Hours Worked:</strong> ${claim.HoursWorked} hours</li>
+                        <li><strong>Days Earned:</strong> ${claim.DaysEarned} day(s)</li>
+                        <li><strong>Location / Field Task:</strong> ${claim.Location || 'N/A'}</li>
+                        <li><strong>Reason:</strong> ${claim.Reason}</li>
+                    </ul>
+                    <p>Please log in to your AgriLeave supervisor dashboard to review and approve this claim.</p>
+                </div>
+            `;
+            MailApp.sendEmail({ to: claim.SupervisorEmail, subject: subject, htmlBody: body, name: SYSTEM.NAME });
+            return true;
+        } catch (e) {
+            console.error('notifyCompensationClaimSubmitted error:', e);
+            return false;
+        }
+    },
+
+    notifyCompensationClaimDecision: function (claim, decision, comment) {
+        try {
+            const isApproved = decision === 'approve';
+            const subject = `[${isApproved ? 'Approved' : 'Declined'}] Compensation Leave Claim (${claim.DaysEarned} day(s))`;
+            const body = `
+                <div style="font-family:sans-serif;padding:16px;color:#1f2937;">
+                    <h3 style="color:${isApproved ? '#059669' : '#dc2626'};margin-top:0;">
+                        ${isApproved ? '✅ Compensation Leave Claim Approved' : '❌ Compensation Leave Claim Declined'}
+                    </h3>
+                    <p>Dear ${claim.Name},</p>
+                    <p>Your compensation leave claim for <strong>${claim.DateWorked}</strong> (${claim.HoursWorked} hours / ${claim.DaysEarned} day(s)) has been <strong>${decision}d</strong>.</p>
+                    ${comment ? `<p><strong>Supervisor Comment:</strong> ${comment}</p>` : ''}
+                    ${isApproved ? `<p>Your compensation leave balance has been credited with <strong>+${claim.DaysEarned}</strong> day(s).</p>` : ''}
+                </div>
+            `;
+            MailApp.sendEmail({ to: claim.Email, subject: subject, htmlBody: body, name: SYSTEM.NAME });
+            return true;
+        } catch (e) {
+            console.error('notifyCompensationClaimDecision error:', e);
+            return false;
+        }
+    },
+
+    notifyLeaveAmended: function (application, dayDifference, reason) {
+        try {
+            const subject = `[Leave Amended] ${application.Name} - Dates Updated`;
+            const body = `
+                <div style="font-family:sans-serif;padding:16px;color:#1f2937;">
+                    <h3 style="color:#059669;margin-top:0;">📅 Leave Application Dates Amended</h3>
+                    <p>Leave dates for <strong>${application.Name}</strong> have been updated:</p>
+                    <ul>
+                        <li><strong>New Period:</strong> ${application.StartDate} to ${application.EndDate} (${application.Duration} days)</li>
+                        <li><strong>Adjustment:</strong> ${dayDifference > 0 ? `+${dayDifference} days deducted` : `${dayDifference} days refunded`}</li>
+                        <li><strong>Reason:</strong> ${reason || 'Dates updated'}</li>
+                    </ul>
+                </div>
+            `;
+            if (application.SupervisorEmail) {
+                MailApp.sendEmail({ to: application.SupervisorEmail, subject: subject, htmlBody: body, name: SYSTEM.NAME });
+            }
+            MailApp.sendEmail({ to: application.Email, subject: subject, htmlBody: body, name: SYSTEM.NAME });
+            return true;
+        } catch (e) {
+            console.error('notifyLeaveAmended error:', e);
+            return false;
+        }
     }
 };
 
@@ -4475,6 +4756,26 @@ const CalendarSyncManager = {
             console.warn('Calendar event deletion error (non-fatal):', error.message);
         }
         return false;
+    },
+
+    updateLeaveCalendarEvent: function (application, newStartDate, newEndDate) {
+        try {
+            this.removeLeaveFromCalendar(application);
+            const updatedApp = Object.assign({}, application, {
+                StartDate: newStartDate,
+                EndDate: newEndDate
+            });
+            const newEventId = this.syncLeaveToCalendar(updatedApp);
+            if (newEventId) {
+                application.Metadata = application.Metadata || {};
+                application.Metadata.calendarEventId = newEventId;
+                application.CalendarEventId = newEventId;
+            }
+            return newEventId;
+        } catch (error) {
+            console.warn('Calendar event update error (non-fatal):', error.message);
+            return null;
+        }
     }
 };
 
@@ -4614,6 +4915,452 @@ const MaintenanceManager = {
         }
 
         return results;
+    }
+};
+
+// =============================================
+// COMPENSATION LEAVE (TOIL) MANAGER
+// =============================================
+
+const CompensationManager = {
+    submitClaim: function (claimData) {
+        try {
+            const currentUser = Session.getActiveUser().getEmail();
+            const user = StaffManager.getUserData(currentUser);
+            if (!user) return Utils.createErrorResponse('User not found');
+
+            const dateWorked = claimData.dateWorked || claimData.workDate;
+            const hoursWorked = parseFloat(claimData.hoursWorked || claimData.hours);
+            const reason = (claimData.reason || claimData.activityType || '').trim();
+            const location = (claimData.location || claimData.activityType || '').trim();
+
+            if (!dateWorked) return Utils.createErrorResponse('Date worked is required');
+            if (isNaN(hoursWorked) || hoursWorked <= 0) {
+                return Utils.createErrorResponse('Hours worked must be greater than 0');
+            }
+            if (!reason) return Utils.createErrorResponse('Reason for overtime/weekend duty is required');
+
+            // Date cannot be in the future
+            const workedDate = Utils.parseLocalDate(dateWorked);
+            const today = Utils.parseLocalDate(new Date());
+            if (workedDate > today) {
+                return Utils.createErrorResponse('Date worked cannot be in the future');
+            }
+
+            // Calculate days earned: 8+ hours = 1.0 day, 4-7 hours = 0.5 day, else proration
+            let daysEarned = 1.0;
+            if (hoursWorked >= 8) {
+                daysEarned = 1.0;
+            } else if (hoursWorked >= 4) {
+                daysEarned = 0.5;
+            } else {
+                daysEarned = Number((hoursWorked / 8).toFixed(2));
+            }
+
+            const claimId = 'TOIL-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+            const claim = {
+                ID: claimId,
+                Email: currentUser,
+                Name: user.Name,
+                Department: user.Department || 'General',
+                DateWorked: dateWorked,
+                HoursWorked: hoursWorked,
+                DaysEarned: daysEarned,
+                Reason: reason,
+                Location: location,
+                SupervisorEmail: user.Supervisor || '',
+                Status: SYSTEM.STATUS.PENDING,
+                DateSubmitted: new Date().toISOString(),
+                ProcessedDate: null,
+                ProcessedBy: null,
+                Comment: ''
+            };
+
+            const claimsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.COMPENSATION_CLAIMS);
+            claimsFile.data = claimsFile.data || [];
+            claimsFile.data.push(claim);
+            claimsFile.metadata = claimsFile.metadata || {};
+            claimsFile.metadata.recordCount = claimsFile.data.length;
+
+            DataManager.writeDataFile(SYSTEM.DATA_FILES.COMPENSATION_CLAIMS, claimsFile);
+
+            try {
+                NotificationManager.notifyCompensationClaimSubmitted(claim);
+            } catch (notifErr) {
+                console.warn('Compensation claim notification error:', notifErr.message);
+            }
+
+            Utils.logAction('SUBMIT_COMPENSATION_CLAIM', {
+                claimId,
+                email: currentUser,
+                dateWorked,
+                hoursWorked,
+                daysEarned
+            });
+
+            return Utils.createSuccessResponse({
+                claimId,
+                daysEarned,
+                status: SYSTEM.STATUS.PENDING
+            }, `Compensation leave claim for ${daysEarned} day(s) submitted successfully`);
+
+        } catch (error) {
+            console.error('Error submitting compensation claim:', error);
+            return Utils.createErrorResponse('Failed to submit compensation claim: ' + error.message);
+        }
+    },
+
+    getClaims: function (filter = {}) {
+        try {
+            const claimsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.COMPENSATION_CLAIMS);
+            let claims = claimsFile.data || [];
+
+            if (filter.email) {
+                claims = claims.filter(c => c.Email && c.Email.toLowerCase() === filter.email.toLowerCase().trim());
+            }
+            if (filter.supervisorEmail) {
+                claims = claims.filter(c => c.SupervisorEmail && c.SupervisorEmail.toLowerCase() === filter.supervisorEmail.toLowerCase().trim());
+            }
+            if (filter.status) {
+                claims = claims.filter(c => c.Status === filter.status);
+            }
+
+            return claims;
+        } catch (error) {
+            console.error('Error getting compensation claims:', error);
+            return [];
+        }
+    },
+
+    processClaimDecision: function (claimId, decision, comment = '', callerEmail = null) {
+        try {
+            const currentUser = (callerEmail || Session.getActiveUser().getEmail() || '').trim();
+            const user = StaffManager.getUserData(currentUser);
+            if (!user) return Utils.createErrorResponse('User not found');
+
+            const claimsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.COMPENSATION_CLAIMS);
+            const claimIndex = (claimsFile.data || []).findIndex(c => c.ID === claimId);
+            if (claimIndex === -1) return Utils.createErrorResponse('Compensation claim not found');
+
+            const claim = claimsFile.data[claimIndex];
+            if (claim.Status !== SYSTEM.STATUS.PENDING) {
+                return Utils.createErrorResponse('Claim is already processed');
+            }
+
+            const isSupervisor = claim.SupervisorEmail && claim.SupervisorEmail.toLowerCase() === currentUser.toLowerCase();
+            const isAdmin = user.Role === SYSTEM.ROLES.ADMIN;
+            const isHR = user.Role === SYSTEM.ROLES.HR;
+
+            if (!isSupervisor && !isAdmin && !isHR) {
+                return Utils.createErrorResponse('You are not authorized to process this claim');
+            }
+
+            const isApproved = decision === 'approve';
+            claim.Status = isApproved ? SYSTEM.STATUS.APPROVED : SYSTEM.STATUS.DECLINED;
+            claim.ProcessedDate = new Date().toISOString();
+            claim.ProcessedBy = currentUser;
+            claim.Comment = comment || '';
+
+            if (isApproved) {
+                const staffFile = DataManager.readDataFile(SYSTEM.DATA_FILES.STAFF);
+                const sIdx = staffFile.data.findIndex(s => s.Email.toLowerCase() === claim.Email.toLowerCase());
+                if (sIdx !== -1) {
+                    const staff = staffFile.data[sIdx];
+                    staff.CompensationLeave = staff.CompensationLeave || { balance: 0, used: 0 };
+                    staff.CompensationLeave.balance = Number(((staff.CompensationLeave.balance || 0) + claim.DaysEarned).toFixed(2));
+                    staff.CompensationLeave.earnedYearToDate = Number(((staff.CompensationLeave.earnedYearToDate || 0) + claim.DaysEarned).toFixed(2));
+                    staff.CompensationLeave.lastCredited = new Date().toISOString();
+
+                    DataManager.writeDataFile(SYSTEM.DATA_FILES.STAFF, staffFile);
+                    EnhancedCacheManager.clearBalance(claim.Email);
+                    EnhancedCacheManager.buildIndexes();
+                }
+            }
+
+            DataManager.writeDataFile(SYSTEM.DATA_FILES.COMPENSATION_CLAIMS, claimsFile);
+
+            try {
+                NotificationManager.notifyCompensationClaimDecision(claim, decision, comment);
+            } catch (notifErr) {
+                console.warn('Compensation decision notification error:', notifErr.message);
+            }
+
+            Utils.logAction('PROCESS_COMPENSATION_CLAIM', {
+                claimId,
+                decision,
+                processedBy: currentUser,
+                applicant: claim.Email,
+                daysEarned: claim.DaysEarned
+            });
+
+            return Utils.createSuccessResponse({
+                claimId,
+                status: claim.Status,
+                daysEarned: claim.DaysEarned
+            }, `Claim ${decision}d successfully`);
+
+        } catch (error) {
+            console.error('Error processing compensation claim:', error);
+            return Utils.createErrorResponse('Failed to process claim: ' + error.message);
+        }
+    }
+};
+
+// =============================================
+// ATTACHMENT MANAGER (GOOGLE DRIVE INTEGRATION)
+// =============================================
+
+const AttachmentManager = {
+    getAttachmentsFolder: function () {
+        try {
+            const systemFolder = DataManager.getSystemFolder();
+            const yearStr = new Date().getFullYear().toString();
+
+            let attachFolder;
+            const folders = systemFolder.getFoldersByName('Attachments');
+            if (folders.hasNext()) {
+                attachFolder = folders.next();
+            } else {
+                attachFolder = systemFolder.createFolder('Attachments');
+                attachFolder.setDescription('AgriLeave supporting medical notes and document attachments');
+            }
+
+            let yearFolder;
+            const yFolders = attachFolder.getFoldersByName(yearStr);
+            if (yFolders.hasNext()) {
+                yearFolder = yFolders.next();
+            } else {
+                yearFolder = attachFolder.createFolder(yearStr);
+            }
+
+            return yearFolder;
+        } catch (error) {
+            console.error('Error resolving attachments folder:', error);
+            return DataManager.getSystemFolder();
+        }
+    },
+
+    uploadAttachment: function (uploadData) {
+        try {
+            if (!uploadData || !uploadData.base64Data) {
+                return Utils.createErrorResponse('No file data provided');
+            }
+
+            let rawBase64 = uploadData.base64Data;
+            if (rawBase64.includes(',')) {
+                rawBase64 = rawBase64.split(',')[1];
+            }
+
+            const fileName = (uploadData.fileName || 'supporting_doc_' + Date.now()).replace(/[^a-zA-Z0-9._-]/g, '_');
+            const mimeType = uploadData.mimeType || 'application/octet-stream';
+            const appId = uploadData.appId || 'General';
+
+            const folder = this.getAttachmentsFolder();
+            let file;
+
+            if (typeof Utilities !== 'undefined' && Utilities.base64Decode) {
+                const bytes = Utilities.base64Decode(rawBase64);
+                const blob = Utilities.newBlob(bytes, mimeType, fileName);
+                file = folder.createFile(blob);
+            } else {
+                file = folder.createFile(fileName, rawBase64);
+            }
+
+            if (file && file.setDescription) {
+                file.setDescription(`Leave Attachment | Application: ${appId} | Uploaded: ${new Date().toISOString()}`);
+            }
+
+            const fileId = file.getId();
+            const fileUrl = file.getUrl ? file.getUrl() : `https://drive.google.com/file/d/${fileId}/view`;
+
+            return Utils.createSuccessResponse({
+                fileId: fileId,
+                fileName: fileName,
+                fileUrl: fileUrl,
+                mimeType: mimeType
+            }, 'File uploaded successfully');
+
+        } catch (error) {
+            console.error('Error in uploadAttachment:', error);
+            return Utils.createErrorResponse('File upload failed: ' + error.message);
+        }
+    }
+};
+
+// =============================================
+// BLACKOUT PERIOD & MINIMUM STAFFING MANAGER
+// =============================================
+
+const BlackoutPeriodManager = {
+    getAll: function () {
+        try {
+            const file = DataManager.readDataFile(SYSTEM.DATA_FILES.BLACKOUT_PERIODS);
+            return file.data || [];
+        } catch (error) {
+            console.error('Error reading blackout periods:', error);
+            return [];
+        }
+    },
+
+    savePeriod: function (periodData) {
+        try {
+            const currentUser = Session.getActiveUser().getEmail();
+            const userRole = StaffManager.getUserRole(currentUser);
+            if (userRole !== SYSTEM.ROLES.ADMIN && userRole !== SYSTEM.ROLES.HR) {
+                return Utils.createErrorResponse('Insufficient permissions — Admin or HR required');
+            }
+
+            if (!periodData.name || !periodData.startDate || !periodData.endDate) {
+                return Utils.createErrorResponse('Name, startDate, and endDate are required');
+            }
+
+            const file = DataManager.readDataFile(SYSTEM.DATA_FILES.BLACKOUT_PERIODS);
+            file.data = file.data || [];
+
+            const id = periodData.id || ('BLK-' + Date.now());
+            const existingIdx = file.data.findIndex(p => p.id === id);
+
+            const record = {
+                id,
+                name: periodData.name.trim(),
+                department: periodData.department || 'All',
+                startDate: periodData.startDate,
+                endDate: periodData.endDate,
+                severity: periodData.severity === 'strict' ? 'strict' : 'warning',
+                reason: periodData.reason || '',
+                minimumStaffing: parseInt(periodData.minimumStaffing) || 2,
+                updatedAt: new Date().toISOString(),
+                updatedBy: currentUser
+            };
+
+            if (existingIdx !== -1) {
+                file.data[existingIdx] = record;
+            } else {
+                file.data.push(record);
+            }
+
+            DataManager.writeDataFile(SYSTEM.DATA_FILES.BLACKOUT_PERIODS, file);
+            return Utils.createSuccessResponse(record, 'Blackout period saved successfully');
+
+        } catch (error) {
+            console.error('Error saving blackout period:', error);
+            return Utils.createErrorResponse('Failed to save blackout period: ' + error.message);
+        }
+    },
+
+    deletePeriod: function (id) {
+        try {
+            const currentUser = Session.getActiveUser().getEmail();
+            const userRole = StaffManager.getUserRole(currentUser);
+            if (userRole !== SYSTEM.ROLES.ADMIN && userRole !== SYSTEM.ROLES.HR) {
+                return Utils.createErrorResponse('Insufficient permissions — Admin or HR required');
+            }
+
+            const file = DataManager.readDataFile(SYSTEM.DATA_FILES.BLACKOUT_PERIODS);
+            file.data = (file.data || []).filter(p => p.id !== id);
+            DataManager.writeDataFile(SYSTEM.DATA_FILES.BLACKOUT_PERIODS, file);
+            return Utils.createSuccessResponse({ id }, 'Blackout period deleted successfully');
+        } catch (error) {
+            console.error('Error deleting blackout period:', error);
+            return Utils.createErrorResponse('Failed to delete blackout period: ' + error.message);
+        }
+    },
+
+    checkConflict: function (department, startDate, endDate) {
+        try {
+            const periods = this.getAll();
+            if (!periods.length || !startDate || !endDate) return { hasConflict: false, conflicts: [] };
+
+            const reqStart = Utils.parseLocalDate(startDate);
+            const reqEnd = Utils.parseLocalDate(endDate);
+            if (!reqStart || !reqEnd) return { hasConflict: false, conflicts: [] };
+
+            const conflicts = [];
+            for (const p of periods) {
+                const matchDept = p.department === 'All' || !department || p.department.toLowerCase() === department.toLowerCase();
+                if (!matchDept) continue;
+
+                const pStart = Utils.parseLocalDate(p.startDate);
+                const pEnd = Utils.parseLocalDate(p.endDate);
+                if (pStart && pEnd && reqStart <= pEnd && reqEnd >= pStart) {
+                    conflicts.push({
+                        id: p.id,
+                        name: p.name,
+                        department: p.department,
+                        severity: p.severity,
+                        reason: p.reason,
+                        startDate: p.startDate,
+                        endDate: p.endDate
+                    });
+                }
+            }
+
+            return {
+                hasConflict: conflicts.length > 0,
+                isStrict: conflicts.some(c => c.severity === 'strict'),
+                conflicts
+            };
+        } catch (error) {
+            console.error('Error checking blackout conflict:', error);
+            return { hasConflict: false, conflicts: [] };
+        }
+    },
+
+    checkMinimumStaffing: function (department, startDate, endDate, applicantEmail) {
+        try {
+            if (!department || department === 'General' || !startDate || !endDate) {
+                return { permitted: true, breach: false };
+            }
+
+            const allStaff = StaffManager.getAllStaffData().filter(s =>
+                s.Metadata?.active !== false &&
+                s.Department && s.Department.toLowerCase() === department.toLowerCase()
+            );
+
+            if (allStaff.length <= 1) return { permitted: true, breach: false };
+
+            const periods = this.getAll().filter(p => p.department === 'All' || p.department.toLowerCase() === department.toLowerCase());
+            let minRequired = 2;
+            if (periods.length && periods[0].minimumStaffing) {
+                minRequired = periods[0].minimumStaffing;
+            }
+
+            const appsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.APPLICATIONS);
+            const reqStart = Utils.parseLocalDate(startDate);
+            const reqEnd = Utils.parseLocalDate(endDate);
+            const appEmailStr = typeof applicantEmail === 'string' ? applicantEmail.toLowerCase() : '';
+
+            const awayStaff = new Set();
+            (appsFile.data || []).forEach(a => {
+                if (a.Status === SYSTEM.STATUS.APPROVED && a.Email && a.Email.toLowerCase() !== appEmailStr) {
+                    if (a.Department && a.Department.toLowerCase() === department.toLowerCase()) {
+                        const aStart = Utils.parseLocalDate(a.StartDate || a.HourlyDate);
+                        const aEnd = Utils.parseLocalDate(a.EndDate || a.HourlyDate || a.StartDate);
+                        if (aStart && aEnd && reqStart <= aEnd && reqEnd >= aStart) {
+                            awayStaff.add(a.Email.toLowerCase());
+                        }
+                    }
+                }
+            });
+
+            const remainingOnDuty = allStaff.length - (awayStaff.size + 1);
+            if (remainingOnDuty < minRequired) {
+                return {
+                    permitted: false,
+                    breach: true,
+                    department,
+                    totalStaff: allStaff.length,
+                    alreadyAwayCount: awayStaff.size,
+                    remainingOnDuty: Math.max(0, remainingOnDuty),
+                    minRequired
+                };
+            }
+
+            return { permitted: true, breach: false, remainingOnDuty, minRequired };
+        } catch (error) {
+            console.error('Error checking minimum staffing:', error);
+            return { permitted: true, breach: false };
+        }
     }
 };
 
@@ -5802,17 +6549,12 @@ function apiGetHRDashboard() {
         });
 
         const totalUnconsumedDays = Number((totalAnnualDays + totalBroughtForwardDays + totalCompensationDays).toFixed(2));
-        const estimatedDailyWage = 3500; // Benchmark KES / day
-        const estimatedTotalLiability = Math.round(totalUnconsumedDays * estimatedDailyWage);
 
         const liability = {
             totalUnconsumedDays,
             totalAnnualDays: Number(totalAnnualDays.toFixed(2)),
             totalBroughtForwardDays: Number(totalBroughtForwardDays.toFixed(2)),
-            totalCompensationDays: Number(totalCompensationDays.toFixed(2)),
-            estimatedDailyWage,
-            estimatedTotalLiability,
-            currency: 'KES'
+            totalCompensationDays: Number(totalCompensationDays.toFixed(2))
         };
 
         return Utils.createSuccessResponse({
@@ -6893,13 +7635,11 @@ function apiExportSystemData(dataType) {
                     bal.sick?.used || 0
                 ].map(escapeCsv).join(','));
             });
-        } else if (dataType === 'liability' || dataType === 'leave_liability') {
+        } else if (dataType === 'liability' || dataType === 'leave_liability' || dataType === 'unconsumed_leave') {
             const staffData = StaffManager.getAllStaffData().filter(s => s.Metadata?.active !== false && s.EligibleForLeave);
-            const dailyWage = 3500;
             csvRows.push([
-                'Staff Name', 'Email', 'Department', 'Annual Days Available',
-                'Brought Forward Days', 'Compensation Days', 'Total Unconsumed Days',
-                'Daily Wage Benchmark (KES)', 'Estimated Liability (KES)'
+                'Staff Name', 'Email', 'Role', 'Department', 'Annual Available',
+                'Brought Forward Available', 'Compensation Balance', 'Total Unconsumed Days'
             ].map(escapeCsv).join(','));
 
             staffData.forEach(s => {
@@ -6908,18 +7648,16 @@ function apiExportSystemData(dataType) {
                 const bf = bal.broughtForward?.available || 0;
                 const comp = s.CompensationLeave?.balance || 0;
                 const total = Number((annual + bf + comp).toFixed(2));
-                const liability = Math.round(total * dailyWage);
 
                 csvRows.push([
                     s.Name || '',
                     s.Email || '',
+                    s.Role || '',
                     s.Department || '',
                     annual,
                     bf,
                     comp,
-                    total,
-                    dailyWage,
-                    liability
+                    total
                 ].map(escapeCsv).join(','));
             });
         } else {
@@ -6938,7 +7676,242 @@ function apiExportSystemData(dataType) {
     }
 }
 
+// 5. Team Availability Grid / Wallchart API
+function apiGetTeamAvailability(params) {
+    try {
+        const currentUser = Session.getActiveUser().getEmail();
+        const user = StaffManager.getUserData(currentUser);
+        if (!user) return Utils.createErrorResponse('User not found');
+
+        params = params || {};
+        const now = new Date();
+        const year = parseInt(params.year) || now.getFullYear();
+        const month = parseInt(params.month) || (now.getMonth() + 1); // 1-12
+        const departmentFilter = params.department || null;
+
+        const daysInMonth = new Date(year, month, 0).getDate();
+        const monthStartStr = `${year}-${String(month).padStart(2, '0')}-01`;
+        const monthEndStr = `${year}-${String(month).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
+
+        const holidays = Utils.getHolidaysInRange(monthStartStr, monthEndStr);
+        const holidayMap = {};
+        holidays.forEach(h => {
+            holidayMap[h.date] = h.name;
+        });
+
+        const allStaff = StaffManager.getAllStaffData().filter(s => s.Metadata?.active !== false);
+        let targetStaff = [];
+
+        const isAdmin = user.Role === SYSTEM.ROLES.ADMIN;
+        const isHR = user.Role === SYSTEM.ROLES.HR;
+        const isSupervisor = user.Role === SYSTEM.ROLES.SUPERVISOR;
+
+        if (isAdmin || isHR) {
+            targetStaff = departmentFilter && departmentFilter !== 'All'
+                ? allStaff.filter(s => s.Department && s.Department.toLowerCase() === departmentFilter.toLowerCase())
+                : allStaff;
+        } else if (isSupervisor) {
+            targetStaff = allStaff.filter(s =>
+                s.Supervisor && s.Supervisor.toLowerCase() === currentUser.toLowerCase() ||
+                s.Email.toLowerCase() === currentUser.toLowerCase()
+            );
+        } else {
+            targetStaff = allStaff.filter(s =>
+                s.Department && s.Department.toLowerCase() === (user.Department || '').toLowerCase()
+            );
+        }
+
+        const appsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.APPLICATIONS);
+        const allApps = (appsFile.data || []).filter(a =>
+            a.Status === SYSTEM.STATUS.APPROVED || a.Status === SYSTEM.STATUS.PENDING
+        );
+
+        const coverage = targetStaff.map(s => {
+            const sEmail = s.Email.toLowerCase().trim();
+            const staffApps = allApps.filter(a => a.Email && a.Email.toLowerCase().trim() === sEmail);
+            const handoverApps = allApps.filter(a =>
+                (a.HandoverEmail && a.HandoverEmail.toLowerCase().trim() === sEmail) ||
+                (a.HandoverColleagueEmail && a.HandoverColleagueEmail.toLowerCase().trim() === sEmail)
+            );
+
+            const days = {};
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                const curDate = Utils.parseLocalDate(dStr);
+                const dayOfWeek = curDate.getDay();
+                const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                const holidayName = holidayMap[dStr] || null;
+
+                let status = isWeekend ? 'weekend' : (holidayName ? 'holiday' : 'working');
+                let details = holidayName ? { holiday: holidayName } : null;
+
+                if (!isWeekend && !holidayName) {
+                    for (const app of staffApps) {
+                        const aStart = Utils.parseLocalDate(app.StartDate || app.HourlyDate);
+                        const aEnd = Utils.parseLocalDate(app.EndDate || app.HourlyDate || app.StartDate);
+                        if (aStart && aEnd && curDate >= aStart && curDate <= aEnd) {
+                            status = app.Status === SYSTEM.STATUS.APPROVED ? 'leave_approved' : 'leave_pending';
+                            details = {
+                                appId: app.ID,
+                                leaveType: app.LeaveType,
+                                status: app.Status,
+                                duration: app.Duration,
+                                handover: app.HandoverName || app.HandoverColleagueName || null
+                            };
+                            break;
+                        }
+                    }
+
+                    if (status === 'working') {
+                        for (const hApp of handoverApps) {
+                            if (hApp.Status === SYSTEM.STATUS.APPROVED) {
+                                const hStart = Utils.parseLocalDate(hApp.StartDate || hApp.HourlyDate);
+                                const hEnd = Utils.parseLocalDate(hApp.EndDate || hApp.HourlyDate || hApp.StartDate);
+                                if (hStart && hEnd && curDate >= hStart && curDate <= hEnd) {
+                                    status = 'handover';
+                                    details = {
+                                        appId: hApp.ID,
+                                        coveringFor: hApp.Name,
+                                        leaveType: hApp.LeaveType
+                                    };
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                days[d] = {
+                    date: dStr,
+                    dayOfWeek,
+                    status,
+                    details
+                };
+            }
+
+            return {
+                email: s.Email,
+                name: s.Name,
+                role: s.Role,
+                department: s.Department || 'General',
+                days
+            };
+        });
+
+        const matrix = coverage.map(c => ({
+            staff: { name: c.name, email: c.email, department: c.department, role: c.role },
+            days: Object.keys(c.days).map(k => ({
+                day: parseInt(k),
+                date: c.days[k].date,
+                status: c.days[k].status === 'leave_approved' ? 'leave' : (c.days[k].status === 'leave_pending' ? 'pending' : c.days[k].status),
+                detail: c.days[k].details ? (c.days[k].details.leaveType || c.days[k].details.holiday || c.days[k].details.coveringFor || '') : ''
+            }))
+        }));
+
+        return Utils.createSuccessResponse({
+            year,
+            month,
+            daysInMonth,
+            holidays,
+            coverage,
+            matrix
+        }, 'Team availability loaded successfully');
+
+    } catch (error) {
+        console.error('Error in apiGetTeamAvailability:', error);
+        return Utils.createErrorResponse('Failed to load team availability: ' + error.message);
+    }
+}
+
+// 6. Compensation (TOIL) Claim APIs
+function apiSubmitCompensationClaim(claimData) {
+    try {
+        if (!claimData) return Utils.createErrorResponse('Claim data is required');
+        return CompensationManager.submitClaim(claimData);
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to submit compensation claim: ' + error.message);
+    }
+}
+
+function apiGetCompensationClaims(filter) {
+    try {
+        const claims = CompensationManager.getClaims(filter || {});
+        return Utils.createSuccessResponse(claims, `Retrieved ${claims.length} claim(s)`);
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to get compensation claims: ' + error.message);
+    }
+}
+
+function apiProcessCompensationClaim(params) {
+    try {
+        if (!params || !params.claimId || !params.decision) {
+            return Utils.createErrorResponse('claimId and decision are required');
+        }
+        return CompensationManager.processClaimDecision(params.claimId, params.decision, params.comment || '');
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to process claim: ' + error.message);
+    }
+}
+
+// 7. Direct Attachment Upload API
+function apiUploadAttachment(params) {
+    try {
+        if (!params || !params.base64Data) {
+            return Utils.createErrorResponse('base64Data is required');
+        }
+        return AttachmentManager.uploadAttachment(params);
+    } catch (error) {
+        return Utils.createErrorResponse('Upload failed: ' + error.message);
+    }
+}
+
+// 8. Leave Date Amendment API
+function apiAmendLeaveDates(params) {
+    try {
+        if (!params || !params.appId || !params.newStartDate || !params.newEndDate) {
+            return Utils.createErrorResponse('appId, newStartDate, and newEndDate are required');
+        }
+        return ApplicationsManager.amendLeaveDates(
+            params.appId,
+            params.newStartDate,
+            params.newEndDate,
+            params.reason || ''
+        );
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to amend leave dates: ' + error.message);
+    }
+}
+
+// 9. Blackout Periods & Staffing Rules APIs
+function apiGetBlackoutPeriods() {
+    try {
+        const periods = BlackoutPeriodManager.getAll();
+        return Utils.createSuccessResponse(periods, 'Blackout periods loaded');
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to get blackout periods: ' + error.message);
+    }
+}
+
+function apiSaveBlackoutPeriod(params) {
+    try {
+        if (!params) return Utils.createErrorResponse('Period data is required');
+        return BlackoutPeriodManager.savePeriod(params);
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to save blackout period: ' + error.message);
+    }
+}
+
+function apiDeleteBlackoutPeriod(id) {
+    try {
+        if (typeof id === 'object' && id !== null) id = id.id;
+        if (!id) return Utils.createErrorResponse('id is required');
+        return BlackoutPeriodManager.deletePeriod(id);
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to delete blackout period: ' + error.message);
+    }
+}
+
 // =============================================
 // END OF COMPLETE BACKEND CODE
-// VERSION 3.4.0 - CRYSTAL CLEAR NAMING
+// VERSION 3.5.0 - NEXT LEVEL IMPROVEMENTS
 // =============================================
