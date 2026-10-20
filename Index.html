@@ -2540,10 +2540,10 @@
     </div>
 
     <!-- Handover Coverage Requests Modal -->
-    <div id="handoverRequestsModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+    <div id="handoverRequestsModal" class="hidden fixed inset-0 z-50 overflow-y-auto" style="display: none;">
         <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="fixed inset-0 modal-overlay" id="handoverRequestsModalBackdrop" onclick="closeHandoverRequestsModal()"></div>
-            <div class="relative bg-white rounded-2xl text-left shadow-2xl w-full max-w-2xl flex flex-col border border-emerald-100 overflow-hidden max-h-[90vh]">
+            <div class="fixed inset-0 modal-overlay close-handover-modal-btn" id="handoverRequestsModalBackdrop" onclick="closeHandoverRequestsModal()"></div>
+            <div class="relative bg-white rounded-2xl text-left shadow-2xl w-full max-w-2xl flex flex-col border border-emerald-100 overflow-hidden max-h-[90vh] z-10">
                 <div class="bg-gradient-to-r from-emerald-700 to-teal-800 px-6 py-4 rounded-t-2xl text-white flex justify-between items-center">
                     <div class="flex items-center space-x-3">
                         <div class="h-9 w-9 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
@@ -2554,7 +2554,7 @@
                             <p class="text-xs text-emerald-200">Review coverage delegations & task checklists from colleagues</p>
                         </div>
                     </div>
-                    <button type="button" onclick="closeHandoverRequestsModal()" class="text-white/80 hover:text-white p-1">
+                    <button type="button" id="closeHandoverRequestsModal" onclick="closeHandoverRequestsModal()" class="close-handover-modal-btn text-white/80 hover:text-white hover:bg-white/10 rounded-lg p-1.5 transition-colors">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
@@ -3414,7 +3414,7 @@
             <p class="text-xs text-emerald-100">You have <span id="handoverAlertCount" class="font-bold underline">0</span> pending coverage request(s) awaiting your acceptance.</p>
           </div>
         </div>
-        <button type="button" onclick="openHandoverRequestsModal()" class="px-4 py-2 bg-white text-emerald-800 rounded-xl text-xs font-bold hover:bg-emerald-50 transition-all shadow-sm">
+        <button type="button" id="reviewHandoversBannerBtn" onclick="openHandoverRequestsModal()" class="review-handover-btn px-4 py-2 bg-white text-emerald-800 rounded-xl text-xs font-bold hover:bg-emerald-50 transition-all shadow-sm">
           Review Handovers & Tasks
         </button>
       </div>
@@ -3463,7 +3463,7 @@
                 <i class="fas fa-chevron-right text-gray-400"></i>
               </button>
 
-              <button id="quickHandoverRequests" onclick="openHandoverRequestsModal()" class="w-full flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-emerald-50 hover:border-emerald-200 transition-colors">
+              <button id="quickHandoverRequests" onclick="openHandoverRequestsModal()" class="review-handover-btn w-full flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-emerald-50 hover:border-emerald-200 transition-colors">
                 <div class="flex items-center">
                   <div class="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center mr-3">
                     <i class="fas fa-user-friends text-emerald-600"></i>
@@ -7347,6 +7347,10 @@
             document.getElementById('closeCompensationModal')?.addEventListener('click', closeCompensationModal);
             document.getElementById('compensationModalBackdrop')?.addEventListener('click', closeCompensationModal);
 
+            // Handover requests modal static close bindings
+            document.getElementById('closeHandoverRequestsModal')?.addEventListener('click', closeHandoverRequestsModal);
+            document.getElementById('handoverRequestsModalBackdrop')?.addEventListener('click', closeHandoverRequestsModal);
+
             // =============================================
             // EVENT DELEGATION - ALL DYNAMIC CONTENT
             // =============================================
@@ -7373,6 +7377,18 @@
                     e.stopPropagation();
                     if (typeof openTOILClaimModal === 'function') {
                         openTOILClaimModal();
+                    }
+                }
+
+                if (target.closest('#quickHandoverRequests') || target.closest('#reviewHandoversBannerBtn') ||
+                    target.closest('#reviewHandoversBtn') || target.closest('.review-handover-btn') ||
+                    target.closest('[onclick*="openHandoverRequestsModal"]')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (typeof openHandoverRequestsModal === 'function') {
+                        openHandoverRequestsModal();
+                    } else if (typeof window.openHandoverRequestsModal === 'function') {
+                        window.openHandoverRequestsModal();
                     }
                 }
 
@@ -7489,6 +7505,17 @@
                     e.preventDefault();
                     e.stopPropagation();
                     closeAddStaffModal();
+                }
+
+                if (target.closest('#closeHandoverRequestsModal') || target.closest('#handoverRequestsModalBackdrop') ||
+                    target.closest('.close-handover-modal-btn') || target.closest('[onclick*="closeHandoverRequestsModal"]')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (typeof closeHandoverRequestsModal === 'function') {
+                        closeHandoverRequestsModal();
+                    } else if (typeof window.closeHandoverRequestsModal === 'function') {
+                        window.closeHandoverRequestsModal();
+                    }
                 }
 
                 // ----- LEAVE APPLICATIONS -----
@@ -12333,80 +12360,114 @@
             const modal = document.getElementById('handoverRequestsModal');
             if (modal) {
                 modal.classList.remove('hidden');
+                modal.style.display = 'block';
+                modal.style.zIndex = '9999';
+                const listEl = document.getElementById('handoverRequestsList');
+                if (listEl) listEl.scrollTop = 0;
                 renderHandoverRequestsList();
+            } else {
+                console.error('handoverRequestsModal element not found in DOM');
             }
         }
+        window.openHandoverRequestsModal = openHandoverRequestsModal;
 
         function closeHandoverRequestsModal() {
             const modal = document.getElementById('handoverRequestsModal');
-            if (modal) modal.classList.add('hidden');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.style.display = 'none';
+            }
         }
+        window.closeHandoverRequestsModal = closeHandoverRequestsModal;
+
+        function renderHandoverItems(requests, listEl) {
+            if (!listEl) return;
+            if (!Array.isArray(requests) || requests.length === 0) {
+                listEl.innerHTML = '<div class="p-8 text-center text-gray-500 text-xs"><i class="fas fa-check-circle text-emerald-500 text-2xl mb-2"></i><p class="font-bold text-gray-700">No Pending Handover Requests</p><p class="text-gray-400 mt-1">When colleagues nominate you to cover their duties while away, they will appear here.</p></div>';
+                return;
+            }
+            listEl.innerHTML = requests.map(req => `
+                <div class="p-4 bg-white rounded-xl border ${req.handoverStatus === 'Accepted' ? 'border-emerald-200' : req.handoverStatus === 'Declined' ? 'border-red-200' : 'border-amber-200'} shadow-sm space-y-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold text-gray-900 text-sm">${escapeHtml(req.applicantName)}</span>
+                                <span class="text-xs text-gray-500">(${escapeHtml(req.department || '')})</span>
+                            </div>
+                            <p class="text-xs text-gray-600 mt-0.5">
+                                <strong>${escapeHtml(req.leaveType)}</strong> • ${formatDate(req.startDate)} to ${formatDate(req.endDate)} (${req.duration} business days)
+                            </p>
+                        </div>
+                        <div>
+                            ${req.handoverStatus === 'Accepted'
+                                ? '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800"><i class="fas fa-check-circle mr-1"></i> Accepted</span>'
+                                : req.handoverStatus === 'Declined'
+                                    ? '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800"><i class="fas fa-times-circle mr-1"></i> Declined</span>'
+                                    : '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800"><i class="fas fa-clock mr-1"></i> Response Required</span>'
+                            }
+                        </div>
+                    </div>
+                    ${req.handoverNotes ? `<p class="text-xs text-gray-700 bg-gray-50 p-2.5 rounded-lg border border-gray-200/60 italic">"${escapeHtml(req.handoverNotes)}"</p>` : ''}
+                    ${(Array.isArray(req.handoverTasks) && req.handoverTasks.length > 0) ? `
+                    <div class="pt-2 border-t border-gray-100">
+                        <p class="text-[11px] font-semibold text-gray-700 mb-1.5 flex items-center gap-1.5">
+                            <i class="fas fa-tasks text-emerald-600"></i> Delegated Coverage Tasks:
+                        </p>
+                        <div class="space-y-1.5">
+                            ${req.handoverTasks.map(t => `
+                                <label class="flex items-start gap-2 p-2 rounded-lg bg-gray-50/70 border border-gray-200/50 text-xs text-gray-800 cursor-pointer hover:bg-emerald-50/30 transition-colors">
+                                    <input type="checkbox" ${t.completed ? 'checked' : ''} onchange="handleToggleHandoverTask('${req.applicationId}', '${t.id}', this.checked)" class="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500">
+                                    <span class="${t.completed ? 'line-through text-gray-400' : 'font-medium'}">${escapeHtml(t.text || t.title || '')}</span>
+                                    ${t.completed ? `<span class="ml-auto text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded">Done</span>` : ''}
+                                </label>
+                            `).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
+                    ${(req.handoverStatus !== 'Accepted' && req.handoverStatus !== 'Declined') ? `
+                    <div class="pt-2 border-t border-gray-100 flex items-center justify-end gap-2">
+                        <button type="button" onclick="handleHandoverResponse('${req.applicationId}', 'decline')" class="px-3 py-1.5 border border-red-200 bg-white hover:bg-red-50 text-red-600 rounded-lg text-xs font-semibold shadow-sm transition-all">
+                            Decline Coverage
+                        </button>
+                        <button type="button" onclick="handleHandoverResponse('${req.applicationId}', 'accept')" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1">
+                            <i class="fas fa-check text-[10px]"></i> Accept Coverage
+                        </button>
+                    </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+        window.renderHandoverItems = renderHandoverItems;
 
         async function renderHandoverRequestsList() {
             const listEl = document.getElementById('handoverRequestsList');
             if (!listEl) return;
-            listEl.innerHTML = '<div class="text-center py-6 text-gray-400 text-xs"><i class="fas fa-spinner fa-spin mr-2"></i> Loading your coverage requests...</div>';
+            
+            // Immediate progressive render if AppState already has cached pending handovers
+            if (Array.isArray(AppState.pendingHandovers) && AppState.pendingHandovers.length > 0) {
+                renderHandoverItems(AppState.pendingHandovers, listEl);
+            } else {
+                listEl.innerHTML = '<div class="text-center py-6 text-gray-400 text-xs"><i class="fas fa-spinner fa-spin mr-2"></i> Loading your coverage requests...</div>';
+            }
+
             try {
                 const res = await callGoogleScriptFunction('apiGetMyHandoverRequests');
-                if (res.success && Array.isArray(res.data)) {
-                    const requests = res.data;
-                    if (requests.length === 0) {
-                        listEl.innerHTML = '<div class="p-8 text-center text-gray-500 text-xs"><i class="fas fa-check-circle text-emerald-500 text-2xl mb-2"></i><p class="font-bold text-gray-700">No Pending Handover Requests</p><p class="text-gray-400 mt-1">When colleagues nominate you to cover their duties while away, they will appear here.</p></div>';
-                        return;
-                    }
-                    listEl.innerHTML = requests.map(req => `
-                        <div class="p-4 bg-white rounded-xl border ${req.handoverStatus === 'Accepted' ? 'border-emerald-200' : req.handoverStatus === 'Declined' ? 'border-red-200' : 'border-amber-200'} shadow-sm space-y-3">
-                            <div class="flex flex-wrap items-center justify-between gap-2">
-                                <div>
-                                    <div class="flex items-center gap-2">
-                                        <span class="font-bold text-gray-900 text-sm">${escapeHtml(req.applicantName)}</span>
-                                        <span class="text-xs text-gray-500">(${escapeHtml(req.department || '')})</span>
-                                    </div>
-                                    <p class="text-xs text-gray-600 mt-0.5">
-                                        <strong>${escapeHtml(req.leaveType)}</strong> • ${formatDate(req.startDate)} to ${formatDate(req.endDate)} (${req.duration} business days)
-                                    </p>
-                                </div>
-                                <div>
-                                    ${req.handoverStatus === 'Accepted'
-                                        ? '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800"><i class="fas fa-check-circle mr-1"></i> Accepted</span>'
-                                        : req.handoverStatus === 'Declined'
-                                            ? '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800"><i class="fas fa-times-circle mr-1"></i> Declined</span>'
-                                            : '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800"><i class="fas fa-clock mr-1"></i> Response Required</span>'
-                                    }
-                                </div>
-                            </div>
-                            ${req.handoverNotes ? `<p class="text-xs text-gray-700 bg-gray-50 p-2.5 rounded-lg border border-gray-200/60 italic">"${escapeHtml(req.handoverNotes)}"</p>` : ''}
-                            ${(Array.isArray(req.handoverTasks) && req.handoverTasks.length > 0) ? `
-                            <div class="pt-2 border-t border-gray-100">
-                                <p class="text-[11px] font-semibold text-gray-700 mb-1.5 flex items-center gap-1.5">
-                                    <i class="fas fa-tasks text-emerald-600"></i> Delegated Coverage Tasks:
-                                </p>
-                                <div class="space-y-1.5">
-                                    ${req.handoverTasks.map(t => `
-                                        <label class="flex items-start gap-2 p-2 rounded-lg bg-gray-50/70 border border-gray-200/50 text-xs text-gray-800 cursor-pointer hover:bg-emerald-50/30 transition-colors">
-                                            <input type="checkbox" ${t.completed ? 'checked' : ''} onchange="handleToggleHandoverTask('${req.applicationId}', '${t.id}', this.checked)" class="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500">
-                                            <span class="${t.completed ? 'line-through text-gray-400' : 'font-medium'}">${escapeHtml(t.text)}</span>
-                                            ${t.completed ? `<span class="ml-auto text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded">Done</span>` : ''}
-                                        </label>
-                                    `).join('')}
-                                </div>
-                            </div>
-                            ` : ''}
-                            ${(req.handoverStatus !== 'Accepted' && req.handoverStatus !== 'Declined') ? `
-                            <div class="pt-2 border-t border-gray-100 flex items-center justify-end gap-2">
-                                <button type="button" onclick="handleHandoverResponse('${req.applicationId}', 'decline')" class="px-3 py-1.5 border border-red-200 bg-white hover:bg-red-50 text-red-600 rounded-lg text-xs font-semibold shadow-sm transition-all">
-                                    Decline Coverage
-                                </button>
-                                <button type="button" onclick="handleHandoverResponse('${req.applicationId}', 'accept')" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1">
-                                    <i class="fas fa-check text-[10px]"></i> Accept Coverage
-                                </button>
-                            </div>
-                            ` : ''}
-                        </div>
-                    `).join('');
+                if (res && res.success && Array.isArray(res.data)) {
+                    AppState.pendingHandovers = res.data;
+                    renderHandoverItems(res.data, listEl);
+                } else {
+                    listEl.innerHTML = `<div class="p-8 text-center text-gray-500 text-xs">
+                        <i class="fas fa-info-circle text-emerald-500 text-2xl mb-2"></i>
+                        <p class="font-bold text-gray-700">No Pending Handover Requests</p>
+                        <p class="text-gray-400 mt-1">${escapeHtml(res?.error || 'When colleagues nominate you to cover their duties while away, they will appear here.')}</p>
+                    </div>`;
                 }
             } catch (err) {
-                listEl.innerHTML = '<div class="p-4 text-center text-xs text-red-500">Failed to load handover requests.</div>';
+                listEl.innerHTML = `<div class="p-8 text-center text-red-500 text-xs">
+                    <i class="fas fa-exclamation-circle text-2xl mb-2 text-red-400"></i>
+                    <p class="font-bold text-gray-700">Failed to load handover requests</p>
+                    <p class="text-gray-400 mt-1">${escapeHtml(err.message || 'Please check your network and try again.')}</p>
+                </div>`;
             }
         }
 
@@ -12628,6 +12689,7 @@
         window.openHandoverRequestsModal = openHandoverRequestsModal;
         window.closeHandoverRequestsModal = closeHandoverRequestsModal;
         window.renderHandoverRequestsList = renderHandoverRequestsList;
+        window.renderHandoverItems = renderHandoverItems;
         window.handleHandoverResponse = handleHandoverResponse;
         window.handleToggleHandoverTask = handleToggleHandoverTask;
         window.loadMyHandoverRequestsCount = loadMyHandoverRequestsCount;
