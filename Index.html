@@ -4608,7 +4608,7 @@
                 <div class="bg-gray-50/70 border border-gray-100 rounded-xl p-3">
                   <p class="text-xs text-gray-500 mb-1"><i class="fas fa-clock mr-1 text-gray-400"></i>Duration</p>
                   <p class="text-sm font-semibold text-gray-900">
-                    ${app.LeaveMode === 'Hourly' ? `${app.Hours || 0} hrs` : `${app.Duration || 0} days`}
+                    ${app.LeaveMode === 'Hourly' ? (app.Hours || 0) + ' hrs' : (app.Duration || 0) + ' days'}
                   </p>
                 </div>
                 <div class="bg-gray-50/70 border border-gray-100 rounded-xl p-3">
@@ -9792,6 +9792,30 @@
             const isSupervisorOrAdmin = user && (user.role === 'supervisor' || user.role === 'admin');
             const canTakeAction = isSupervisorOrAdmin && application.Status === 'Pending' && isTeamView;
 
+            // Pre-compute template values with standard string concatenation to prevent GAS HTML Service template parser token errors
+            const durationText = application.LeaveMode === 'Hourly'
+                ? (application.Hours || 0) + ' hours'
+                : ((application.Status === 'Pending' && application.StartDate && application.EndDate) ? calculateBusinessDays(application.StartDate, application.EndDate) : (application.Duration || 0)) + ' business days';
+
+            const durationExtra = (application.LeaveMode === 'Hourly' && application.Duration)
+                ? ' (' + application.Duration.toFixed(3) + ' days)'
+                : (application.CalendarDays && application.CalendarDays !== application.Duration ? ' (' + application.CalendarDays + ' calendar days)' : '');
+
+            const periodText = formatDate(application.StartDate) +
+                (application.EndDate && application.StartDate !== application.EndDate ? ' to ' + formatDate(application.EndDate) : '');
+
+            const supervisorHtml = application.Supervisor
+                ? '<div><p class="text-sm text-gray-600">Supervisor</p><p class="font-medium text-gray-900">' + escapeHtml(application.Supervisor) + '</p></div>'
+                : '';
+
+            const processedByHtml = application.ProcessedBy
+                ? '<div><p class="text-sm text-gray-600">Processed By</p><p class="font-medium text-gray-900">' + escapeHtml(application.ProcessedBy) + '</p></div>'
+                : '';
+
+            const commentsHtml = application.Comment
+                ? '<div><p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Reviewer Remarks</p><div class="p-4 bg-blue-50 border border-blue-100 rounded-xl"><p class="text-gray-900 text-sm">' + escapeHtml(application.Comment) + '</p>' + (application.ProcessedDate ? '<p class="text-xs text-gray-500 mt-2">' + formatDate(application.ProcessedDate) + '</p>' : '') + '</div></div>'
+                : '';
+
             const detailsHTML = `
     <div class="space-y-6">
       <!-- Staff Info -->
@@ -9822,18 +9846,7 @@
           </div>
           <div>
             <p class="text-sm text-gray-600">Duration</p>
-            <p class="font-medium text-gray-900">
-              ${application.LeaveMode === 'Hourly'
-                  ? `${application.Hours || 0} hours`
-                  : `${(application.Status === 'Pending' && application.StartDate && application.EndDate) ? calculateBusinessDays(application.StartDate, application.EndDate) : (application.Duration || 0)} business days`
-              }
-              ${application.LeaveMode === 'Hourly' && application.Duration
-                  ? ` (${application.Duration.toFixed(3)} days)`
-                  : application.CalendarDays && application.CalendarDays !== application.Duration
-                      ? ` (${application.CalendarDays} calendar days)`
-                      : ''
-              }
-            </p>
+            <p class="font-medium text-gray-900">${durationText}${durationExtra}</p>
             ${renderApplicationHolidaysBadge(application)}
           </div>
         </div>
@@ -9841,23 +9854,10 @@
         <div class="space-y-4">
           <div>
             <p class="text-sm text-gray-600">Period</p>
-            <p class="font-medium text-gray-900">
-              ${formatDate(application.StartDate)} 
-              ${application.EndDate && application.StartDate !== application.EndDate ? `to ${formatDate(application.EndDate)}` : ''}
-            </p>
+            <p class="font-medium text-gray-900">${periodText}</p>
           </div>
-          ${application.Supervisor ? `
-          <div>
-            <p class="text-sm text-gray-600">Supervisor</p>
-            <p class="font-medium text-gray-900">${escapeHtml(application.Supervisor)}</p>
-          </div>
-          ` : ''}
-          ${application.ProcessedBy ? `
-          <div>
-            <p class="text-sm text-gray-600">Processed By</p>
-            <p class="font-medium text-gray-900">${escapeHtml(application.ProcessedBy)}</p>
-          </div>
-          ` : ''}
+          ${supervisorHtml}
+          ${processedByHtml}
         </div>
       </div>
       
@@ -9894,15 +9894,7 @@
       </div>
       
       <!-- Comments -->
-      ${application.Comment ? `
-      <div>
-        <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Reviewer Remarks</p>
-        <div class="p-4 bg-blue-50 border border-blue-100 rounded-xl">
-          <p class="text-gray-900 text-sm">${escapeHtml(application.Comment)}</p>
-          ${application.ProcessedDate ? `<p class="text-xs text-gray-500 mt-2">${formatDate(application.ProcessedDate)}</p>` : ''}
-        </div>
-      </div>
-      ` : ''}
+      ${commentsHtml}
     </div>
   `;
 
