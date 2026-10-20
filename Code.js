@@ -8587,16 +8587,25 @@ function doGet(e) {
         }
 
         try {
-            const html = HtmlService.createTemplateFromFile('Index').evaluate();
+            // Direct HTML output avoids unnecessary server-side template compilation and prevents token mangling
+            const html = HtmlService.createHtmlOutputFromFile('Index');
             return html
                 .setTitle(SYSTEM.NAME)
                 .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-        } catch (error) {
-            console.error('Error loading Index.html:', error);
-            const html = HtmlService.createHtmlOutput(
-                '<h1>System Ready</h1><p>Please refresh the page.</p>'
-            );
-            return html.setTitle(SYSTEM.NAME);
+        } catch (outputErr) {
+            console.warn('createHtmlOutputFromFile fallback to template evaluate:', outputErr);
+            try {
+                const html = HtmlService.createTemplateFromFile('Index').evaluate();
+                return html
+                    .setTitle(SYSTEM.NAME)
+                    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+            } catch (error) {
+                console.error('Error loading Index.html:', error);
+                const html = HtmlService.createHtmlOutput(
+                    '<h1>System Ready</h1><p>Please refresh the page.</p>'
+                );
+                return html.setTitle(SYSTEM.NAME);
+            }
         }
 
     } catch (error) {

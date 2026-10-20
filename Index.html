@@ -9744,41 +9744,178 @@
             }
         }
 
-        async function viewApplicationDetails(appId, isTeamView = false) {
-            console.log('Viewing application:', appId, 'isTeamView:', isTeamView);
+        function renderApplicationDetailsContent(application) {
+            const initials = application.Name
+                ? application.Name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)
+                : 'AP';
+            const statusLower = (application.Status || 'pending').toLowerCase();
+            const statusText = escapeHtml(application.Status || 'Pending');
+            const dateAppliedText = formatDate(application.DateApplied);
+            const leaveTypeText = escapeHtml(application.LeaveType || 'Not specified');
+            const reasonText = escapeHtml(application.Reason || 'No reason provided');
 
-            if (!appId) {
-                showToast('error', 'Error', 'Application ID not found');
-                return;
+            const durationText = application.LeaveMode === 'Hourly'
+                ? (application.Hours || 0) + ' hours'
+                : ((application.Status === 'Pending' && application.StartDate && application.EndDate)
+                    ? calculateBusinessDays(application.StartDate, application.EndDate)
+                    : (application.Duration || 0)) + ' business days';
+
+            const durationExtra = (application.LeaveMode === 'Hourly' && application.Duration)
+                ? ' (' + application.Duration.toFixed(3) + ' days)'
+                : (application.CalendarDays && application.CalendarDays !== application.Duration
+                    ? ' (' + application.CalendarDays + ' calendar days)'
+                    : '');
+
+            const periodText = formatDate(application.StartDate) +
+                (application.EndDate && application.StartDate !== application.EndDate
+                    ? ' to ' + formatDate(application.EndDate)
+                    : '');
+
+            const supervisorBlock = application.Supervisor
+                ? '      <div><p class="text-sm text-gray-600">Supervisor</p><p class="font-medium text-gray-900">' + escapeHtml(application.Supervisor) + '</p></div>'
+                : '';
+
+            const processedByBlock = application.ProcessedBy
+                ? '      <div><p class="text-sm text-gray-600">Processed By</p><p class="font-medium text-gray-900">' + escapeHtml(application.ProcessedBy) + '</p></div>'
+                : '';
+
+            const commentsBlock = application.Comment
+                ? '  <div><p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Reviewer Remarks</p><div class="p-4 bg-blue-50 border border-blue-100 rounded-xl"><p class="text-gray-900 text-sm">' + escapeHtml(application.Comment) + '</p>' + (application.ProcessedDate ? '<p class="text-xs text-gray-500 mt-2">' + formatDate(application.ProcessedDate) + '</p>' : '') + '</div></div>'
+                : '';
+
+            const parts = [
+                '<div class="space-y-6">',
+                '  <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">',
+                '    <div class="flex items-center">',
+                '      <div class="h-12 w-12 rounded-full bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center text-white font-bold text-lg mr-4">',
+                '        ' + initials,
+                '      </div>',
+                '      <div>',
+                '        <h4 class="font-bold text-gray-900">' + escapeHtml(application.Name || 'Unknown') + '</h4>',
+                '        <p class="text-sm text-gray-600">' + escapeHtml(application.Department || 'No Department') + '</p>',
+                '      </div>',
+                '    </div>',
+                '    <div class="text-right">',
+                '      <span class="status-badge ' + statusLower + ' px-3 py-1 rounded-full text-xs font-medium">' + statusText + '</span>',
+                '      <p class="text-xs text-gray-500 mt-1">Applied: ' + dateAppliedText + '</p>',
+                '    </div>',
+                '  </div>',
+                '  <div class="grid grid-cols-2 gap-4">',
+                '    <div class="space-y-4">',
+                '      <div>',
+                '        <p class="text-sm text-gray-600">Leave Type</p>',
+                '        <p class="font-medium text-gray-900">' + leaveTypeText + '</p>',
+                '      </div>',
+                '      <div>',
+                '        <p class="text-sm text-gray-600">Duration</p>',
+                '        <p class="font-medium text-gray-900">' + durationText + durationExtra + '</p>',
+                '        ' + renderApplicationHolidaysBadge(application),
+                '      </div>',
+                '    </div>',
+                '    <div class="space-y-4">',
+                '      <div>',
+                '        <p class="text-sm text-gray-600">Period</p>',
+                '        <p class="font-medium text-gray-900">' + periodText + '</p>',
+                '      </div>',
+                supervisorBlock,
+                processedByBlock,
+                '    </div>',
+                '  </div>',
+                '  <div>',
+                '    <p class="text-sm text-gray-600 mb-2">Reason</p>',
+                '    <div class="p-4 bg-gray-50 rounded-lg">',
+                '      <p class="text-gray-900">' + reasonText + '</p>',
+                '    </div>',
+                '  </div>',
+                '  ' + renderApplicationHandover(application),
+                '  ' + renderApplicationGmailSync(application),
+                '  ' + renderApplicationAttachment(application),
+                '  ' + renderApplicationDeductions(application),
+                '  <div class="p-4 bg-gray-50 border border-gray-100 rounded-xl">',
+                '    <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Status Progression</p>',
+                '    <div class="timeline-track text-xs">',
+                '      <div class="timeline-node completed">',
+                '        <p class="font-semibold text-gray-900">Application Submitted</p>',
+                '        <p class="text-gray-500">' + dateAppliedText + '</p>',
+                '      </div>',
+                '      ' + renderApplicationTimeline(application),
+                '    </div>',
+                '  </div>',
+                commentsBlock,
+                '</div>'
+            ];
+
+            return parts.filter(Boolean).join('\n');
+        }
+
+        function renderApplicationModalActionButtons(application, canTakeAction, isTeamView, appId, isConcluded) {
+            const printBtnHtml = application.Status === 'Approved'
+                ? '<button class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 flex items-center gap-1.5 shadow-sm" id="printLeaveSlipBtn"><i class="fas fa-print"></i> Print Slip</button>'
+                : '';
+
+            const amendBtnHtml = (application.Status === 'Approved' && application.LeaveMode !== 'Hourly' && !isConcluded)
+                ? '<button type="button" class="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 flex items-center gap-1.5 shadow-sm" onclick="openAmendLeaveModal(\'' + appId + '\')"><i class="fas fa-calendar-alt"></i> Amend / Early Return</button>'
+                : '';
+
+            const closeBtnHtml = '<button class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50" id="cancelActionBtn">Close</button>';
+
+            if (canTakeAction) {
+                return [
+                    printBtnHtml,
+                    amendBtnHtml,
+                    closeBtnHtml,
+                    '<button class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 decline-action-btn" data-id="' + appId + '">Decline</button>',
+                    '<button class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 approve-action-btn" data-id="' + appId + '">Approve</button>'
+                ].filter(Boolean).join('\n');
             }
 
+            if (!isTeamView && (application.Status === 'Pending' || application.Status === 'Approved')) {
+                if (isConcluded) {
+                    return [
+                        '<span class="text-xs text-gray-500 italic mr-auto flex items-center gap-1.5"><i class="fas fa-info-circle text-amber-500"></i> Leave concluded &mdash; not eligible for cancellation</span>',
+                        printBtnHtml,
+                        closeBtnHtml
+                    ].filter(Boolean).join('\n');
+                }
+                return [
+                    printBtnHtml,
+                    amendBtnHtml,
+                    closeBtnHtml,
+                    '<button class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 modal-cancel-btn" data-id="' + appId + '">Cancel Application</button>'
+                ].filter(Boolean).join('\n');
+            }
+
+            if (application.Status === 'Approved') {
+                return [printBtnHtml, amendBtnHtml, closeBtnHtml].filter(Boolean).join('\n');
+            }
+
+            return '';
+        }
+
+        async function viewApplicationDetails(appId, isTeamView = false) {
             showLoading('Loading application details...');
 
-            // Find the application — check all relevant caches
             let application = null;
-
-            if (isTeamView) {
-                // Search allTeamApplications (all statuses) first, then fall back to pending-only
-                application = AppState.allTeamApplications?.find(app => app.ID === appId)
-                    || AppState.teamApplications?.find(app => app.ID === appId);
-            } else {
-                application = AppState.applications?.find(app => app.ID === appId);
+            if (isTeamView && AppState.allTeamApplications && Array.isArray(AppState.allTeamApplications)) {
+                application = AppState.allTeamApplications.find(a => String(a.Id) === String(appId));
             }
-
-            // If still not found, fetch all team apps fresh from the API
-            if (!application && isTeamView) {
-                try {
-                    const result = await callGoogleScriptFunction('apiGetTeamApplications');
-                    if (result.success && result.data?.data) {
-                        AppState.allTeamApplications = result.data.data;
-                        application = result.data.data.find(app => app.ID === appId);
+            if (!application && AppState.myApplications && Array.isArray(AppState.myApplications)) {
+                application = AppState.myApplications.find(a => String(a.Id) === String(appId));
+            }
+            if (!application && AppState.allTeamApplications && Array.isArray(AppState.allTeamApplications)) {
+                application = AppState.allTeamApplications.find(a => String(a.Id) === String(appId));
+            }
+            if (!application) {
+                const rowMatch = document.querySelector(`tr[data-id="${appId}"]`);
+                if (rowMatch && rowMatch.dataset && rowMatch.dataset.application) {
+                    try {
+                        application = JSON.parse(decodeURIComponent(rowMatch.dataset.application));
+                    } catch (parseErr) {
+                        console.warn('Failed to parse cached application from DOM attribute:', parseErr);
                     }
-                } catch (e) {
-                    console.error('Fallback fetch failed:', e);
                 }
             }
 
-            // Last resort — fetch the specific application by ID if an API exists
             if (!application) {
                 hideLoading();
                 showToast('error', 'Not Found', 'Application details could not be loaded. Please refresh the page.');
@@ -9786,147 +9923,29 @@
             }
 
             // Populate modal with application details
-            document.getElementById('applicationIdTitle').textContent = `Application ID: ${appId}`;
+            document.getElementById('applicationIdTitle').textContent = 'Application ID: ' + appId;
 
             const user = AppState.currentUser;
             const isSupervisorOrAdmin = user && (user.role === 'supervisor' || user.role === 'admin');
             const canTakeAction = isSupervisorOrAdmin && application.Status === 'Pending' && isTeamView;
 
-            // Pre-compute template values with standard string concatenation to prevent GAS HTML Service template parser token errors
-            const durationText = application.LeaveMode === 'Hourly'
-                ? (application.Hours || 0) + ' hours'
-                : ((application.Status === 'Pending' && application.StartDate && application.EndDate) ? calculateBusinessDays(application.StartDate, application.EndDate) : (application.Duration || 0)) + ' business days';
+            document.getElementById('applicationDetailsContent').innerHTML = renderApplicationDetailsContent(application);
 
-            const durationExtra = (application.LeaveMode === 'Hourly' && application.Duration)
-                ? ' (' + application.Duration.toFixed(3) + ' days)'
-                : (application.CalendarDays && application.CalendarDays !== application.Duration ? ' (' + application.CalendarDays + ' calendar days)' : '');
-
-            const periodText = formatDate(application.StartDate) +
-                (application.EndDate && application.StartDate !== application.EndDate ? ' to ' + formatDate(application.EndDate) : '');
-
-            const supervisorHtml = application.Supervisor
-                ? '<div><p class="text-sm text-gray-600">Supervisor</p><p class="font-medium text-gray-900">' + escapeHtml(application.Supervisor) + '</p></div>'
-                : '';
-
-            const processedByHtml = application.ProcessedBy
-                ? '<div><p class="text-sm text-gray-600">Processed By</p><p class="font-medium text-gray-900">' + escapeHtml(application.ProcessedBy) + '</p></div>'
-                : '';
-
-            const commentsHtml = application.Comment
-                ? '<div><p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Reviewer Remarks</p><div class="p-4 bg-blue-50 border border-blue-100 rounded-xl"><p class="text-gray-900 text-sm">' + escapeHtml(application.Comment) + '</p>' + (application.ProcessedDate ? '<p class="text-xs text-gray-500 mt-2">' + formatDate(application.ProcessedDate) + '</p>' : '') + '</div></div>'
-                : '';
-
-            const detailsHTML = `
-    <div class="space-y-6">
-      <!-- Staff Info -->
-      <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-        <div class="flex items-center">
-          <div class="h-12 w-12 rounded-full bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center text-white font-bold text-lg mr-4">
-            ${application.Name ? application.Name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) : 'AP'}
-          </div>
-          <div>
-            <h4 class="font-bold text-gray-900">${escapeHtml(application.Name || 'Unknown')}</h4>
-            <p class="text-sm text-gray-600">${escapeHtml(application.Department || 'No Department')}</p>
-          </div>
-        </div>
-        <div class="text-right">
-          <span class="status-badge ${(application.Status || 'pending').toLowerCase()} px-3 py-1 rounded-full text-xs font-medium">
-            ${escapeHtml(application.Status || 'Pending')}
-          </span>
-          <p class="text-xs text-gray-500 mt-1">Applied: ${formatDate(application.DateApplied)}</p>
-        </div>
-      </div>
-      
-      <!-- Leave Details -->
-      <div class="grid grid-cols-2 gap-4">
-        <div class="space-y-4">
-          <div>
-            <p class="text-sm text-gray-600">Leave Type</p>
-            <p class="font-medium text-gray-900">${escapeHtml(application.LeaveType || 'Not specified')}</p>
-          </div>
-          <div>
-            <p class="text-sm text-gray-600">Duration</p>
-            <p class="font-medium text-gray-900">${durationText}${durationExtra}</p>
-            ${renderApplicationHolidaysBadge(application)}
-          </div>
-        </div>
-        
-        <div class="space-y-4">
-          <div>
-            <p class="text-sm text-gray-600">Period</p>
-            <p class="font-medium text-gray-900">${periodText}</p>
-          </div>
-          ${supervisorHtml}
-          ${processedByHtml}
-        </div>
-      </div>
-      
-      <!-- Reason -->
-      <div>
-        <p class="text-sm text-gray-600 mb-2">Reason</p>
-        <div class="p-4 bg-gray-50 rounded-lg">
-          <p class="text-gray-900">${escapeHtml(application.Reason || 'No reason provided')}</p>
-        </div>
-      </div>
-
-      <!-- Handover Nomination & Tasks Checklist -->
-      ${renderApplicationHandover(application)}
-
-      <!-- Gmail Out-of-Office Vacation Responder Preview -->
-      ${renderApplicationGmailSync(application)}
-
-      <!-- Supporting Attachment -->
-      ${renderApplicationAttachment(application)}
-      
-      <!-- Deductions -->
-      ${renderApplicationDeductions(application)}
-
-      <!-- Status Progression Timeline -->
-      <div class="p-4 bg-gray-50 border border-gray-100 rounded-xl">
-        <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Status Progression</p>
-        <div class="timeline-track text-xs">
-          <div class="timeline-node completed">
-            <p class="font-semibold text-gray-900">Application Submitted</p>
-            <p class="text-gray-500">${formatDate(application.DateApplied)}</p>
-          </div>
-          ${renderApplicationTimeline(application)}
-        </div>
-      </div>
-      
-      <!-- Comments -->
-      ${commentsHtml}
-    </div>
-  `;
-
-            document.getElementById('applicationDetailsContent').innerHTML = detailsHTML;
-
-            // Set up action buttons if user can take action
-            const actionButtons = document.getElementById('applicationActionButtons');
-            const printBtnHtml = application.Status === 'Approved'
-                ? `<button class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 flex items-center gap-1.5 shadow-sm" id="printLeaveSlipBtn"><i class="fas fa-print"></i> Print Slip</button>`
-                : '';
-            
             const endInput = application.EndDate || application.StartDate || application.HourlyDate;
             const leaveEnd = parseLocalDate(endInput);
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             if (leaveEnd) leaveEnd.setHours(0, 0, 0, 0);
             const isConcluded = application.Status === 'Approved' && leaveEnd && today > leaveEnd;
-            const amendBtnHtml = (application.Status === 'Approved' && application.LeaveMode !== 'Hourly' && !isConcluded)
-                ? `<button type="button" class="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 flex items-center gap-1.5 shadow-sm" onclick="openAmendLeaveModal('${appId}')"><i class="fas fa-calendar-alt"></i> Amend / Early Return</button>`
-                : '';
 
-            if (canTakeAction) {
+            // Set up action buttons
+            const actionButtons = document.getElementById('applicationActionButtons');
+            const buttonsHtml = renderApplicationModalActionButtons(application, canTakeAction, isTeamView, appId, isConcluded);
+
+            if (buttonsHtml) {
                 actionButtons.classList.remove('hidden');
-                actionButtons.innerHTML = `
-      ${printBtnHtml}
-      ${amendBtnHtml}
-      <button class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50" id="cancelActionBtn">Close</button>
-      <button class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 decline-action-btn" data-id="${appId}">Decline</button>
-      <button class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 approve-action-btn" data-id="${appId}">Approve</button>
-    `;
+                actionButtons.innerHTML = buttonsHtml;
 
-                // Add event listeners for action buttons
                 document.getElementById('cancelActionBtn')?.addEventListener('click', () => {
                     document.getElementById('applicationDetailsModal').classList.add('hidden');
                 });
@@ -9940,43 +9959,14 @@
                     const id = e.target.getAttribute('data-id');
                     processApplicationDecision(id, 'approve', true);
                 });
-            } else if (!isTeamView && (application.Status === 'Pending' || application.Status === 'Approved')) {
-                actionButtons.classList.remove('hidden');
-                if (isConcluded) {
-                    actionButtons.innerHTML = `
-                      <span class="text-xs text-gray-500 italic mr-auto flex items-center gap-1.5"><i class="fas fa-info-circle text-amber-500"></i> Leave concluded &mdash; not eligible for cancellation</span>
-                      ${printBtnHtml}
-                      <button class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50" id="cancelActionBtn">Close</button>
-                    `;
-                } else {
-                    actionButtons.innerHTML = `
-                      ${printBtnHtml}
-                      ${amendBtnHtml}
-                      <button class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50" id="cancelActionBtn">Close</button>
-                      <button class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 modal-cancel-btn" data-id="${appId}">Cancel Application</button>
-                    `;
-                }
-
-                document.getElementById('cancelActionBtn')?.addEventListener('click', () => {
-                    document.getElementById('applicationDetailsModal').classList.add('hidden');
-                });
 
                 document.querySelector('.modal-cancel-btn')?.addEventListener('click', (e) => {
                     const id = e.target.getAttribute('data-id');
                     cancelApplication(id);
                 });
-            } else if (application.Status === 'Approved') {
-                actionButtons.classList.remove('hidden');
-                actionButtons.innerHTML = `
-                  ${printBtnHtml}
-                  ${amendBtnHtml}
-                  <button class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50" id="cancelActionBtn">Close</button>
-                `;
-                document.getElementById('cancelActionBtn')?.addEventListener('click', () => {
-                    document.getElementById('applicationDetailsModal').classList.add('hidden');
-                });
             } else {
                 actionButtons.classList.add('hidden');
+                actionButtons.innerHTML = '';
             }
 
             document.getElementById('printLeaveSlipBtn')?.addEventListener('click', () => {
