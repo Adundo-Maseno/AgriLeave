@@ -3572,12 +3572,7 @@
                             ? ` (${app.CalendarDays} cal days)`
                             : ''
                     }
-                      ${(() => {
-                          if (app.LeaveMode === 'Hourly' || !app.StartDate || !app.EndDate) return '';
-                          const hols = getHolidaysInRange(app.StartDate, app.EndDate).filter(h => !h.isWeekend);
-                          if (hols.length === 0) return '';
-                          return `<br><span class="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded font-medium mt-1" title="Excludes: ${escapeHtml(hols.map(h => h.name).join(', '))}"><i class="fas fa-calendar-check text-[10px]"></i> ${hols.length} holiday${hols.length > 1 ? 's' : ''} excl.</span>`;
-                      })()}
+                      ${renderLeaveRowHolidayBadge(app)}
                     </td>
                     <td class="px-4 py-4 whitespace-nowrap">
                       <span class="status-badge ${(app.Status || 'pending').toLowerCase()} px-3 py-1 rounded-full text-xs font-medium">${app.Status || 'Pending'}</span>
@@ -4362,12 +4357,7 @@
                             ? ` (${app.CalendarDays} cal days)`
                             : ''
                     }
-                      ${(() => {
-                          if (app.LeaveMode === 'Hourly' || !app.StartDate || !app.EndDate) return '';
-                          const hols = getHolidaysInRange(app.StartDate, app.EndDate).filter(h => !h.isWeekend);
-                          if (hols.length === 0) return '';
-                          return `<br><span class="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded font-medium mt-1" title="Excludes: ${escapeHtml(hols.map(h => h.name).join(', '))}"><i class="fas fa-calendar-check text-[10px]"></i> ${hols.length} holiday${hols.length > 1 ? 's' : ''} excl.</span>`;
-                      })()}
+                      ${renderLeaveRowHolidayBadge(app)}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                       <span class="status-badge ${(app.Status || 'pending').toLowerCase()} px-3 py-1 rounded-full text-xs font-medium">${app.Status || 'Pending'}</span>
@@ -4375,24 +4365,7 @@
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <button class="text-emerald-600 hover:text-emerald-800 font-semibold mr-3 view-application-btn" data-id="${app.ID || ''}">View</button>
-                      ${(() => {
-                          if (app.Status === 'Pending') {
-                              return `<button class="text-red-600 hover:text-red-800 font-semibold cancel-application-btn" data-id="${app.ID || ''}" title="Cancel pending leave">Cancel</button>`;
-                          }
-                          if (app.Status === 'Approved') {
-                              const endInput = app.EndDate || app.StartDate || app.HourlyDate;
-                              const leaveEnd = parseLocalDate(endInput);
-                              const today = new Date();
-                              today.setHours(0, 0, 0, 0);
-                              if (leaveEnd) leaveEnd.setHours(0, 0, 0, 0);
-                              const isConcluded = leaveEnd && today > leaveEnd;
-                              if (isConcluded) {
-                                  return `<span class="text-gray-400 text-xs italic" title="Approved leave concluded and cannot be cancelled">Concluded</span>`;
-                              }
-                              return `<button class="text-red-600 hover:text-red-800 font-semibold cancel-application-btn" data-id="${app.ID || ''}" title="Cancel approved leave and restore balance">Cancel</button>`;
-                          }
-                          return '';
-                      })()}
+                      ${renderLeaveRowCancelButton(app)}
                     </td>
                   </tr>
                   `).join('')}
@@ -9551,6 +9524,226 @@
                 });
         }
         // View application details
+        
+        // Helper renderers for Application Details Modal
+        function renderApplicationHolidaysBadge(application) {
+            if (!application || application.LeaveMode === 'Hourly' || !application.StartDate || !application.EndDate) return '';
+            if (typeof getHolidaysInRange !== 'function') return '';
+            const hols = getHolidaysInRange(application.StartDate, application.EndDate).filter(h => !h.isWeekend);
+            if (!hols || hols.length === 0) return '';
+            return '<p class="mt-1.5 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md p-1.5 inline-flex items-center gap-1.5">' +
+                   '<i class="fas fa-calendar-check text-emerald-600"></i> Excludes public holiday: <strong>' + escapeHtml(hols.map(h => h.name).join(', ')) + '</strong>' +
+                   '</p>';
+        }
+
+        function renderApplicationHandover(application) {
+            if (!application) return '';
+            const colleague = application.HandoverColleagueName || application.HandoverName || application.HandoverColleagueEmail || application.HandoverEmail;
+            if (!colleague) return '';
+
+            const myEmail = ((typeof AppState !== 'undefined' && AppState.currentUser?.email) || '').toLowerCase().trim();
+            const hEmail = (application.HandoverColleagueEmail || application.HandoverEmail || '').toLowerCase().trim();
+            const isHandoverReliever = Boolean(myEmail && hEmail && myEmail === hEmail);
+            const isAdmin = Boolean(typeof AppState !== 'undefined' && AppState.currentUser?.role === 'admin');
+
+            let badgeHtml = '';
+            if (application.HandoverStatus === 'Accepted') {
+                badgeHtml = '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800"><i class="fas fa-check-circle mr-1"></i> Coverage Accepted</span>';
+            } else if (application.HandoverStatus === 'Declined') {
+                badgeHtml = '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800"><i class="fas fa-times-circle mr-1"></i> Coverage Declined</span>';
+            } else {
+                badgeHtml = '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800"><i class="fas fa-clock mr-1"></i> Awaiting Colleague Response</span>';
+            }
+
+            let actionsHtml = '';
+            if ((isHandoverReliever || isAdmin) && application.HandoverStatus !== 'Accepted' && application.HandoverStatus !== 'Declined') {
+                actionsHtml = '<div class="flex items-center gap-1.5">' +
+                              '<button type="button" onclick="handleHandoverResponse(\'' + escapeHtml(application.ID) + '\', \'accept\')" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1">' +
+                              '<i class="fas fa-check text-[10px]"></i> Accept' +
+                              '</button>' +
+                              '<button type="button" onclick="handleHandoverResponse(\'' + escapeHtml(application.ID) + '\', \'decline\')" class="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg text-xs font-semibold transition-all flex items-center gap-1">' +
+                              '<i class="fas fa-times text-[10px]"></i> Decline' +
+                              '</button>' +
+                              '</div>';
+            }
+
+            let notesHtml = '';
+            if (application.HandoverNotes) {
+                notesHtml = '<p class="text-xs text-gray-700 bg-white/80 p-2.5 rounded-lg border border-emerald-100 italic">"' + escapeHtml(application.HandoverNotes) + '"</p>';
+            }
+
+            let tasksHtml = '';
+            if (Array.isArray(application.HandoverTasks) && application.HandoverTasks.length > 0) {
+                const taskItems = application.HandoverTasks.map(t => {
+                    const isDone = Boolean(t.completed);
+                    const lineClass = isDone ? 'line-through text-gray-400' : 'font-medium';
+                    const checkedAttr = isDone ? 'checked' : '';
+                    const doneBadge = isDone ? '<span class="ml-auto text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded">Done</span>' : '';
+                    return '<label class="flex items-start gap-2.5 p-2 rounded-lg bg-white/90 border border-emerald-100 text-xs text-gray-800 cursor-pointer hover:bg-emerald-50/50 transition-colors">' +
+                           '<input type="checkbox" ' + checkedAttr + ' onchange="handleToggleHandoverTask(\'' + escapeHtml(application.ID) + '\', \'' + escapeHtml(t.id || '') + '\', this.checked)" class="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500">' +
+                           '<span class="' + lineClass + '">' + escapeHtml(t.text || t.title || '') + '</span>' +
+                           doneBadge +
+                           '</label>';
+                }).join('');
+
+                tasksHtml = '<div class="pt-2 border-t border-emerald-100/80">' +
+                            '<p class="text-[11px] font-semibold text-emerald-900 mb-1.5 flex items-center gap-1.5">' +
+                            '<i class="fas fa-tasks text-emerald-600"></i> Coverage Tasks Checklist:' +
+                            '</p>' +
+                            '<div class="space-y-1.5">' + taskItems + '</div>' +
+                            '</div>';
+            }
+
+            const emailSub = (application.HandoverColleagueEmail || application.HandoverEmail) 
+                ? '<span class="text-xs text-gray-500">(' + escapeHtml(application.HandoverColleagueEmail || application.HandoverEmail) + ')</span>' 
+                : '';
+
+            return '<div>' +
+                   '<div class="flex items-center justify-between mb-2">' +
+                   '<p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Handover Nomination</p>' +
+                   '<div>' + badgeHtml + '</div>' +
+                   '</div>' +
+                   '<div class="p-4 bg-emerald-50/70 border border-emerald-100 rounded-xl space-y-3">' +
+                   '<div class="flex items-center justify-between">' +
+                   '<div class="flex items-center gap-2">' +
+                   '<i class="fas fa-user-friends text-emerald-600"></i>' +
+                   '<span class="font-bold text-gray-900 text-sm">' + escapeHtml(colleague) + '</span>' +
+                   emailSub +
+                   '</div>' +
+                   actionsHtml +
+                   '</div>' +
+                   notesHtml +
+                   tasksHtml +
+                   '</div>' +
+                   '</div>';
+        }
+
+        function renderApplicationGmailSync(application) {
+            if (!application || application.Status !== 'Approved') return '';
+            return '<div>' +
+                   '<p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Gmail Out-of-Office Sync</p>' +
+                   '<div class="p-3.5 bg-blue-50/70 border border-blue-200 rounded-xl flex items-center justify-between">' +
+                   '<div class="flex items-center gap-3">' +
+                   '<div class="h-9 w-9 rounded-lg bg-blue-600 text-white flex items-center justify-center text-sm shadow-sm">' +
+                   '<i class="fas fa-envelope-open-text"></i>' +
+                   '</div>' +
+                   '<div>' +
+                   '<p class="text-xs font-bold text-gray-900">Gmail Vacation Responder</p>' +
+                   '<p class="text-[11px] text-gray-600">Auto-synced with approved dates & coverage contact</p>' +
+                   '</div>' +
+                   '</div>' +
+                   '<button type="button" onclick="previewVacationResponder(\'' + escapeHtml(application.ID) + '\')" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm">' +
+                   '<i class="fas fa-eye text-[10px]"></i> Preview Auto-Reply' +
+                   '</button>' +
+                   '</div>' +
+                   '</div>';
+        }
+
+        function renderApplicationAttachment(application) {
+            if (!application || !application.AttachmentUrl) return '';
+            return '<div>' +
+                   '<p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Supporting Attachment</p>' +
+                   '<div class="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-xl flex items-center justify-between">' +
+                   '<div class="flex items-center gap-3">' +
+                   '<div class="h-10 w-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-base shadow-sm">' +
+                   '<i class="fas fa-file-pdf"></i>' +
+                   '</div>' +
+                   '<div>' +
+                   '<p class="text-xs font-bold text-gray-900">' + escapeHtml(application.AttachmentName || 'Supporting Document') + '</p>' +
+                   '<p class="text-[11px] text-gray-500">Stored securely in Google Drive</p>' +
+                   '</div>' +
+                   '</div>' +
+                   '<a href="' + escapeHtml(application.AttachmentUrl) + '" target="_blank" rel="noopener noreferrer" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm">' +
+                   '<i class="fas fa-external-link-alt text-[10px]"></i> View Document' +
+                   '</a>' +
+                   '</div>' +
+                   '</div>';
+        }
+
+        function renderApplicationDeductions(application) {
+            if (!application) return '';
+            const hasDeductions = (application.DeductFromAnnual > 0 || application.DeductFromBroughtForward > 0 || application.DeductFromSick > 0 || application.DeductFromCompensation > 0);
+            if (!hasDeductions) return '';
+
+            let cards = '';
+            if (application.DeductFromCompensation > 0) {
+                cards += '<div class="p-3.5 bg-indigo-50 border border-indigo-100 rounded-xl">' +
+                         '<div class="flex items-center justify-between">' +
+                         '<p class="text-xs text-indigo-700 font-semibold uppercase tracking-wider">Compensation</p>' +
+                         '<i class="fas fa-star text-indigo-400 text-xs"></i>' +
+                         '</div>' +
+                         '<p class="text-xl font-bold text-indigo-900 mt-1">' + application.DeductFromCompensation + ' days</p>' +
+                         '</div>';
+            }
+            if (application.DeductFromBroughtForward > 0) {
+                cards += '<div class="p-3.5 bg-amber-50 border border-amber-100 rounded-xl">' +
+                         '<p class="text-xs text-amber-700 font-semibold uppercase tracking-wider">Brought Fwd</p>' +
+                         '<p class="text-xl font-bold text-amber-900 mt-1">' + application.DeductFromBroughtForward + ' days</p>' +
+                         '</div>';
+            }
+            if (application.DeductFromAnnual > 0) {
+                cards += '<div class="p-3.5 bg-emerald-50 border border-emerald-100 rounded-xl">' +
+                         '<p class="text-xs text-emerald-700 font-semibold uppercase tracking-wider">Annual Leave</p>' +
+                         '<p class="text-xl font-bold text-emerald-900 mt-1">' + application.DeductFromAnnual + ' days</p>' +
+                         '</div>';
+            }
+            if (application.DeductFromSick > 0) {
+                cards += '<div class="p-3.5 bg-blue-50 border border-blue-100 rounded-xl">' +
+                         '<p class="text-xs text-blue-700 font-semibold uppercase tracking-wider">Sick Leave</p>' +
+                         '<p class="text-xl font-bold text-blue-900 mt-1">' + application.DeductFromSick + ' days</p>' +
+                         '</div>';
+            }
+
+            return '<div>' +
+                   '<p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Leave Deductions Breakdown</p>' +
+                   '<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">' + cards + '</div>' +
+                   '</div>';
+        }
+
+        function renderApplicationTimeline(application) {
+            if (!application) return '';
+            const isSpecialized = ['Study Leave', 'Maternity Leave', 'Paternity Leave'].includes(application.LeaveType);
+            const isDual = Boolean(application.RequiresDualApproval || (application.Duration > 5) || isSpecialized);
+
+            if (!isDual) {
+                const nodeClass = application.Status === 'Pending' ? 'current' : application.Status === 'Approved' ? 'completed' : application.Status === 'Declined' ? 'declined' : 'completed';
+                const reviewerText = application.ProcessedBy
+                    ? 'Processed by ' + escapeHtml(application.ProcessedBy) + (application.ProcessedDate ? ' on ' + formatDate(application.ProcessedDate) : '')
+                    : 'Supervisor: ' + escapeHtml(application.Supervisor || 'Pending Assignment');
+
+                return '<div class="timeline-node ' + nodeClass + '">' +
+                       '<p class="font-semibold text-gray-900">' + (application.Status === 'Pending' ? 'Awaiting Review' : 'Status: ' + escapeHtml(application.Status)) + '</p>' +
+                       '<p class="text-gray-500">' + reviewerText + '</p>' +
+                       '</div>';
+            } else {
+                const supCompleted = Boolean(application.SupervisorApproval || application.ApprovalStage === 'pending_hr' || application.Status === 'Approved');
+                const supDeclined = application.Status === 'Declined' && !application.SupervisorApproval;
+                const supClass = supCompleted ? 'completed' : supDeclined ? 'declined' : 'current';
+
+                const hrCompleted = application.Status === 'Approved';
+                const hrCurrent = application.ApprovalStage === 'pending_hr';
+                const hrDeclined = application.Status === 'Declined' && application.SupervisorApproval;
+                const hrClass = hrCompleted ? 'completed' : hrCurrent ? 'current' : hrDeclined ? 'declined' : '';
+
+                const supText = application.SupervisorApproval
+                    ? 'Endorsed by ' + escapeHtml(application.SupervisorApproval.approvedBy || '')
+                    : (application.Supervisor ? 'Supervisor: ' + escapeHtml(application.Supervisor) : 'Pending Review');
+
+                const hrText = hrCompleted
+                    ? (application.HRApproval ? 'Endorsed by ' + escapeHtml(application.HRApproval.approvedBy || '') : 'Final approval granted')
+                    : (hrCurrent ? 'Pending final HR sign-off (> 5 days / specialized leave)' : 'Required for extended leaves');
+
+                return '<div class="timeline-node ' + supClass + '">' +
+                       '<p class="font-semibold text-gray-900">' + (supCompleted ? 'Tier 1: Supervisor Endorsed' : supDeclined ? 'Tier 1: Supervisor Declined' : 'Tier 1: Supervisor Review') + '</p>' +
+                       '<p class="text-gray-500">' + supText + '</p>' +
+                       '</div>' +
+                       '<div class="timeline-node ' + hrClass + '">' +
+                       '<p class="font-semibold text-gray-900">' + (hrCompleted ? 'Tier 2: HR Approved' : hrCurrent ? 'Tier 2: Awaiting HR Sign-Off' : hrDeclined ? 'Tier 2: Declined by HR' : 'Tier 2: HR Endorsement') + '</p>' +
+                       '<p class="text-gray-500">' + hrText + '</p>' +
+                       '</div>';
+            }
+        }
+
         async function viewApplicationDetails(appId, isTeamView = false) {
             console.log('Viewing application:', appId, 'isTeamView:', isTeamView);
 
@@ -9608,52 +9801,41 @@
             ${application.Name ? application.Name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) : 'AP'}
           </div>
           <div>
-            <h4 class="font-bold text-gray-900">${application.Name || 'Unknown'}</h4>
-            <p class="text-sm text-gray-600">${application.Department || 'No Department'} • ${application.Role || 'Staff'}</p>
+            <h4 class="font-bold text-gray-900">${escapeHtml(application.Name || 'Unknown')}</h4>
+            <p class="text-sm text-gray-600">${escapeHtml(application.Department || 'No Department')}</p>
           </div>
         </div>
         <div class="text-right">
-          <span class="status-badge ${(application.Status || 'pending').toLowerCase()} px-3 py-2 rounded-full text-sm font-medium">
-            ${application.Status || 'Pending'}
+          <span class="status-badge ${(application.Status || 'pending').toLowerCase()} px-3 py-1 rounded-full text-xs font-medium">
+            ${escapeHtml(application.Status || 'Pending')}
           </span>
-          <p class="text-xs text-gray-500 mt-1">${formatDate(application.DateApplied)}</p>
+          <p class="text-xs text-gray-500 mt-1">Applied: ${formatDate(application.DateApplied)}</p>
         </div>
       </div>
       
-      <!-- Application Details Grid -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- Leave Details -->
+      <div class="grid grid-cols-2 gap-4">
         <div class="space-y-4">
           <div>
             <p class="text-sm text-gray-600">Leave Type</p>
-            <p class="font-medium text-gray-900">${application.LeaveType || 'Not specified'}</p>
+            <p class="font-medium text-gray-900">${escapeHtml(application.LeaveType || 'Not specified')}</p>
           </div>
           <div>
-            <p class="text-sm text-gray-600">Leave Mode</p>
-            <p class="font-medium text-gray-900">${application.LeaveMode || 'Daily'}</p>
+            <p class="text-sm text-gray-600">Duration</p>
+            <p class="font-medium text-gray-900">
+              ${application.LeaveMode === 'Hourly'
+                  ? `${application.Hours || 0} hours`
+                  : `${(application.Status === 'Pending' && application.StartDate && application.EndDate) ? calculateBusinessDays(application.StartDate, application.EndDate) : (application.Duration || 0)} business days`
+              }
+              ${application.LeaveMode === 'Hourly' && application.Duration
+                  ? ` (${application.Duration.toFixed(3)} days)`
+                  : application.CalendarDays && application.CalendarDays !== application.Duration
+                      ? ` (${application.CalendarDays} calendar days)`
+                      : ''
+              }
+            </p>
+            ${renderApplicationHolidaysBadge(application)}
           </div>
-          <div>
-              <p class="text-sm text-gray-600">Duration</p>
-              <p class="font-medium text-gray-900">
-                ${application.LeaveMode === 'Hourly'
-                    ? `${application.Hours || 0} hours`
-                    : `${(application.Status === 'Pending' && application.StartDate && application.EndDate) ? calculateBusinessDays(application.StartDate, application.EndDate) : (application.Duration || 0)} business days`
-                }
-                ${application.LeaveMode === 'Hourly' && application.Duration
-                    ? ` (${application.Duration.toFixed(3)} days)`
-                    : application.CalendarDays && application.CalendarDays !== application.Duration
-                        ? ` (${application.CalendarDays} calendar days)`
-                        : ''
-                }
-              </p>
-              ${(() => {
-                  if (application.LeaveMode === 'Hourly' || !application.StartDate || !application.EndDate) return '';
-                  const hols = getHolidaysInRange(application.StartDate, application.EndDate).filter(h => !h.isWeekend);
-                  if (hols.length === 0) return '';
-                  return `<p class="mt-1.5 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md p-1.5 inline-flex items-center gap-1.5">
-                      <i class="fas fa-calendar-check text-emerald-600"></i> Excludes public holiday: <strong>${escapeHtml(hols.map(h => h.name).join(', '))}</strong>
-                  </p>`;
-              })()}
-            </div>
         </div>
         
         <div class="space-y-4">
@@ -9667,13 +9849,13 @@
           ${application.Supervisor ? `
           <div>
             <p class="text-sm text-gray-600">Supervisor</p>
-            <p class="font-medium text-gray-900">${application.Supervisor}</p>
+            <p class="font-medium text-gray-900">${escapeHtml(application.Supervisor)}</p>
           </div>
           ` : ''}
           ${application.ProcessedBy ? `
           <div>
             <p class="text-sm text-gray-600">Processed By</p>
-            <p class="font-medium text-gray-900">${application.ProcessedBy}</p>
+            <p class="font-medium text-gray-900">${escapeHtml(application.ProcessedBy)}</p>
           </div>
           ` : ''}
         </div>
@@ -9683,149 +9865,21 @@
       <div>
         <p class="text-sm text-gray-600 mb-2">Reason</p>
         <div class="p-4 bg-gray-50 rounded-lg">
-          <p class="text-gray-900">${application.Reason || 'No reason provided'}</p>
+          <p class="text-gray-900">${escapeHtml(application.Reason || 'No reason provided')}</p>
         </div>
       </div>
 
       <!-- Handover Nomination & Tasks Checklist -->
-      ${(application.HandoverColleagueName || application.HandoverColleagueEmail || application.HandoverEmail) ? `
-      <div>
-        <div class="flex items-center justify-between mb-2">
-          <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Handover Nomination</p>
-          <div>
-            ${application.HandoverStatus === 'Accepted'
-              ? '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800"><i class="fas fa-check-circle mr-1"></i> Coverage Accepted</span>'
-              : application.HandoverStatus === 'Declined'
-                ? '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800"><i class="fas fa-times-circle mr-1"></i> Coverage Declined</span>'
-                : '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800"><i class="fas fa-clock mr-1"></i> Awaiting Colleague Response</span>'
-            }
-          </div>
-        </div>
-        <div class="p-4 bg-emerald-50/70 border border-emerald-100 rounded-xl space-y-3">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <i class="fas fa-user-friends text-emerald-600"></i>
-              <span class="font-bold text-gray-900 text-sm">${escapeHtml(application.HandoverColleagueName || application.HandoverName || application.HandoverColleagueEmail || application.HandoverEmail)}</span>
-              ${(application.HandoverColleagueEmail || application.HandoverEmail) ? `<span class="text-xs text-gray-500">(${escapeHtml(application.HandoverColleagueEmail || application.HandoverEmail)})</span>` : ''}
-            </div>
-            ${(() => {
-              const myEmail = (AppState.currentUser?.email || '').toLowerCase().trim();
-              const hEmail = (application.HandoverColleagueEmail || application.HandoverEmail || '').toLowerCase().trim();
-              const isHandoverReliever = myEmail && hEmail && myEmail === hEmail;
-              const isAdmin = AppState.currentUser?.role === 'admin';
-              if ((isHandoverReliever || isAdmin) && application.HandoverStatus !== 'Accepted' && application.HandoverStatus !== 'Declined') {
-                return `
-                  <div class="flex items-center gap-1.5">
-                    <button type="button" onclick="handleHandoverResponse('${application.ID}', 'accept')" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1">
-                      <i class="fas fa-check text-[10px]"></i> Accept
-                    </button>
-                    <button type="button" onclick="handleHandoverResponse('${application.ID}', 'decline')" class="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg text-xs font-semibold transition-all flex items-center gap-1">
-                      <i class="fas fa-times text-[10px]"></i> Decline
-                    </button>
-                  </div>
-                `;
-              }
-              return '';
-            })()}
-          </div>
-          ${application.HandoverNotes ? `<p class="text-xs text-gray-700 bg-white/80 p-2.5 rounded-lg border border-emerald-100 italic">"${escapeHtml(application.HandoverNotes)}"</p>` : ''}
-          ${(Array.isArray(application.HandoverTasks) && application.HandoverTasks.length > 0) ? `
-          <div class="pt-2 border-t border-emerald-100/80">
-            <p class="text-[11px] font-semibold text-emerald-900 mb-1.5 flex items-center gap-1.5">
-              <i class="fas fa-tasks text-emerald-600"></i> Coverage Tasks Checklist:
-            </p>
-            <div class="space-y-1.5">
-              ${application.HandoverTasks.map(t => `
-                <label class="flex items-start gap-2.5 p-2 rounded-lg bg-white/90 border border-emerald-100 text-xs text-gray-800 cursor-pointer hover:bg-emerald-50/50 transition-colors">
-                  <input type="checkbox" ${t.completed ? 'checked' : ''} onchange="handleToggleHandoverTask('${application.ID}', '${t.id}', this.checked)" class="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500">
-                  <span class="${t.completed ? 'line-through text-gray-400' : 'font-medium'}">${escapeHtml(t.text)}</span>
-                  ${t.completed ? `<span class="ml-auto text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded">Done</span>` : ''}
-                </label>
-              `).join('')}
-            </div>
-          </div>
-          ` : ''}
-        </div>
-      </div>
-      ` : ''}
+      ${renderApplicationHandover(application)}
 
       <!-- Gmail Out-of-Office Vacation Responder Preview -->
-      ${application.Status === 'Approved' ? `
-      <div>
-        <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Gmail Out-of-Office Sync</p>
-        <div class="p-3.5 bg-blue-50/70 border border-blue-200 rounded-xl flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <div class="h-9 w-9 rounded-lg bg-blue-600 text-white flex items-center justify-center text-sm shadow-sm">
-              <i class="fas fa-envelope-open-text"></i>
-            </div>
-            <div>
-              <p class="text-xs font-bold text-gray-900">Gmail Vacation Responder</p>
-              <p class="text-[11px] text-gray-600">Auto-synced with approved dates & coverage contact</p>
-            </div>
-          </div>
-          <button type="button" onclick="previewVacationResponder('${application.ID}')" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm">
-            <i class="fas fa-eye text-[10px]"></i> Preview Auto-Reply
-          </button>
-        </div>
-      </div>
-      ` : ''}
+      ${renderApplicationGmailSync(application)}
 
       <!-- Supporting Attachment -->
-      ${application.AttachmentUrl ? `
-      <div>
-        <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Supporting Attachment</p>
-        <div class="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-xl flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <div class="h-10 w-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-base shadow-sm">
-              <i class="fas fa-file-pdf"></i>
-            </div>
-            <div>
-              <p class="text-xs font-bold text-gray-900">${escapeHtml(application.AttachmentName || 'Supporting Document')}</p>
-              <p class="text-[11px] text-gray-500">Stored securely in Google Drive</p>
-            </div>
-          </div>
-          <a href="${application.AttachmentUrl}" target="_blank" rel="noopener noreferrer" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm">
-            <i class="fas fa-external-link-alt text-[10px]"></i> View Document
-          </a>
-        </div>
-      </div>
-      ` : ''}
+      ${renderApplicationAttachment(application)}
       
       <!-- Deductions -->
-      ${application.DeductFromAnnual > 0 || application.DeductFromBroughtForward > 0 || application.DeductFromSick > 0 || application.DeductFromCompensation > 0 ? `
-      <div>
-        <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Leave Deductions Breakdown</p>
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-          ${application.DeductFromCompensation > 0 ? `
-          <div class="p-3.5 bg-indigo-50 border border-indigo-100 rounded-xl">
-            <div class="flex items-center justify-between">
-              <p class="text-xs text-indigo-700 font-semibold uppercase tracking-wider">Compensation</p>
-              <i class="fas fa-star text-indigo-400 text-xs"></i>
-            </div>
-            <p class="text-xl font-bold text-indigo-900 mt-1">${application.DeductFromCompensation} days</p>
-          </div>
-          ` : ''}
-          ${application.DeductFromBroughtForward > 0 ? `
-          <div class="p-3.5 bg-amber-50 border border-amber-100 rounded-xl">
-            <p class="text-xs text-amber-700 font-semibold uppercase tracking-wider">Brought Fwd</p>
-            <p class="text-xl font-bold text-amber-900 mt-1">${application.DeductFromBroughtForward} days</p>
-          </div>
-          ` : ''}
-          ${application.DeductFromAnnual > 0 ? `
-          <div class="p-3.5 bg-emerald-50 border border-emerald-100 rounded-xl">
-            <p class="text-xs text-emerald-700 font-semibold uppercase tracking-wider">Annual Leave</p>
-            <p class="text-xl font-bold text-emerald-900 mt-1">${application.DeductFromAnnual} days</p>
-          </div>
-          ` : ''}
-          ${application.DeductFromSick > 0 ? `
-          <div class="p-3.5 bg-blue-50 border border-blue-100 rounded-xl">
-            <p class="text-xs text-blue-700 font-semibold uppercase tracking-wider">Sick Leave</p>
-            <p class="text-xl font-bold text-blue-900 mt-1">${application.DeductFromSick} days</p>
-          </div>
-          ` : ''}
-        </div>
-      </div>
-      ` : ''}
+      ${renderApplicationDeductions(application)}
 
       <!-- Status Progression Timeline -->
       <div class="p-4 bg-gray-50 border border-gray-100 rounded-xl">
@@ -9835,48 +9889,7 @@
             <p class="font-semibold text-gray-900">Application Submitted</p>
             <p class="text-gray-500">${formatDate(application.DateApplied)}</p>
           </div>
-          ${(() => {
-            const isSpecialized = ['Study Leave', 'Maternity Leave', 'Paternity Leave'].includes(application.LeaveType);
-            const isDual = Boolean(application.RequiresDualApproval || (application.Duration > 5) || isSpecialized);
-            if (!isDual) {
-              const nodeClass = application.Status === 'Pending' ? 'current' : application.Status === 'Approved' ? 'completed' : application.Status === 'Declined' ? 'declined' : 'completed';
-              return `
-                <div class="timeline-node ${nodeClass}">
-                  <p class="font-semibold text-gray-900">${application.Status === 'Pending' ? 'Awaiting Review' : 'Status: ' + application.Status}</p>
-                  <p class="text-gray-500">
-                    ${application.ProcessedBy 
-                      ? `Processed by ${escapeHtml(application.ProcessedBy)}${application.ProcessedDate ? ' on ' + formatDate(application.ProcessedDate) : ''}`
-                      : `Supervisor: ${escapeHtml(application.Supervisor || 'Pending Assignment')}`}
-                  </p>
-                </div>
-              `;
-            } else {
-              // Dual-Tier Approval Timeline
-              const supCompleted = Boolean(application.SupervisorApproval || application.ApprovalStage === 'pending_hr' || application.Status === 'Approved');
-              const supDeclined = application.Status === 'Declined' && !application.SupervisorApproval;
-              const supClass = supCompleted ? 'completed' : supDeclined ? 'declined' : 'current';
-
-              const hrCompleted = application.Status === 'Approved';
-              const hrCurrent = application.ApprovalStage === 'pending_hr';
-              const hrDeclined = application.Status === 'Declined' && application.SupervisorApproval;
-              const hrClass = hrCompleted ? 'completed' : hrCurrent ? 'current' : hrDeclined ? 'declined' : '';
-
-              return `
-                <div class="timeline-node ${supClass}">
-                  <p class="font-semibold text-gray-900">${supCompleted ? 'Tier 1: Supervisor Endorsed' : supDeclined ? 'Tier 1: Supervisor Declined' : 'Tier 1: Supervisor Review'}</p>
-                  <p class="text-gray-500">
-                    ${application.SupervisorApproval ? 'Endorsed by ' + escapeHtml(application.SupervisorApproval.approvedBy) : (application.Supervisor ? 'Supervisor: ' + escapeHtml(application.Supervisor) : 'Pending Review')}
-                  </p>
-                </div>
-                <div class="timeline-node ${hrClass}">
-                  <p class="font-semibold text-gray-900">${hrCompleted ? 'Tier 2: HR Approved' : hrCurrent ? 'Tier 2: Awaiting HR Sign-Off' : hrDeclined ? 'Tier 2: Declined by HR' : 'Tier 2: HR Endorsement'}</p>
-                  <p class="text-gray-500">
-                    ${hrCompleted ? (application.HRApproval ? 'Endorsed by ' + escapeHtml(application.HRApproval.approvedBy) : 'Final approval granted') : hrCurrent ? 'Pending final HR sign-off (> 5 days / specialized leave)' : 'Required for extended leaves'}
-                  </p>
-                </div>
-              `;
-            }
-          })()}
+          ${renderApplicationTimeline(application)}
         </div>
       </div>
       
@@ -12601,7 +12614,7 @@
         window.handleDeleteGazettedHoliday = handleDeleteGazettedHoliday;
         window.handleRecalibrateHoliday = handleRecalibrateHoliday;
         window.handleHREndorsementDecision = handleHREndorsementDecision;
-        window.openVacationResponderModal = openVacationResponderModal;
+        window.openVacationResponderModal = function(appId) { previewVacationResponder(appId); };
         window.closeVacationResponderModal = closeVacationResponderModal;
         window.previewVacationResponder = previewVacationResponder;
         window.openHandoverRequestsModal = openHandoverRequestsModal;
