@@ -3069,7 +3069,7 @@
 
         <!-- Loading Overlay -->
         <div id="loadingOverlay"
-            class="fixed inset-0 bg-white bg-opacity-90 z-50 flex flex-col items-center justify-center hidden">
+            class="fixed inset-0 bg-white bg-opacity-90 z-50 flex flex-col items-center justify-center">
             <div class="loading-spinner w-16 h-16 border-4 border-gray-300 border-t-primary-600 rounded-full mb-4">
             </div>
             <p class="text-lg font-medium text-gray-700">Loading System...</p>
@@ -3121,12 +3121,21 @@
 
             // Utility Functions
             function showLoading(message = 'Loading...') {
-                document.getElementById('loadingOverlay').classList.remove('hidden');
-                document.getElementById('loadingMessage').textContent = message;
+                const overlay = document.getElementById('loadingOverlay');
+                if (overlay) {
+                    overlay.classList.remove('hidden');
+                    overlay.style.display = 'flex';
+                }
+                const msgEl = document.getElementById('loadingMessage');
+                if (msgEl) msgEl.textContent = message;
             }
 
             function hideLoading() {
-                document.getElementById('loadingOverlay').classList.add('hidden');
+                const overlay = document.getElementById('loadingOverlay');
+                if (overlay) {
+                    overlay.classList.add('hidden');
+                    overlay.style.display = 'none';
+                }
             }
 
             function showToast(type, title, message, duration = 5000) {
@@ -3225,8 +3234,9 @@
             });
 
             async function initializeApp() {
-                // SWR Tier: Progressive Hydration from local cache for 0ms perceived load
-                let hasHydratedFromCache = false;
+                showLoading('Initializing application...');
+
+                // Pre-seed in memory from local cache if available for immediate responsiveness
                 try {
                     const cachedRaw = localStorage.getItem('agri_bootstrap_v1');
                     if (cachedRaw) {
@@ -3244,28 +3254,10 @@
                             if (cached.balances) AppState.leaveBalance = cached.balances;
                             if (cached.recentApplications) AppState.applications = cached.recentApplications;
                             if (cached.supervisorQueue) AppState.teamPendingCount = cached.supervisorQueue.count || 0;
-
-                            updateUserInfoUI();
-                            updateUIForUserRole();
-                            updateTeamPendingBadge();
-                            navigateToPage('dashboard');
-
-                            if (cached.balances) {
-                                updateDashboardUI({
-                                    balance: cached.balances,
-                                    applications: cached.recentApplications || [],
-                                    supervisedData: { pendingCount: cached.supervisorQueue ? cached.supervisorQueue.count : 0 }
-                                });
-                            }
-                            hasHydratedFromCache = true;
                         }
                     }
                 } catch (cacheErr) {
                     console.warn('Local cache hydration skipped:', cacheErr);
-                }
-
-                if (!hasHydratedFromCache) {
-                    showLoading('Initializing application...');
                 }
 
                 try {
@@ -3296,17 +3288,18 @@
                         updateUIForUserRole();
                         updateTeamPendingBadge();
 
+                        navigateToPage('dashboard');
+
                         updateDashboardUI({
                             balance: data.balances,
                             applications: data.recentApplications || [],
                             supervisedData: { pendingCount: data.supervisorQueue ? data.supervisorQueue.count : 0 }
                         });
 
-                        if (!hasHydratedFromCache) {
-                            navigateToPage('dashboard');
+                        setTimeout(() => {
                             hideLoading();
                             showToast('success', 'System Loaded', 'Welcome to Agri Experience Leave Management System');
-                        }
+                        }, 400);
                         return;
                     }
 
@@ -3331,9 +3324,7 @@
                 } catch (error) {
                     console.error('Initialization error:', error);
                     hideLoading();
-                    if (!hasHydratedFromCache) {
-                        showToast('error', 'Initialization Failed', 'Unable to load system data. Please refresh the page.');
-                    }
+                    showToast('error', 'Initialization Failed', 'Unable to load system data. Please refresh the page.');
                 }
             }
             // Get current user data
