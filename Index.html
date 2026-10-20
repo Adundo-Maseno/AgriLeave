@@ -2733,9 +2733,92 @@
         });
 
         async function initializeApp() {
-            showLoading('Initializing application...');
+            // SWR Tier: Progressive Hydration from local cache for 0ms perceived load
+            let hasHydratedFromCache = false;
+            try {
+                const cachedRaw = localStorage.getItem('agri_bootstrap_v1');
+                if (cachedRaw) {
+                    const cached = JSON.parse(cachedRaw);
+                    if (cached && cached.user) {
+                        AppState.currentUser = {
+                            email: cached.user.Email,
+                            name: cached.user.Name,
+                            role: cached.user.Role,
+                            department: cached.user.Department,
+                            supervisor: cached.user.Supervisor,
+                            exists: true
+                        };
+                        AppState.userRole = cached.user.Role || cached.permissions?.role || 'staff';
+                        if (cached.balances) AppState.leaveBalance = cached.balances;
+                        if (cached.recentApplications) AppState.applications = cached.recentApplications;
+                        if (cached.supervisorQueue) AppState.teamPendingCount = cached.supervisorQueue.count || 0;
+
+                        updateUserInfoUI();
+                        updateUIForUserRole();
+                        updateTeamPendingBadge();
+                        navigateToPage('dashboard');
+
+                        if (cached.balances) {
+                            updateDashboardUI({
+                                balance: cached.balances,
+                                applications: cached.recentApplications || [],
+                                supervisedData: { pendingCount: cached.supervisorQueue ? cached.supervisorQueue.count : 0 }
+                            });
+                        }
+                        hasHydratedFromCache = true;
+                    }
+                }
+            } catch (cacheErr) {
+                console.warn('Local cache hydration skipped:', cacheErr);
+            }
+
+            if (!hasHydratedFromCache) {
+                showLoading('Initializing application...');
+            }
 
             try {
+                // Revalidate with unified single-roundtrip bootstrap API
+                const bootstrapRes = await callGoogleScriptFunction('apiGetBootstrapData');
+                if (bootstrapRes && bootstrapRes.success && bootstrapRes.data) {
+                    const data = bootstrapRes.data;
+                    try {
+                        localStorage.setItem('agri_bootstrap_v1', JSON.stringify(data));
+                    } catch (e) {}
+
+                    AppState.currentUser = {
+                        email: data.user.Email,
+                        name: data.user.Name,
+                        role: data.user.Role,
+                        department: data.user.Department,
+                        supervisor: data.user.Supervisor,
+                        exists: true
+                    };
+                    AppState.userRole = data.permissions.role;
+                    AppState.leaveBalance = data.balances;
+                    AppState.applications = data.recentApplications || [];
+                    if (data.supervisorQueue) {
+                        AppState.teamPendingCount = data.supervisorQueue.count || 0;
+                    }
+
+                    updateUserInfoUI();
+                    updateUIForUserRole();
+                    updateTeamPendingBadge();
+
+                    updateDashboardUI({
+                        balance: data.balances,
+                        applications: data.recentApplications || [],
+                        supervisedData: { pendingCount: data.supervisorQueue ? data.supervisorQueue.count : 0 }
+                    });
+
+                    if (!hasHydratedFromCache) {
+                        navigateToPage('dashboard');
+                        hideLoading();
+                        showToast('success', 'System Loaded', 'Welcome to Agri Experience Leave Management System');
+                    }
+                    return;
+                }
+
+                // Fallback to individual API loading
                 await getCurrentUser();
                 const dashboardData = await loadDashboardData();
 
@@ -2744,21 +2827,21 @@
                 }
 
                 updateUIForUserRole();
-                updateTeamPendingBadge(); // ensure badge reflects pending count after role UI is set
+                updateTeamPendingBadge();
 
-                // Navigate to dashboard — this shows the panel, sets active nav state,
-                // and calls loadPageContent('dashboard') to populate it
                 navigateToPage('dashboard');
 
                 setTimeout(() => {
                     hideLoading();
                     showToast('success', 'System Loaded', 'Welcome to Agri Experience Leave Management System');
-                }, 1000);
+                }, 500);
 
             } catch (error) {
                 console.error('Initialization error:', error);
                 hideLoading();
-                showToast('error', 'Initialization Failed', 'Unable to load system data. Please refresh the page.');
+                if (!hasHydratedFromCache) {
+                    showToast('error', 'Initialization Failed', 'Unable to load system data. Please refresh the page.');
+                }
             }
         }
         // Get current user data
@@ -2778,7 +2861,6 @@
                     // If system admin, show a subtle indicator
                     if (isSystemAdmin) {
                         console.log('System administrator account (not eligible for leave)');
-                        // You could add a small badge in the UI if desired
                     }
 
                     return result.data;
@@ -2802,6 +2884,30 @@
         // Load dashboard data
         async function loadDashboardData() {
             try {
+                // Try bootstrap API first for unified roundtrip
+                const bResult = await callGoogleScriptFunction('apiGetBootstrapData');
+                if (bResult && bResult.success && bResult.data) {
+                    const data = bResult.data;
+                    try {
+                        localStorage.setItem('agri_bootstrap_v1', JSON.stringify(data));
+                    } catch (e) {}
+
+                    AppState.leaveBalance = data.balances;
+                    AppState.applications = data.recentApplications || [];
+                    if (data.supervisorQueue && (AppState.userRole === 'supervisor' || AppState.userRole === 'admin')) {
+                        AppState.teamPendingCount = data.supervisorQueue.count || 0;
+                        updateTeamPendingBadge();
+                    }
+                    const dashPayload = {
+                        balance: data.balances,
+                        applications: data.recentApplications || [],
+                        supervisedData: { pendingCount: data.supervisorQueue ? data.supervisorQueue.count : 0 }
+                    };
+                    updateDashboardUI(dashPayload);
+                    return dashPayload;
+                }
+
+                // Fallback to legacy dashboard endpoint
                 const result = await callGoogleScriptFunction('apiGetDashboardData');
 
                 if (result.success) {
@@ -2812,13 +2918,8 @@
                     // Seed team pending badge from supervisedData without a separate API call
                     const supervisedData = result.data.supervisedData;
                     if (supervisedData && (AppState.userRole === 'supervisor' || AppState.userRole === 'admin')) {
-                        // Store the pending count directly so the badge shows on first load
-                        // without needing a separate API call. The actual app objects are
-                        // loaded when the user visits Team Applications page.
                         AppState.teamPendingCount = supervisedData.pendingCount || 0;
-                        // Only pre-seed teamApplications if it hasn't been populated yet
                         if (!AppState.teamApplications || AppState.teamApplications.length === 0) {
-                            // Use a sentinel array of the right length so badge math works
                             AppState.teamApplications = Array.from(
                                 { length: AppState.teamPendingCount },
                                 () => ({ Status: 'Pending' })
@@ -9830,6 +9931,9 @@
                         <button onclick="triggerDataExport('leave_liability')" class="px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5">
                             <i class="fas fa-clipboard-list text-purple-600"></i> Unconsumed Days CSV
                         </button>
+                        <button onclick="triggerSheetsDatabaseSync()" class="px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5">
+                            <i class="fas fa-file-excel text-emerald-600"></i> Sync Sheets Master
+                        </button>
                         <button onclick="triggerManualHeartbeat()" class="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5">
                             <i class="fas fa-heartbeat"></i> Run Heartbeat
                         </button>
@@ -10030,6 +10134,30 @@
                 html += '<div class="text-xs text-gray-400 py-3 text-center"><i class="fas fa-spinner fa-spin mr-1"></i> Loading gazetted holidays...</div>';
                 html += '</div></div>';
 
+                // ── Master Google Sheets Dual-Store & Live Mirror Card ────────
+                html += '<div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-emerald-200/90 p-6 mt-8">';
+                html += '<div class="flex flex-wrap items-center justify-between gap-4 mb-4">';
+                html += '<div><h3 class="text-lg font-bold text-gray-900 flex items-center gap-2"><i class="fas fa-file-excel text-emerald-600"></i> Master Google Sheets Dual-Store & Live Mirror</h3>';
+                html += '<p class="text-xs text-gray-500 mt-0.5">Auto-generated directly inside the system project folder (<code class="bg-gray-100 px-1 py-0.5 rounded text-gray-700">Agri Experience Leave System</code>) alongside JSON files with real-time mirror tabs.</p></div>';
+                html += '<span class="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-xs font-bold flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span> Live Mirror Active</span>';
+                html += '</div>';
+
+                html += '<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">';
+                html += '<div class="p-3.5 bg-blue-50/50 border border-blue-100 rounded-xl"><div class="text-xs font-semibold text-blue-700 mb-1 flex items-center gap-1.5"><i class="fas fa-file-alt"></i> Tab: Applications</div><div class="text-xs text-gray-600">All leave filings, dates, approvals & handover coverage</div></div>';
+                html += '<div class="p-3.5 bg-emerald-50/50 border border-emerald-100 rounded-xl"><div class="text-xs font-semibold text-emerald-700 mb-1 flex items-center gap-1.5"><i class="fas fa-wallet"></i> Tab: Staff_Balances</div><div class="text-xs text-gray-600">Live annual, brought-forward, comp & sick entitlements</div></div>';
+                html += '<div class="p-3.5 bg-amber-50/50 border border-amber-100 rounded-xl"><div class="text-xs font-semibold text-amber-700 mb-1 flex items-center gap-1.5"><i class="fas fa-flag"></i> Tab: Gazetted_Holidays</div><div class="text-xs text-gray-600">State holidays & retroactive leave day refunds</div></div>';
+                html += '<div class="p-3.5 bg-purple-50/50 border border-purple-100 rounded-xl"><div class="text-xs font-semibold text-purple-700 mb-1 flex items-center gap-1.5"><i class="fas fa-history"></i> Tab: Audit_Log</div><div class="text-xs text-gray-600">System changes, resets & transactional records</div></div>';
+                html += '</div>';
+
+                html += '<div class="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-gray-100">';
+                html += '<div class="text-xs text-gray-500 flex items-center gap-2"><i class="fas fa-folder text-emerald-600"></i> Folder: Agri Experience Leave System &bull; AgriLeave Master Database & Mirror</div>';
+                html += '<div class="flex flex-wrap items-center gap-2">';
+                html += '<button type="button" onclick="openMasterSpreadsheet()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5"><i class="fas fa-external-link-alt text-[10px]"></i> Open Google Sheet</button>';
+                html += '<button type="button" onclick="triggerSheetsDatabaseSync()" class="px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5"><i class="fas fa-sync-alt text-emerald-600 text-[10px]"></i> Sync All to Sheets</button>';
+                html += '<button type="button" onclick="triggerRestoreFromSheets()" class="px-3.5 py-2 bg-amber-50 border border-amber-200 hover:bg-amber-100 text-amber-800 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5"><i class="fas fa-undo text-amber-600 text-[10px]"></i> Restore from Sheets</button>';
+                html += '<button type="button" onclick="triggerColdStorageArchive()" class="px-3.5 py-2 bg-gray-50 border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5"><i class="fas fa-archive text-gray-600 text-[10px]"></i> Archive Closed Leaves</button>';
+                html += '</div></div></div>';
+
                 pageElement.innerHTML = html;
                 renderBlackoutPeriodsList('blackoutPeriodsList');
                 renderGazettedHolidaysList('gazettedHolidaysListContainer');
@@ -10038,6 +10166,78 @@
                 hideLoading();
                 console.error('HR dashboard error:', error);
                 showToast('error', 'HR Dashboard Failed', error.message);
+            }
+        }
+
+        async function openMasterSpreadsheet() {
+            showLoading('Locating Master Google Sheet in project folder...');
+            try {
+                const res = await callGoogleScriptFunction('apiGetSheetsStatus');
+                hideLoading();
+                if (res.success && res.data && res.data.url) {
+                    window.open(res.data.url, '_blank');
+                } else {
+                    showToast('error', 'Spreadsheet Not Found', res.error || 'Unable to locate Master Google Sheet in project folder');
+                }
+            } catch (err) {
+                hideLoading();
+                showToast('error', 'Error', err.message);
+            }
+        }
+
+        async function triggerSheetsDatabaseSync() {
+            showLoading('Syncing Master Google Sheets database in project folder...');
+            try {
+                const res = await callGoogleScriptFunction('apiSyncSheetsDatabase');
+                hideLoading();
+                if (res.success) {
+                    showToast('success', 'Sheets Mirror Synchronized', 'All tabs (Applications, Staff_Balances, Gazetted_Holidays, Audit_Log) updated successfully.');
+                } else {
+                    showToast('error', 'Sync Failed', res.error || 'Could not sync with Google Sheets');
+                }
+            } catch (err) {
+                hideLoading();
+                showToast('error', 'Sync Error', err.message);
+            }
+        }
+
+        async function triggerRestoreFromSheets() {
+            const confirmed = confirm('⚠️ DISASTER RECOVERY: Are you sure you want to restore the system JSON database from the Google Sheets Master mirror?\n\nThis will re-import applications and records directly from the Google Spreadsheet in your project folder.');
+            if (!confirmed) return;
+
+            showLoading('Restoring database from Google Sheets mirror...');
+            try {
+                const res = await callGoogleScriptFunction('apiRestoreFromSheets', { source: 'sheets' });
+                hideLoading();
+                if (res.success) {
+                    showToast('success', 'Database Restored', res.message || 'Data restored from Google Sheets mirror');
+                    loadHRDashboardPage();
+                } else {
+                    showToast('error', 'Restore Failed', res.error || 'Failed to restore from Sheets');
+                }
+            } catch (err) {
+                hideLoading();
+                showToast('error', 'Restore Error', err.message);
+            }
+        }
+
+        async function triggerColdStorageArchive() {
+            const confirmed = confirm('📦 HISTORICAL ARCHIVE: Archive closed applications (Approved, Declined, Cancelled) from prior calendar years into cold storage?\n\nThis keeps active database files and daily operations lightweight and fast.');
+            if (!confirmed) return;
+
+            showLoading('Partitioning closed applications to cold storage archive...');
+            try {
+                const res = await callGoogleScriptFunction('apiArchiveOldApplications');
+                hideLoading();
+                if (res.success) {
+                    showToast('success', 'Archive Complete', res.message || 'Closed past-year applications archived');
+                    loadHRDashboardPage();
+                } else {
+                    showToast('error', 'Archive Failed', res.error || 'Failed to archive applications');
+                }
+            } catch (err) {
+                hideLoading();
+                showToast('error', 'Archive Error', err.message);
             }
         }
 

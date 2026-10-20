@@ -60,12 +60,23 @@ const SYSTEM = {
     DATA_FILES: {
         STAFF: 'staff_data.json',
         APPLICATIONS: 'leave_applications.json',
+        ARCHIVE: 'leave_applications_archive.json',
         SETTINGS: 'system_settings.json',
         LOGS: 'system_logs.json',
         ANNUAL_RESET: 'annual_reset_logs.json',
         COMPENSATION_CLAIMS: 'compensation_claims.json',
         BLACKOUT_PERIODS: 'blackout_periods.json',
         GAZETTED_HOLIDAYS: 'gazetted_holidays.json'
+    },
+
+    SHEETS_DATABASE: {
+        FILE_NAME: 'AgriLeave Master Database & Mirror',
+        SHEETS: {
+            APPLICATIONS: 'Applications',
+            STAFF_BALANCES: 'Staff_Balances',
+            GAZETTED_HOLIDAYS: 'Gazetted_Holidays',
+            AUDIT_LOG: 'Audit_Log'
+        }
     },
 
     CACHE_KEYS: {
@@ -423,9 +434,51 @@ const EnhancedCacheManager = {
         this.startPerformanceMonitoring();
     },
 
+    getDistributedCache: function (key) {
+        try {
+            if (typeof CacheService === 'undefined' || !CacheService.getScriptCache) return null;
+            const cache = CacheService.getScriptCache();
+            const val = cache.get(key);
+            if (val) {
+                return JSON.parse(val);
+            }
+        } catch (e) {
+            console.warn(`Distributed cache read error for ${key}:`, e.message);
+        }
+        return null;
+    },
+
+    setDistributedCache: function (key, value, ttlSeconds) {
+        try {
+            if (typeof CacheService === 'undefined' || !CacheService.getScriptCache) return false;
+            const cache = CacheService.getScriptCache();
+            const str = JSON.stringify(value);
+            // CacheService allows max 100KB per key
+            if (str.length < 95000) {
+                const ttl = Math.min(Math.max(ttlSeconds || 300, 1), 21600); // 1s to 6 hours
+                cache.put(key, str, ttl);
+                return true;
+            }
+        } catch (e) {
+            console.warn(`Distributed cache write error for ${key}:`, e.message);
+        }
+        return false;
+    },
+
+    removeDistributedCache: function (key) {
+        try {
+            if (typeof CacheService === 'undefined' || !CacheService.getScriptCache) return;
+            CacheService.getScriptCache().remove(key);
+        } catch (e) {
+            console.warn(`Distributed cache remove error for ${key}:`, e.message);
+        }
+    },
+
     get: function (key, useFileCache = false) {
         const cacheType = this.getCacheType(key);
         if (useFileCache) return this.getFileCache(key);
+
+        // Tier 1: Local RAM Memory Map (0ms)
         const item = this.memory.get(key);
         const timestamp = this.timestamps.get(key);
         const ttl = this.getTTLForKey(key);
@@ -441,6 +494,17 @@ const EnhancedCacheManager = {
             this.statistics.evictions++;
             this.incrementTypeStat(cacheType, 'evictions');
         }
+
+        // Tier 2: Google CacheService across concurrent user sessions (~15ms)
+        const distItem = this.getDistributedCache(key);
+        if (distItem !== null && distItem !== undefined) {
+            this.memory.set(key, distItem);
+            this.timestamps.set(key, Date.now());
+            this.statistics.hits++;
+            this.incrementTypeStat(cacheType, 'hits');
+            return distItem;
+        }
+
         this.statistics.misses++;
         this.incrementTypeStat(cacheType, 'misses');
         return null;
@@ -450,6 +514,8 @@ const EnhancedCacheManager = {
         const cacheType = this.getCacheType(key);
         this.memory.set(key, value);
         this.timestamps.set(key, Date.now());
+        const effectiveTtl = ttl || this.getTTLForKey(key);
+        this.setDistributedCache(key, value, effectiveTtl);
         this.statistics.sets++;
         this.incrementTypeStat(cacheType, 'sets');
         return true;
@@ -538,6 +604,13 @@ const EnhancedCacheManager = {
             this.balanceCache.delete(cacheKey);
             this.balanceCacheTimestamps.delete(cacheKey);
         }
+        // Tier 2: Check distributed CacheService
+        const distCached = this.getDistributedCache(cacheKey);
+        if (distCached) {
+            this.balanceCache.set(cacheKey, distCached);
+            this.balanceCacheTimestamps.set(cacheKey, Date.now());
+            return distCached;
+        }
         return null;
     },
 
@@ -545,6 +618,7 @@ const EnhancedCacheManager = {
         const cacheKey = `balance_${email}`;
         this.balanceCache.set(cacheKey, balanceData);
         this.balanceCacheTimestamps.set(cacheKey, Date.now());
+        this.setDistributedCache(cacheKey, balanceData, SYSTEM.PERFORMANCE.CACHE_TTL.BALANCE);
         return true;
     },
 
@@ -552,6 +626,7 @@ const EnhancedCacheManager = {
         const cacheKey = `balance_${email}`;
         this.balanceCache.delete(cacheKey);
         this.balanceCacheTimestamps.delete(cacheKey);
+        this.removeDistributedCache(cacheKey);
     },
 
     warmCache: function () {
@@ -568,6 +643,7 @@ const EnhancedCacheManager = {
     clear: function (key) {
         this.memory.delete(key);
         this.timestamps.delete(key);
+        this.removeDistributedCache(key);
         if (key.includes('staff') || key === SYSTEM.CACHE_KEYS.ALL_STAFF) {
             this.clearPattern('balance_');
             this.clearBalanceIndexes();
@@ -585,12 +661,14 @@ const EnhancedCacheManager = {
             if (key.includes(pattern)) {
                 this.memory.delete(key);
                 this.timestamps.delete(key);
+                this.removeDistributedCache(key);
             }
         }
         for (const key of this.balanceCache.keys()) {
             if (key.includes(pattern)) {
                 this.balanceCache.delete(key);
                 this.balanceCacheTimestamps.delete(key);
+                this.removeDistributedCache(key);
             }
         }
     },
@@ -604,6 +682,24 @@ const EnhancedCacheManager = {
         this.balanceCache.clear();
         this.balanceCacheTimestamps.clear();
         this.clearAllIndexes();
+        try {
+            if (typeof CacheService !== 'undefined' && CacheService.getScriptCache) {
+                const sc = CacheService.getScriptCache();
+                if (typeof sc.clear === 'function') {
+                    sc.clear();
+                } else {
+                    const knownKeys = [
+                        SYSTEM.CACHE_KEYS.ALL_STAFF,
+                        SYSTEM.CACHE_KEYS.ALL_APPLICATIONS,
+                        SYSTEM.CACHE_KEYS.SYSTEM_SETTINGS,
+                        SYSTEM.CACHE_KEYS.PERFORMANCE_STATS
+                    ];
+                    sc.removeAll(knownKeys);
+                }
+            }
+        } catch (e) {
+            console.warn('Error clearing distributed cache:', e.message);
+        }
         this.statistics = { hits: 0, misses: 0, sets: 0, evictions: 0, byType: new Map() };
         this.fileCacheStats = { hits: 0, misses: 0 };
         console.log('🧹 All caches cleared');
@@ -1115,6 +1211,15 @@ const DataManager = {
             else if (filename === SYSTEM.DATA_FILES.STAFF && SYSTEM.PERFORMANCE.INDEXES.AUTO_REBUILD) {
                 console.log('👥 Staff file updated - rebuilding indexes');
                 EnhancedCacheManager.buildIndexes();
+            }
+
+            // Auto-mirror to Master Google Sheet database in project folder
+            try {
+                if (typeof SheetsDualStoreManager !== 'undefined' && SheetsDualStoreManager.syncOnChange) {
+                    SheetsDualStoreManager.syncOnChange(filename, data);
+                }
+            } catch (mirrorErr) {
+                console.warn('⚠️ Google Sheets mirror sync deferred/warn:', mirrorErr.message);
             }
 
             EnhancedCacheManager.logOperation(`writeDataFile: ${filename}`, startTime, {
@@ -5148,6 +5253,17 @@ const MaintenanceManager = {
             results.absenceDigest = { sent: false, error: dErr.message };
         }
 
+        // ── 5. Master Google Sheets Dual-Store Routine Sync ───────────────────
+        try {
+            if (typeof SheetsDualStoreManager !== 'undefined') {
+                const sheetSyncRes = SheetsDualStoreManager.syncAll();
+                results.sheetsSync = sheetSyncRes;
+            }
+        } catch (sErr) {
+            console.error('Heartbeat sheets dual-store sync error:', sErr.message);
+            results.sheetsSync = { success: false, error: sErr.message };
+        }
+
         return results;
     }
 };
@@ -6569,6 +6685,545 @@ const SystemManager = {
 
     resetSystem: function () {
         return this.resetAndInitializeSystem(true);
+    }
+};
+
+// =============================================
+// HYBRID DUAL-STORE ENGINE (GOOGLE SHEETS MASTER & LIVE MIRROR)
+// =============================================
+
+const SheetsDualStoreManager = {
+    getSpreadsheet: function () {
+        try {
+            const scriptProps = PropertiesService.getScriptProperties();
+            const cachedId = scriptProps.getProperty('SHEETS_DATABASE_ID');
+            const folder = DataManager.getSystemFolder();
+
+            // 1. Try cached spreadsheet ID
+            if (cachedId) {
+                try {
+                    const ss = SpreadsheetApp.openById(cachedId);
+                    if (ss) {
+                        return ss;
+                    }
+                } catch (openErr) {
+                    console.warn('Cached Sheets database ID invalid, searching system folder:', openErr.message);
+                }
+            }
+
+            // 2. Search directly inside system folder
+            const files = folder.getFilesByName(SYSTEM.SHEETS_DATABASE.FILE_NAME);
+            if (files.hasNext()) {
+                const existingFile = files.next();
+                const ss = SpreadsheetApp.openById(existingFile.getId());
+                scriptProps.setProperty('SHEETS_DATABASE_ID', ss.getId());
+                this.ensureTabs(ss);
+                return ss;
+            }
+
+            // 3. Auto-generate new Master Database spreadsheet directly in project folder
+            console.log(`📊 Auto-generating "${SYSTEM.SHEETS_DATABASE.FILE_NAME}" in folder "${folder.getName()}"...`);
+            const newSs = SpreadsheetApp.create(SYSTEM.SHEETS_DATABASE.FILE_NAME);
+            const newSsId = newSs.getId();
+            const driveFile = DriveApp.getFileById(newSsId);
+
+            // Move the sheet into the system folder alongside the JSON files
+            if (typeof driveFile.moveTo === 'function') {
+                driveFile.moveTo(folder);
+            } else if (typeof folder.addFile === 'function') {
+                folder.addFile(driveFile);
+                try {
+                    if (typeof DriveApp.getRootFolder === 'function') {
+                        DriveApp.getRootFolder().removeFile(driveFile);
+                    }
+                } catch (e) {
+                    console.warn('Root folder file removal skipped:', e.message);
+                }
+            }
+
+            scriptProps.setProperty('SHEETS_DATABASE_ID', newSsId);
+            this.ensureTabs(newSs);
+            this.syncAll(newSs);
+            return newSs;
+
+        } catch (error) {
+            console.error('❌ Fatal error resolving Sheets Database:', error);
+            throw error;
+        }
+    },
+
+    ensureTabs: function (ss) {
+        if (!ss) return;
+
+        const tabConfigs = [
+            {
+                name: SYSTEM.SHEETS_DATABASE.SHEETS.APPLICATIONS,
+                headers: [
+                    'Application ID', 'Date Applied', 'Applicant Name', 'Email', 'Role', 'Department',
+                    'Leave Type', 'Start Date', 'End Date', 'Business Days', 'Status', 'Approval Stage',
+                    'Supervisor Email', 'Handover Colleague', 'Handover Status', 'Reason',
+                    'Supervisor Notes', 'HR Notes', 'Calendar Event ID', 'Last Updated'
+                ],
+                headerColor: '#1E3A8A' // Deep Navy
+            },
+            {
+                name: SYSTEM.SHEETS_DATABASE.SHEETS.STAFF_BALANCES,
+                headers: [
+                    'Email', 'Full Name', 'Department', 'Role', 'Supervisor', 'Employment Date',
+                    'Eligible', 'Annual Rate', 'Annual Accrued', 'Annual Used', 'Annual Remaining',
+                    'Brought Forward Remaining', 'Comp Balance', 'Sick Used', 'Sick Balance', 'Last Updated'
+                ],
+                headerColor: '#2E7D32' // Forest Green
+            },
+            {
+                name: SYSTEM.SHEETS_DATABASE.SHEETS.GAZETTED_HOLIDAYS,
+                headers: [
+                    'Holiday ID', 'Name', 'Date', 'Year', 'Type', 'Description', 'Created At', 'Created By'
+                ],
+                headerColor: '#B45309' // Amber
+            },
+            {
+                name: SYSTEM.SHEETS_DATABASE.SHEETS.AUDIT_LOG,
+                headers: [
+                    'Timestamp', 'Action', 'User Email', 'Details', 'Status'
+                ],
+                headerColor: '#374151' // Charcoal
+            }
+        ];
+
+        tabConfigs.forEach(cfg => {
+            let sheet = ss.getSheetByName(cfg.name);
+            if (!sheet) {
+                sheet = ss.insertSheet(cfg.name);
+            }
+
+            if (sheet.getLastRow() === 0) {
+                sheet.getRange(1, 1, 1, cfg.headers.length).setValues([cfg.headers]);
+                sheet.getRange(1, 1, 1, cfg.headers.length).setFontWeight('bold');
+                sheet.getRange(1, 1, 1, cfg.headers.length).setBackground(cfg.headerColor);
+                sheet.getRange(1, 1, 1, cfg.headers.length).setFontColor('#FFFFFF');
+                sheet.setFrozenRows(1);
+            }
+        });
+
+        // Clean up initial default 'Sheet1' if present
+        const sheet1 = ss.getSheetByName('Sheet1');
+        if (sheet1 && ss.getSheets().length > 1) {
+            try {
+                ss.deleteSheet(sheet1);
+            } catch (e) {
+                // Ignore if cannot delete
+            }
+        }
+    },
+
+    syncApplications: function (applications = null, targetSs = null) {
+        try {
+            const ss = targetSs || this.getSpreadsheet();
+            const sheet = ss.getSheetByName(SYSTEM.SHEETS_DATABASE.SHEETS.APPLICATIONS);
+            if (!sheet) return false;
+
+            let apps = applications;
+            if (!apps) {
+                const appsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.APPLICATIONS);
+                apps = appsFile.data || [];
+            }
+
+            const rows = apps.map(app => [
+                app.ID || '',
+                app.DateApplied || '',
+                app.Name || app.ApplicantName || '',
+                app.Email || app.ApplicantEmail || '',
+                app.Role || '',
+                app.Department || '',
+                app.LeaveType || '',
+                app.StartDate || '',
+                app.EndDate || '',
+                app.Duration !== undefined ? app.Duration : (app.WorkingDays || 0),
+                app.Status || '',
+                app.ApprovalStage || (app.Status === SYSTEM.STATUS.APPROVED ? 'approved' : 'pending'),
+                app.SupervisorEmail || '',
+                app.HandoverName || app.HandoverEmail || '',
+                app.HandoverStatus || 'None',
+                app.Reason || '',
+                (app.SupervisorApproval && app.SupervisorApproval.comment) || app.SupervisorNotes || '',
+                (app.HRApproval && app.HRApproval.comment) || app.HRNotes || '',
+                app.CalendarEventId || '',
+                app.LastUpdated || new Date().toISOString()
+            ]);
+
+            const lastRow = sheet.getLastRow();
+            if (lastRow > 1) {
+                sheet.getRange(2, 1, lastRow - 1, 20).clearContent();
+            }
+
+            if (rows.length > 0) {
+                sheet.getRange(2, 1, rows.length, 20).setValues(rows);
+            }
+            return true;
+        } catch (error) {
+            console.error('Error syncing applications to Sheets:', error);
+            return false;
+        }
+    },
+
+    syncBalances: function (targetSs = null) {
+        try {
+            const ss = targetSs || this.getSpreadsheet();
+            const sheet = ss.getSheetByName(SYSTEM.SHEETS_DATABASE.SHEETS.STAFF_BALANCES);
+            if (!sheet) return false;
+
+            const staffData = StaffManager.getAllStaffData().filter(s => s.Metadata?.active !== false);
+            const rows = staffData.map(s => {
+                const bal = DashboardManager.calculateUserBalance(s.Email) || {};
+                const ann = bal.annual || {};
+                const bf = bal.broughtForward || {};
+                const sick = bal.sick || {};
+                const compBal = (s.CompensationLeave && s.CompensationLeave.balance) || 0;
+                return [
+                    s.Email || '',
+                    s.Name || '',
+                    s.Department || '',
+                    s.Role || '',
+                    s.Supervisor || '',
+                    s.EmploymentDate || s.JoinDate || '',
+                    s.EligibleForLeave ? 'Yes' : 'No',
+                    ann.monthlyRate || 1.75,
+                    ann.accrued || 0,
+                    ann.used || 0,
+                    ann.available || 0,
+                    bf.available || bf.remaining || 0,
+                    compBal,
+                    sick.used || 0,
+                    sick.balance || 0,
+                    new Date().toISOString()
+                ];
+            });
+
+            const lastRow = sheet.getLastRow();
+            if (lastRow > 1) {
+                sheet.getRange(2, 1, lastRow - 1, 16).clearContent();
+            }
+
+            if (rows.length > 0) {
+                sheet.getRange(2, 1, rows.length, 16).setValues(rows);
+            }
+            return true;
+        } catch (error) {
+            console.error('Error syncing balances to Sheets:', error);
+            return false;
+        }
+    },
+
+    syncHolidays: function (holidays = null, targetSs = null) {
+        try {
+            const ss = targetSs || this.getSpreadsheet();
+            const sheet = ss.getSheetByName(SYSTEM.SHEETS_DATABASE.SHEETS.GAZETTED_HOLIDAYS);
+            if (!sheet) return false;
+
+            let hols = holidays;
+            if (!hols) {
+                hols = HolidayManager.getAllCustomHolidays();
+            }
+
+            const rows = hols.map(h => [
+                h.id || '',
+                h.name || '',
+                h.date || '',
+                h.year || (h.date ? h.date.substring(0, 4) : ''),
+                h.type || 'Gazetted',
+                h.description || '',
+                h.createdAt || '',
+                h.createdBy || ''
+            ]);
+
+            const lastRow = sheet.getLastRow();
+            if (lastRow > 1) {
+                sheet.getRange(2, 1, lastRow - 1, 8).clearContent();
+            }
+
+            if (rows.length > 0) {
+                sheet.getRange(2, 1, rows.length, 8).setValues(rows);
+            }
+            return true;
+        } catch (error) {
+            console.error('Error syncing gazetted holidays to Sheets:', error);
+            return false;
+        }
+    },
+
+    syncAuditLogs: function (logs = null, targetSs = null) {
+        try {
+            const ss = targetSs || this.getSpreadsheet();
+            const sheet = ss.getSheetByName(SYSTEM.SHEETS_DATABASE.SHEETS.AUDIT_LOG);
+            if (!sheet) return false;
+
+            let logEntries = logs;
+            if (!logEntries) {
+                const logsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.LOGS);
+                logEntries = logsFile.data || [];
+            }
+
+            const rows = logEntries.slice(-500).map(l => [
+                l.timestamp || '',
+                l.action || '',
+                l.userEmail || '',
+                typeof l.details === 'object' ? JSON.stringify(l.details) : String(l.details || ''),
+                l.status || 'OK'
+            ]);
+
+            const lastRow = sheet.getLastRow();
+            if (lastRow > 1) {
+                sheet.getRange(2, 1, lastRow - 1, 5).clearContent();
+            }
+
+            if (rows.length > 0) {
+                sheet.getRange(2, 1, rows.length, 5).setValues(rows);
+            }
+            return true;
+        } catch (error) {
+            console.error('Error syncing audit logs to Sheets:', error);
+            return false;
+        }
+    },
+
+    syncAll: function (targetSs = null) {
+        try {
+            const ss = targetSs || this.getSpreadsheet();
+            this.ensureTabs(ss);
+
+            this.syncApplications(null, ss);
+            this.syncBalances(ss);
+            this.syncHolidays(null, ss);
+            this.syncAuditLogs(null, ss);
+
+            const now = new Date().toISOString();
+            PropertiesService.getScriptProperties().setProperty('SHEETS_DATABASE_LAST_SYNC', now);
+
+            return {
+                success: true,
+                sheetId: ss.getId(),
+                sheetUrl: ss.getUrl(),
+                fileName: SYSTEM.SHEETS_DATABASE.FILE_NAME,
+                lastSync: now
+            };
+        } catch (error) {
+            console.error('Fatal error in SheetsDualStoreManager.syncAll:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    },
+
+    syncOnChange: function (filename, data) {
+        try {
+            if (filename === SYSTEM.DATA_FILES.APPLICATIONS) {
+                this.syncApplications(data.data || []);
+            } else if (filename === SYSTEM.DATA_FILES.STAFF) {
+                this.syncBalances();
+            } else if (filename === SYSTEM.DATA_FILES.GAZETTED_HOLIDAYS) {
+                this.syncHolidays(data.data || []);
+            }
+        } catch (err) {
+            console.warn(`Non-blocking Sheets mirror update failed for ${filename}:`, err.message);
+        }
+    },
+
+    restoreFromJsonOrSheets: function (source = 'sheets') {
+        try {
+            if (source === 'sheets') {
+                const ss = this.getSpreadsheet();
+                const sheet = ss.getSheetByName(SYSTEM.SHEETS_DATABASE.SHEETS.APPLICATIONS);
+                if (!sheet) throw new Error('Applications tab not found in Master Sheet');
+
+                const lastRow = sheet.getLastRow();
+                if (lastRow <= 1) {
+                    throw new Error('No application rows found in Google Sheet to restore');
+                }
+
+                const rows = sheet.getRange(2, 1, lastRow - 1, 20).getValues();
+                const restoredApps = rows.map(r => ({
+                    ID: String(r[0]),
+                    DateApplied: String(r[1]),
+                    Name: String(r[2]),
+                    ApplicantName: String(r[2]),
+                    Email: String(r[3]),
+                    ApplicantEmail: String(r[3]),
+                    Role: String(r[4]),
+                    Department: String(r[5]),
+                    LeaveType: String(r[6]),
+                    StartDate: String(r[7]),
+                    EndDate: String(r[8]),
+                    Duration: Number(r[9]) || 0,
+                    Status: String(r[10]) || 'Pending',
+                    ApprovalStage: String(r[11]) || 'approved',
+                    SupervisorEmail: String(r[12]),
+                    HandoverName: String(r[13]),
+                    HandoverStatus: String(r[14]),
+                    Reason: String(r[15]),
+                    SupervisorNotes: String(r[16]),
+                    HRNotes: String(r[17]),
+                    CalendarEventId: String(r[18]),
+                    LastUpdated: String(r[19]) || new Date().toISOString()
+                }));
+
+                const appsData = {
+                    data: restoredApps,
+                    metadata: {
+                        restoredFromSheets: true,
+                        restoredAt: new Date().toISOString(),
+                        recordCount: restoredApps.length,
+                        version: SYSTEM.VERSION
+                    }
+                };
+
+                DataManager.writeDataFile(SYSTEM.DATA_FILES.APPLICATIONS, appsData);
+                EnhancedCacheManager.buildIndexes();
+
+                return {
+                    success: true,
+                    message: `Successfully restored ${restoredApps.length} applications from Google Sheet mirror!`,
+                    restoredCount: restoredApps.length
+                };
+            } else {
+                // Restore JSON into Sheets (full sync)
+                return this.syncAll();
+            }
+        } catch (error) {
+            console.error('Fatal error during database restoration:', error);
+            throw error;
+        }
+    },
+
+    getDatabaseStatus: function () {
+        try {
+            const ss = this.getSpreadsheet();
+            const scriptProps = PropertiesService.getScriptProperties();
+            const appSheet = ss.getSheetByName(SYSTEM.SHEETS_DATABASE.SHEETS.APPLICATIONS);
+            const staffSheet = ss.getSheetByName(SYSTEM.SHEETS_DATABASE.SHEETS.STAFF_BALANCES);
+
+            return {
+                enabled: true,
+                id: ss.getId(),
+                url: ss.getUrl(),
+                name: SYSTEM.SHEETS_DATABASE.FILE_NAME,
+                folder: SYSTEM.FOLDER_NAME,
+                lastSync: scriptProps.getProperty('SHEETS_DATABASE_LAST_SYNC') || 'Never',
+                applicationsCount: appSheet ? Math.max(0, appSheet.getLastRow() - 1) : 0,
+                staffCount: staffSheet ? Math.max(0, staffSheet.getLastRow() - 1) : 0
+            };
+        } catch (e) {
+            return {
+                enabled: false,
+                error: e.message
+            };
+        }
+    }
+};
+
+// =============================================
+// HISTORICAL COLD-STORAGE ARCHIVE MANAGER
+// =============================================
+
+const ArchiveManager = {
+    archivePastYearApplications: function (cutoffYear = null) {
+        try {
+            const currentYear = Utils.getCurrentYear();
+            const yearThreshold = cutoffYear !== null ? parseInt(cutoffYear, 10) : (currentYear - 1);
+
+            const appsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.APPLICATIONS);
+            const allApps = appsFile.data || [];
+
+            const toArchive = [];
+            const toKeep = [];
+
+            allApps.forEach(app => {
+                const appDate = app.StartDate || app.DateApplied;
+                const appYear = appDate ? new Date(appDate).getFullYear() : currentYear;
+                const isClosed = app.Status === SYSTEM.STATUS.APPROVED ||
+                    app.Status === SYSTEM.STATUS.DECLINED ||
+                    app.Status === SYSTEM.STATUS.CANCELLED;
+
+                // Only archive closed applications strictly on or before cutoffYear
+                if (isClosed && appYear <= yearThreshold) {
+                    toArchive.push(app);
+                } else {
+                    toKeep.push(app);
+                }
+            });
+
+            if (toArchive.length === 0) {
+                return {
+                    success: true,
+                    archivedCount: 0,
+                    remainingCount: toKeep.length,
+                    message: `No closed applications found from year ${yearThreshold} or earlier to archive.`
+                };
+            }
+
+            // Read or create archive file
+            const archiveFile = DataManager.readDataFile(SYSTEM.DATA_FILES.ARCHIVE) || { data: [], metadata: {} };
+            archiveFile.data = archiveFile.data || [];
+            archiveFile.data.push(...toArchive);
+            archiveFile.metadata = Object.assign({}, archiveFile.metadata || {}, {
+                lastArchived: new Date().toISOString(),
+                recordCount: archiveFile.data.length,
+                lastCutoffYear: yearThreshold
+            });
+
+            // Write archive file
+            DataManager.writeDataFile(SYSTEM.DATA_FILES.ARCHIVE, archiveFile);
+
+            // Update active applications file
+            appsFile.data = toKeep;
+            appsFile.metadata = Object.assign({}, appsFile.metadata || {}, {
+                recordCount: toKeep.length,
+                lastArchivePruning: new Date().toISOString()
+            });
+            DataManager.writeDataFile(SYSTEM.DATA_FILES.APPLICATIONS, appsFile);
+
+            return {
+                success: true,
+                archivedCount: toArchive.length,
+                totalArchived: archiveFile.data.length,
+                remainingCount: toKeep.length,
+                cutoffYear: yearThreshold,
+                message: `Successfully archived ${toArchive.length} closed applications from ${yearThreshold} or earlier.`
+            };
+        } catch (error) {
+            console.error('ArchiveManager error:', error);
+            throw error;
+        }
+    },
+
+    getArchivedApplications: function (filters = {}) {
+        try {
+            const archiveFile = DataManager.readDataFile(SYSTEM.DATA_FILES.ARCHIVE);
+            let apps = archiveFile.data || [];
+
+            if (filters.email) {
+                const emailKey = filters.email.toLowerCase().trim();
+                apps = apps.filter(a => a.Email && a.Email.toLowerCase().trim() === emailKey);
+            }
+            if (filters.year) {
+                apps = apps.filter(a => {
+                    const d = a.StartDate || a.DateApplied;
+                    return d && new Date(d).getFullYear().toString() === filters.year.toString();
+                });
+            }
+            if (filters.leaveType) {
+                apps = apps.filter(a => a.LeaveType === filters.leaveType);
+            }
+            if (filters.status) {
+                apps = apps.filter(a => a.Status === filters.status);
+            }
+
+            return apps;
+        } catch (error) {
+            console.error('Error fetching archived applications:', error);
+            return [];
+        }
     }
 };
 
@@ -8894,7 +9549,207 @@ function apiGetVacationResponderPreview(appId) {
     }
 }
 
+// 15. Unified Bootstrap API (Single Round-Trip Hydration)
+function apiGetBootstrapData(params) {
+    try {
+        const currentUserEmail = (params && params.email) || Session.getActiveUser().getEmail();
+        const user = StaffManager.getUserData(currentUserEmail);
+        if (!user) {
+            return Utils.createErrorResponse('User profile not found: ' + currentUserEmail);
+        }
+
+        const role = user.Role || SYSTEM.ROLES.STAFF;
+        const isSupervisor = role === SYSTEM.ROLES.SUPERVISOR || role === SYSTEM.ROLES.ADMIN;
+        const isHR = role === SYSTEM.ROLES.HR || role === SYSTEM.ROLES.ADMIN;
+        const isAdmin = role === SYSTEM.ROLES.ADMIN;
+
+        // 1. User Balance Breakdown
+        const balances = DashboardManager.calculateUserBalance(currentUserEmail);
+
+        // 2. User's Applications (recent 15)
+        const myApps = EnhancedCacheManager.getApplicationsByEmail(currentUserEmail, {});
+        const recentApplications = myApps.slice(0, 15);
+
+        // 3. Today's Absence Digest
+        let absenceDigest = null;
+        try {
+            if (typeof AbsenceDigestManager !== 'undefined') {
+                absenceDigest = AbsenceDigestManager.getTodayAbsenceDigest();
+            }
+        } catch (e) {
+            console.warn('Absence digest in bootstrap:', e.message);
+        }
+
+        // 4. Pending Acting Handovers assigned to user
+        let pendingHandovers = [];
+        try {
+            if (typeof HandoverManager !== 'undefined') {
+                pendingHandovers = HandoverManager.getPendingHandovers(currentUserEmail);
+            }
+        } catch (e) {
+            console.warn('Handovers in bootstrap:', e.message);
+        }
+
+        // 5. Supervisor Pending Applications
+        let supervisorQueue = { count: 0, applications: [] };
+        if (isSupervisor) {
+            try {
+                const supApps = (typeof EnhancedCacheManager !== 'undefined' && EnhancedCacheManager.getPendingApplications)
+                    ? EnhancedCacheManager.getPendingApplications(currentUserEmail)
+                    : [];
+                supervisorQueue = {
+                    count: supApps.length,
+                    applications: supApps.slice(0, 10)
+                };
+            } catch (e) {
+                console.warn('Supervisor queue in bootstrap:', e.message);
+            }
+        }
+
+        // 6. HR Pending Endorsements
+        let hrQueue = { count: 0, applications: [] };
+        if (isHR) {
+            try {
+                const appsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.APPLICATIONS);
+                const endorsements = (appsFile.data || []).filter(a => a.Status === SYSTEM.STATUS.PENDING && a.ApprovalStage === 'pending_hr');
+                hrQueue = {
+                    count: endorsements.length,
+                    applications: endorsements.slice(0, 10)
+                };
+            } catch (e) {
+                console.warn('HR queue in bootstrap:', e.message);
+            }
+        }
+
+        // 7. Gazetted Holidays
+        let holidays = [];
+        try {
+            if (typeof HolidayManager !== 'undefined') {
+                holidays = HolidayManager.getAllCustomHolidays();
+            }
+        } catch (e) {
+            console.warn('Holidays in bootstrap:', e.message);
+        }
+
+        // 8. Sheets Database Status (HR/Admin only)
+        let sheetsStatus = null;
+        if (isHR || isAdmin) {
+            try {
+                if (typeof SheetsDualStoreManager !== 'undefined') {
+                    sheetsStatus = SheetsDualStoreManager.getDatabaseStatus();
+                }
+            } catch (e) {
+                console.warn('Sheets status in bootstrap:', e.message);
+            }
+        }
+
+        return Utils.createSuccessResponse({
+            user: {
+                Email: user.Email,
+                Name: user.Name,
+                Department: user.Department,
+                Role: user.Role,
+                Supervisor: user.Supervisor,
+                EmploymentDate: user.EmploymentDate || user.JoinDate
+            },
+            permissions: {
+                role,
+                isAdmin,
+                isHR,
+                isSupervisor
+            },
+            balances,
+            recentApplications,
+            absenceDigestToday: absenceDigest,
+            pendingHandovers,
+            supervisorQueue,
+            hrQueue,
+            holidays: holidays.slice(0, 10),
+            sheetsStatus,
+            systemYear: Utils.getCurrentYear(),
+            serverTimestamp: new Date().toISOString()
+        }, 'Bootstrap data loaded successfully');
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to load bootstrap data: ' + error.message);
+    }
+}
+
+// 16. Google Sheets Master Database & Live Mirror APIs
+function apiGetSheetsStatus() {
+    try {
+        const currentUser = Session.getActiveUser().getEmail();
+        const userRole = StaffManager.getUserRole(currentUser);
+        if (userRole !== SYSTEM.ROLES.HR && userRole !== SYSTEM.ROLES.ADMIN) {
+            return Utils.createErrorResponse('Unauthorized. Only HR or Admin can view Sheets Database status.');
+        }
+        const status = SheetsDualStoreManager.getDatabaseStatus();
+        return Utils.createSuccessResponse(status, 'Sheets database status loaded');
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to get Sheets database status: ' + error.message);
+    }
+}
+
+function apiSyncSheetsDatabase() {
+    try {
+        const currentUser = Session.getActiveUser().getEmail();
+        const userRole = StaffManager.getUserRole(currentUser);
+        if (userRole !== SYSTEM.ROLES.HR && userRole !== SYSTEM.ROLES.ADMIN) {
+            return Utils.createErrorResponse('Unauthorized. Only HR or Admin can sync Sheets Database.');
+        }
+        const result = SheetsDualStoreManager.syncAll();
+        return result.success ? Utils.createSuccessResponse(result, 'Master Google Sheets database synchronized successfully') : Utils.createErrorResponse(result.error || 'Failed to sync Sheets database');
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to sync Sheets database: ' + error.message);
+    }
+}
+
+function apiRestoreFromSheets(params) {
+    try {
+        const currentUser = Session.getActiveUser().getEmail();
+        const userRole = StaffManager.getUserRole(currentUser);
+        if (userRole !== SYSTEM.ROLES.ADMIN && userRole !== SYSTEM.ROLES.HR) {
+            return Utils.createErrorResponse('Unauthorized. Only Admin or HR can restore database from Sheets.');
+        }
+        const source = (params && params.source) || 'sheets';
+        const result = SheetsDualStoreManager.restoreFromJsonOrSheets(source);
+        return result.success ? Utils.createSuccessResponse(result, result.message) : Utils.createErrorResponse(result.error || 'Restore failed');
+    } catch (error) {
+        return Utils.createErrorResponse('Restore from Sheets failed: ' + error.message);
+    }
+}
+
+// 17. Cold Storage Partitioning & Historical Archive APIs
+function apiArchiveOldApplications(params) {
+    try {
+        const currentUser = Session.getActiveUser().getEmail();
+        const userRole = StaffManager.getUserRole(currentUser);
+        if (userRole !== SYSTEM.ROLES.HR && userRole !== SYSTEM.ROLES.ADMIN) {
+            return Utils.createErrorResponse('Unauthorized. Only HR or Admin can run archive partitioning.');
+        }
+        const cutoffYear = (params && params.cutoffYear) ? params.cutoffYear : null;
+        const result = ArchiveManager.archivePastYearApplications(cutoffYear);
+        return result.success ? Utils.createSuccessResponse(result, result.message) : Utils.createErrorResponse(result.error || 'Archive failed');
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to archive old applications: ' + error.message);
+    }
+}
+
+function apiGetArchivedApplications(params) {
+    try {
+        const currentUser = Session.getActiveUser().getEmail();
+        const userRole = StaffManager.getUserRole(currentUser);
+        if (userRole !== SYSTEM.ROLES.HR && userRole !== SYSTEM.ROLES.ADMIN) {
+            return Utils.createErrorResponse('Unauthorized. Only HR or Admin can view archived applications.');
+        }
+        const filters = params || {};
+        const archives = ArchiveManager.getArchivedApplications(filters);
+        return Utils.createSuccessResponse(archives, `Retrieved ${archives.length} archived application(s)`);
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to get archived applications: ' + error.message);
+    }
+}
+
 // =============================================
 // END OF COMPLETE BACKEND CODE
-// VERSION 3.5.0 - NEXT LEVEL IMPROVEMENTS
+// VERSION 3.6.0 - HYBRID DUAL-STORE & PERFORMANCE ENGINE
 // =============================================
