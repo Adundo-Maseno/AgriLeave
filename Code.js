@@ -7197,6 +7197,30 @@ const ArchiveManager = {
         }
     },
 
+    getArchiveSummary: function () {
+        try {
+            const archiveFile = DataManager.readDataFile(SYSTEM.DATA_FILES.ARCHIVE) || { data: [], metadata: {} };
+            const data = archiveFile.data || [];
+            const yearSet = new Set();
+            data.forEach(a => {
+                const d = a.StartDate || a.DateApplied;
+                if (d) {
+                    const y = new Date(d).getFullYear();
+                    if (!isNaN(y)) yearSet.add(y);
+                }
+            });
+            const years = Array.from(yearSet).sort((a, b) => b - a);
+            return {
+                totalRecords: data.length,
+                years: years,
+                lastArchived: archiveFile.metadata ? archiveFile.metadata.lastArchived : null,
+                lastCutoffYear: archiveFile.metadata ? archiveFile.metadata.lastCutoffYear : null
+            };
+        } catch (e) {
+            return { totalRecords: 0, years: [], lastArchived: null };
+        }
+    },
+
     getArchivedApplications: function (filters = {}) {
         try {
             const archiveFile = DataManager.readDataFile(SYSTEM.DATA_FILES.ARCHIVE);
@@ -7206,17 +7230,30 @@ const ArchiveManager = {
                 const emailKey = filters.email.toLowerCase().trim();
                 apps = apps.filter(a => a.Email && a.Email.toLowerCase().trim() === emailKey);
             }
-            if (filters.year) {
+            if (filters.year && filters.year !== 'all') {
                 apps = apps.filter(a => {
                     const d = a.StartDate || a.DateApplied;
                     return d && new Date(d).getFullYear().toString() === filters.year.toString();
                 });
             }
-            if (filters.leaveType) {
+            if (filters.leaveType && filters.leaveType !== 'all') {
                 apps = apps.filter(a => a.LeaveType === filters.leaveType);
             }
-            if (filters.status) {
+            if (filters.status && filters.status !== 'all') {
                 apps = apps.filter(a => a.Status === filters.status);
+            }
+            if (filters.department && filters.department !== 'all') {
+                apps = apps.filter(a => a.Department === filters.department);
+            }
+            if (filters.search) {
+                const q = filters.search.toLowerCase().trim();
+                apps = apps.filter(a =>
+                    (a.Name && a.Name.toLowerCase().includes(q)) ||
+                    (a.Email && a.Email.toLowerCase().includes(q)) ||
+                    (a.ID && a.ID.toLowerCase().includes(q)) ||
+                    (a.Reason && a.Reason.toLowerCase().includes(q)) ||
+                    (a.HandoverColleagueName && a.HandoverColleagueName.toLowerCase().includes(q))
+                );
             }
 
             return apps;
@@ -7224,6 +7261,289 @@ const ArchiveManager = {
             console.error('Error fetching archived applications:', error);
             return [];
         }
+    }
+};
+
+// =============================================
+// DIAGNOSTICS & SYSTEM HEALTH ENGINE
+// =============================================
+
+const DiagnosticsManager = {
+    getSystemHealth: function () {
+        const diagnostics = {
+            timestamp: new Date().toISOString(),
+            status: 'HEALTHY',
+            folder: { name: SYSTEM.FOLDER_NAME, exists: false, id: null, error: null },
+            databaseFiles: {},
+            sheetsMirror: null,
+            cache: { memoryTier: 'OK', distributedTier: 'UNKNOWN', error: null },
+            triggers: { total: 0, managedInstalled: 0, missing: [], triggers: [] },
+            integrations: {
+                calendar: { configured: false, calendarId: null },
+                chatWebhook: { configured: false }
+            }
+        };
+
+        // 1. Project Drive Folder check
+        try {
+            const folder = DataManager.getSystemFolder();
+            if (folder) {
+                diagnostics.folder.exists = true;
+                diagnostics.folder.id = folder.getId();
+            }
+        } catch (fErr) {
+            diagnostics.folder.error = fErr.message;
+            diagnostics.status = 'DEGRADED';
+        }
+
+        // 2. Data Files check
+        const fileKeys = Object.keys(SYSTEM.DATA_FILES);
+        fileKeys.forEach(k => {
+            const fileName = SYSTEM.DATA_FILES[k];
+            try {
+                const file = DataManager.readDataFile(fileName);
+                const recCount = Array.isArray(file.data) ? file.data.length : (file.data ? Object.keys(file.data).length : 0);
+                diagnostics.databaseFiles[k] = {
+                    fileName: fileName,
+                    exists: true,
+                    recordCount: recCount,
+                    lastUpdated: (file.metadata && file.metadata.lastUpdated) ? file.metadata.lastUpdated : null
+                };
+            } catch (dErr) {
+                diagnostics.databaseFiles[k] = {
+                    fileName: fileName,
+                    exists: false,
+                    error: dErr.message
+                };
+                if (k !== 'ARCHIVE' && k !== 'GAZETTED_HOLIDAYS') {
+                    diagnostics.status = 'DEGRADED';
+                }
+            }
+        });
+
+        // 3. Sheets Dual-Store Mirror check
+        try {
+            if (typeof SheetsDualStoreManager !== 'undefined') {
+                diagnostics.sheetsMirror = SheetsDualStoreManager.getDatabaseStatus();
+            }
+        } catch (sErr) {
+            diagnostics.sheetsMirror = { error: sErr.message, status: 'ERROR' };
+        }
+
+        // 4. CacheService check
+        try {
+            if (typeof CacheService !== 'undefined' && CacheService.getScriptCache) {
+                const scriptCache = CacheService.getScriptCache();
+                if (scriptCache) {
+                    scriptCache.put('__diag_ping', 'ok', 60);
+                    const pingVal = scriptCache.get('__diag_ping');
+                    diagnostics.cache.distributedTier = pingVal === 'ok' ? 'ACTIVE' : 'DEGRADED';
+                } else {
+                    diagnostics.cache.distributedTier = 'UNAVAILABLE';
+                }
+            }
+        } catch (cErr) {
+            diagnostics.cache.distributedTier = 'ERROR: ' + cErr.message;
+        }
+
+        // 5. Triggers check
+        const expectedTriggers = [
+            'scheduledDailyHeartbeat',
+            'scheduledMonthlyAccrual',
+            'scheduledYearEnd',
+            'scheduledEasterWarning',
+            'scheduledEasterExpiry'
+        ];
+        try {
+            if (typeof ScriptApp !== 'undefined' && ScriptApp.getProjectTriggers) {
+                const triggers = ScriptApp.getProjectTriggers() || [];
+                diagnostics.triggers.total = triggers.length;
+                const registeredHandlers = triggers.map(t => t.getHandlerFunction());
+                expectedTriggers.forEach(fn => {
+                    const found = registeredHandlers.includes(fn);
+                    if (found) {
+                        diagnostics.triggers.managedInstalled++;
+                    } else {
+                        diagnostics.triggers.missing.push(fn);
+                    }
+                });
+                diagnostics.triggers.triggers = triggers.map(t => ({
+                    handler: t.getHandlerFunction(),
+                    id: t.getUniqueId ? t.getUniqueId() : null
+                }));
+            }
+        } catch (tErr) {
+            diagnostics.triggers.error = tErr.message;
+        }
+
+        // 6. Integrations check
+        try {
+            const settingsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.SETTINGS);
+            const calId = settingsFile && settingsFile.data ? settingsFile.data.calendarId : null;
+            diagnostics.integrations.calendar.configured = Boolean(calId);
+            diagnostics.integrations.calendar.calendarId = calId;
+
+            const webhookUrl = settingsFile && settingsFile.data ? settingsFile.data.chatWebhookUrl : null;
+            diagnostics.integrations.chatWebhook.configured = Boolean(webhookUrl);
+        } catch (iErr) {}
+
+        return diagnostics;
+    },
+
+    installSystemTriggers: function () {
+        return setupAutomaticAccrual();
+    }
+};
+
+// =============================================
+// FINANCIAL LEAVE LIABILITY & ACCRUAL PROVISION
+// =============================================
+
+const FinancialProvisionManager = {
+    getLeaveLiabilityReport: function (params = {}) {
+        const staffFile = DataManager.readDataFile(SYSTEM.DATA_FILES.STAFF);
+        const allStaff = staffFile.data || [];
+        const activeStaff = allStaff.filter(s => s.EligibleForLeave && (!s.Metadata || s.Metadata.active !== false));
+
+        const currentYear = Utils.getCurrentYear();
+        const defaultDailySalary = (params && params.defaultDailySalary) ? parseFloat(params.defaultDailySalary) : 0;
+
+        let totalLiabilityDays = 0;
+        let totalCarriedForwardDays = 0;
+        let totalAccruedDays = 0;
+        let totalEstimatedValue = 0;
+        const departmentalSummary = {};
+        const staffRecords = [];
+
+        activeStaff.forEach(staff => {
+            const email = staff.Email;
+            const balanceObj = DashboardManager.calculateUserBalance(email);
+            const annual = balanceObj ? balanceObj.annual : null;
+            const bf = balanceObj ? balanceObj.broughtForward : null;
+
+            const entitlement = (staff.LeaveAccrual && staff.LeaveAccrual.annualEntitlement) || 21;
+            const accrued = annual ? (annual.accrued || 0) : 0;
+            const bfDays = bf ? (bf.available || 0) : 0;
+            const bfForfeited = bf ? (bf.forfeited || 0) : 0;
+            const taken = annual ? (annual.used || 0) : 0;
+            const remaining = (annual ? (annual.available || 0) : 0) + bfDays;
+
+            const dailyRate = staff.Salary && staff.Salary.dailyRate
+                ? parseFloat(staff.Salary.dailyRate)
+                : (staff.Metadata && staff.Metadata.dailyRate ? parseFloat(staff.Metadata.dailyRate) : defaultDailySalary);
+
+            const estimatedValue = remaining * dailyRate;
+
+            totalLiabilityDays += remaining;
+            totalCarriedForwardDays += bfDays;
+            totalAccruedDays += accrued;
+            totalEstimatedValue += estimatedValue;
+
+            const dept = staff.Department || 'General';
+            if (!departmentalSummary[dept]) {
+                departmentalSummary[dept] = {
+                    department: dept,
+                    staffCount: 0,
+                    liabilityDays: 0,
+                    carriedForwardDays: 0,
+                    estimatedValue: 0
+                };
+            }
+            departmentalSummary[dept].staffCount++;
+            departmentalSummary[dept].liabilityDays += remaining;
+            departmentalSummary[dept].carriedForwardDays += bfDays;
+            departmentalSummary[dept].estimatedValue += estimatedValue;
+
+            staffRecords.push({
+                email: email,
+                name: staff.Name,
+                department: dept,
+                jobTitle: staff.JobTitle || '',
+                entitlement: entitlement,
+                accruedThisYear: Math.round(accrued * 100) / 100,
+                carriedForwardDays: Math.round(bfDays * 100) / 100,
+                bfForfeitedDays: Math.round(bfForfeited * 100) / 100,
+                daysTaken: Math.round(taken * 100) / 100,
+                remainingLiabilityDays: Math.round(remaining * 100) / 100,
+                dailyRate: dailyRate,
+                estimatedLiabilityValue: Math.round(estimatedValue * 100) / 100
+            });
+        });
+
+        staffRecords.sort((a, b) => a.department.localeCompare(b.department) || a.name.localeCompare(b.name));
+
+        const report = {
+            generatedAt: new Date().toISOString(),
+            year: currentYear,
+            currency: (params && params.currency) ? params.currency : 'KES',
+            activeStaffCount: activeStaff.length,
+            totalLiabilityDays: Math.round(totalLiabilityDays * 100) / 100,
+            totalCarriedForwardDays: Math.round(totalCarriedForwardDays * 100) / 100,
+            totalAccruedDays: Math.round(totalAccruedDays * 100) / 100,
+            totalEstimatedValue: Math.round(totalEstimatedValue * 100) / 100,
+            departmentalSummary: Object.values(departmentalSummary),
+            staffRecords: staffRecords
+        };
+
+        if (params && params.syncToSheet && typeof SheetsDualStoreManager !== 'undefined') {
+            try {
+                this.syncLiabilityReportToSheet(report);
+                report.syncedToSheet = true;
+            } catch (sheetErr) {
+                console.error('Failed to sync liability report to sheet:', sheetErr);
+                report.syncedToSheet = false;
+                report.sheetError = sheetErr.message;
+            }
+        }
+
+        return report;
+    },
+
+    syncLiabilityReportToSheet: function (report) {
+        const ss = SheetsDualStoreManager.getSpreadsheet();
+        if (!ss) return;
+        const tabName = 'Leave_Liability_Report';
+        let sheet = ss.getSheetByName(tabName);
+        if (!sheet) {
+            sheet = ss.insertSheet(tabName);
+        }
+        if (typeof sheet.clear === 'function') {
+            sheet.clear();
+        } else if (typeof sheet.clearContents === 'function') {
+            sheet.clearContents();
+        }
+
+        const headers = [
+            'Staff Name', 'Email', 'Department', 'Job Title',
+            'Entitlement', 'Accrued This Year', 'Carried Forward (BF)',
+            'Days Taken', 'Remaining Liability Days',
+            'Daily Rate (' + report.currency + ')', 'Estimated Provision (' + report.currency + ')'
+        ];
+
+        const rows = [headers];
+        report.staffRecords.forEach(s => {
+            rows.push([
+                s.name, s.email, s.department, s.jobTitle,
+                s.entitlement, s.accruedThisYear, s.carriedForwardDays,
+                s.daysTaken, s.remainingLiabilityDays,
+                s.dailyRate, s.estimatedLiabilityValue
+            ]);
+        });
+
+        rows.push([]);
+        rows.push(['--- DEPARTMENTAL SUMMARY ---', '', '', '', '', '', '', '', '', '', '', '']);
+        rows.push(['Department', 'Staff Count', 'Total Liability Days', 'Total Carried Forward', 'Total Provision (' + report.currency + ')']);
+        report.departmentalSummary.forEach(d => {
+            rows.push([d.department, d.staffCount, d.liabilityDays, d.carriedForwardDays, d.estimatedValue]);
+        });
+        rows.push(['TOTAL', report.activeStaffCount, report.totalLiabilityDays, report.totalCarriedForwardDays, report.totalEstimatedValue]);
+
+        sheet.getRange(1, 1, rows.length, headers.length).setValues(rows);
+        sheet.getRange(1, 1, 1, headers.length)
+            .setBackground('#059669')
+            .setFontColor('#FFFFFF')
+            .setFontWeight('bold');
+        sheet.setFrozenRows(1);
     }
 };
 
@@ -9749,7 +10069,65 @@ function apiGetArchivedApplications(params) {
     }
 }
 
+function apiGetArchiveSummary() {
+    try {
+        const currentUser = Session.getActiveUser().getEmail();
+        const userRole = StaffManager.getUserRole(currentUser);
+        if (userRole !== SYSTEM.ROLES.HR && userRole !== SYSTEM.ROLES.ADMIN) {
+            return Utils.createErrorResponse('Unauthorized. Only HR or Admin can view archive summary.');
+        }
+        const summary = ArchiveManager.getArchiveSummary();
+        return Utils.createSuccessResponse(summary, 'Archive summary retrieved successfully');
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to get archive summary: ' + error.message);
+    }
+}
+
+// 18. System Diagnostics & Automated Triggers APIs
+function apiGetSystemDiagnostics() {
+    try {
+        const currentUser = Session.getActiveUser().getEmail();
+        const userRole = StaffManager.getUserRole(currentUser);
+        if (userRole !== SYSTEM.ROLES.HR && userRole !== SYSTEM.ROLES.ADMIN) {
+            return Utils.createErrorResponse('Unauthorized. Only HR or Admin can view system diagnostics.');
+        }
+        const health = DiagnosticsManager.getSystemHealth();
+        return Utils.createSuccessResponse(health, 'System diagnostics retrieved successfully');
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to get system diagnostics: ' + error.message);
+    }
+}
+
+function apiInstallSystemTriggers() {
+    try {
+        const currentUser = Session.getActiveUser().getEmail();
+        const userRole = StaffManager.getUserRole(currentUser);
+        if (userRole !== SYSTEM.ROLES.HR && userRole !== SYSTEM.ROLES.ADMIN) {
+            return Utils.createErrorResponse('Unauthorized. Only HR or Admin can install system triggers.');
+        }
+        const installResult = DiagnosticsManager.installSystemTriggers();
+        return Utils.createSuccessResponse({ result: installResult }, 'System automatic triggers installed & verified successfully');
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to install system triggers: ' + error.message);
+    }
+}
+
+// 19. Financial Leave Liability & Accrual Provision APIs
+function apiGetLeaveLiabilityReport(params) {
+    try {
+        const currentUser = Session.getActiveUser().getEmail();
+        const userRole = StaffManager.getUserRole(currentUser);
+        if (userRole !== SYSTEM.ROLES.HR && userRole !== SYSTEM.ROLES.ADMIN) {
+            return Utils.createErrorResponse('Unauthorized. Only HR or Admin can view leave liability reports.');
+        }
+        const report = FinancialProvisionManager.getLeaveLiabilityReport(params || {});
+        return Utils.createSuccessResponse(report, 'Leave liability and financial provision report generated successfully');
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to generate leave liability report: ' + error.message);
+    }
+}
+
 // =============================================
 // END OF COMPLETE BACKEND CODE
-// VERSION 3.6.0 - HYBRID DUAL-STORE & PERFORMANCE ENGINE
+// VERSION 3.7.0 - ENTERPRISE DIAGNOSTICS & AUDIT SUITE
 // =============================================

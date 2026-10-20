@@ -3,8 +3,18 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Agri Experience | Leave Management System</title>
+
+    <!-- PWA & Mobile Web App Meta Tags -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="AgriLeave">
+    <meta name="theme-color" content="#059669">
+    <meta name="application-name" content="AgriLeave">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23059669'/><path d='M30 65 C30 45, 45 30, 70 30 C70 50, 55 65, 30 65 Z' fill='%23ffffff'/><path d='M42 53 L62 33' stroke='%23059669' stroke-width='4' stroke-linecap='round'/></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23059669'/><path d='M30 65 C30 45, 45 30, 70 30 C70 50, 55 65, 30 65 Z' fill='%23ffffff'/></svg>">
 
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -2551,6 +2561,219 @@
                 <div id="handoverRequestsList" class="p-6 overflow-y-auto space-y-4">
                     <div class="text-center py-8 text-gray-400 text-sm">
                         <i class="fas fa-spinner fa-spin mr-2"></i> Loading handover requests...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Archived Applications Explorer Modal (HR/Admin) -->
+    <div id="archivedApplicationsModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="fixed inset-0 modal-overlay" id="archivedApplicationsModalBackdrop" onclick="closeArchivedApplicationsModal()"></div>
+            <div class="relative bg-white rounded-2xl text-left shadow-2xl w-full max-w-4xl flex flex-col border border-purple-100 overflow-hidden max-h-[90vh]">
+                <div class="bg-gradient-to-r from-purple-700 via-indigo-700 to-purple-800 px-6 py-4 rounded-t-2xl text-white flex justify-between items-center">
+                    <div class="flex items-center space-x-3">
+                        <div class="h-9 w-9 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
+                            <i class="fas fa-archive text-white"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-bold">Historical Leave Archives</h3>
+                            <p class="text-xs text-purple-200">Audit partitioned closed applications from previous calendar years</p>
+                        </div>
+                    </div>
+                    <button type="button" onclick="closeArchivedApplicationsModal()" class="text-white/80 hover:text-white p-1">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <!-- Filters Bar -->
+                <div class="p-4 bg-gray-50 border-b border-gray-200/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div class="flex flex-wrap items-center gap-2 flex-1">
+                        <select id="archiveYearFilter" onchange="loadArchivedApplications()" class="px-3 py-1.5 bg-white border border-gray-300 rounded-xl text-gray-700 focus:ring-2 focus:ring-purple-500">
+                            <option value="all">All Archive Years</option>
+                        </select>
+                        <select id="archiveTypeFilter" onchange="loadArchivedApplications()" class="px-3 py-1.5 bg-white border border-gray-300 rounded-xl text-gray-700 focus:ring-2 focus:ring-purple-500">
+                            <option value="all">All Leave Types</option>
+                            <option value="Annual Leave">Annual Leave</option>
+                            <option value="Sick Leave">Sick Leave</option>
+                            <option value="Compassionate Leave">Compassionate Leave</option>
+                            <option value="Maternity Leave">Maternity Leave</option>
+                            <option value="Paternity Leave">Paternity Leave</option>
+                        </select>
+                        <select id="archiveStatusFilter" onchange="loadArchivedApplications()" class="px-3 py-1.5 bg-white border border-gray-300 rounded-xl text-gray-700 focus:ring-2 focus:ring-purple-500">
+                            <option value="all">All Closed Statuses</option>
+                            <option value="Approved">Approved</option>
+                            <option value="Declined">Declined</option>
+                            <option value="Cancelled">Cancelled</option>
+                        </select>
+                        <input type="text" id="archiveSearchInput" placeholder="Search staff, email, reason..." oninput="debounce(loadArchivedApplications, 300)()" class="px-3 py-1.5 bg-white border border-gray-300 rounded-xl text-gray-700 flex-1 min-w-[150px] focus:ring-2 focus:ring-purple-500">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="exportArchivedApplicationsCSV()" class="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold shadow-xs transition-all flex items-center gap-1.5">
+                            <i class="fas fa-file-csv"></i> Export CSV
+                        </button>
+                    </div>
+                </div>
+                <!-- Content Table -->
+                <div class="p-6 overflow-y-auto flex-1">
+                    <div id="archivedApplicationsList">
+                        <div class="text-center py-8 text-gray-400 text-xs">Loading archived applications...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Diagnostics & Triggers Health Modal (HR/Admin) -->
+    <div id="systemDiagnosticsModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="fixed inset-0 modal-overlay" id="systemDiagnosticsModalBackdrop" onclick="closeSystemDiagnosticsModal()"></div>
+            <div class="relative bg-white rounded-2xl text-left shadow-2xl w-full max-w-3xl flex flex-col border border-blue-100 overflow-hidden max-h-[90vh]">
+                <div class="bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-800 px-6 py-4 rounded-t-2xl text-white flex justify-between items-center">
+                    <div class="flex items-center space-x-3">
+                        <div class="h-9 w-9 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
+                            <i class="fas fa-heartbeat text-white"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-bold">System Health & Diagnostic Engine</h3>
+                            <p class="text-xs text-blue-200">Real-time inspection of Drive files, Sheets dual-store, cache & triggers</p>
+                        </div>
+                    </div>
+                    <button type="button" onclick="closeSystemDiagnosticsModal()" class="text-white/80 hover:text-white p-1">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="p-6 overflow-y-auto space-y-5">
+                    <div id="diagnosticsSummaryBanner" class="p-4 rounded-xl flex items-center justify-between gap-3 text-xs bg-emerald-50 border border-emerald-200 text-emerald-900">
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-shield-alt text-emerald-600 text-lg"></i>
+                            <div>
+                                <span class="font-bold text-sm">System Engine Status: <span id="diagOverallStatus">Checking...</span></span>
+                                <p class="text-[11px] text-emerald-700" id="diagTimestamp">Running diagnostic telemetry...</p>
+                            </div>
+                        </div>
+                        <button type="button" onclick="loadSystemDiagnostics()" class="px-3 py-1.5 bg-white border border-emerald-200 hover:bg-emerald-50 rounded-xl font-semibold text-emerald-800 shadow-xs flex items-center gap-1.5">
+                            <i class="fas fa-redo-alt text-[10px]"></i> Re-Run
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="diagnosticsCardsGrid">
+                        <!-- Loaded dynamically -->
+                    </div>
+
+                    <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h4 class="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                                    <i class="fas fa-clock text-blue-600"></i> Automatic Background Automation Triggers
+                                </h4>
+                                <p class="text-[11px] text-gray-500">Daily Heartbeat (06:00), Monthly Accrual (1st), Easter Warnings & Forfeitures</p>
+                            </div>
+                            <button type="button" onclick="handleInstallSystemTriggers()" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5">
+                                <i class="fas fa-wrench text-[10px]"></i> Reinstall / Verify Triggers
+                            </button>
+                        </div>
+                        <div id="triggersStatusList" class="space-y-1.5 text-xs">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+                </div>
+                <div class="p-4 bg-gray-50 border-t border-gray-100 flex justify-end">
+                    <button type="button" onclick="closeSystemDiagnosticsModal()" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl text-xs font-semibold">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Financial Leave Liability & Accrual Provision Report Modal (HR/Admin) -->
+    <div id="leaveLiabilityModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="fixed inset-0 modal-overlay" id="leaveLiabilityModalBackdrop" onclick="closeLeaveLiabilityModal()"></div>
+            <div class="relative bg-white rounded-2xl text-left shadow-2xl w-full max-w-5xl flex flex-col border border-emerald-100 overflow-hidden max-h-[90vh]">
+                <div class="bg-gradient-to-r from-emerald-800 via-teal-800 to-emerald-900 px-6 py-4 rounded-t-2xl text-white flex justify-between items-center">
+                    <div class="flex items-center space-x-3">
+                        <div class="h-9 w-9 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
+                            <i class="fas fa-coins text-white"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-bold">Financial Leave Liability & Accrual Provision</h3>
+                            <p class="text-xs text-emerald-200">Monetary provision calculation for unutilized annual & carried-forward leave</p>
+                        </div>
+                    </div>
+                    <button type="button" onclick="closeLeaveLiabilityModal()" class="text-white/80 hover:text-white p-1">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <!-- Controls & Metric Cards -->
+                <div class="p-6 overflow-y-auto space-y-6">
+                    <div class="flex flex-wrap items-center justify-between gap-4 p-4 bg-gray-50 border border-gray-200 rounded-xl text-xs">
+                        <div class="flex flex-wrap items-center gap-3">
+                            <label class="font-semibold text-gray-700">Currency:</label>
+                            <input type="text" id="liabilityCurrency" value="KES" class="w-16 px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-bold uppercase focus:ring-2 focus:ring-emerald-500">
+                            <label class="font-semibold text-gray-700">Default Daily Rate:</label>
+                            <input type="number" id="liabilityDefaultRate" value="0" placeholder="0" class="w-24 px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500">
+                            <button type="button" onclick="loadLeaveLiabilityReport(false)" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold shadow-xs">
+                                Recalculate
+                            </button>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="loadLeaveLiabilityReport(true)" class="px-3.5 py-1.5 bg-white border border-emerald-300 hover:bg-emerald-50 text-emerald-800 rounded-lg font-semibold shadow-xs flex items-center gap-1.5">
+                                <i class="fas fa-file-excel text-emerald-600"></i> Sync to Google Sheet
+                            </button>
+                            <button type="button" onclick="exportLeaveLiabilityCSV()" class="px-3.5 py-1.5 bg-gray-700 hover:bg-gray-800 text-white rounded-lg font-semibold shadow-xs flex items-center gap-1.5">
+                                <i class="fas fa-file-csv"></i> Download CSV
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Metrics Grid -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="liabilityMetricsGrid">
+                        <!-- Populated dynamically -->
+                    </div>
+
+                    <!-- Department Summary -->
+                    <div>
+                        <h4 class="text-xs font-bold text-gray-900 mb-2 flex items-center gap-1.5">
+                            <i class="fas fa-chart-pie text-emerald-600"></i> Departmental Provision Breakdown
+                        </h4>
+                        <div class="overflow-x-auto border border-gray-200 rounded-xl">
+                            <table class="w-full text-xs" id="liabilityDeptTable">
+                                <thead class="bg-gray-50 border-b border-gray-200 text-gray-600">
+                                    <tr>
+                                        <th class="py-2.5 px-3 text-left">Department</th>
+                                        <th class="py-2.5 px-3 text-center">Staff Count</th>
+                                        <th class="py-2.5 px-3 text-center">Unused Liability Days</th>
+                                        <th class="py-2.5 px-3 text-center">Carried Forward Days</th>
+                                        <th class="py-2.5 px-3 text-right">Estimated Financial Provision</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="liabilityDeptTableBody" class="divide-y divide-gray-100"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Detailed Staff Table -->
+                    <div>
+                        <h4 class="text-xs font-bold text-gray-900 mb-2 flex items-center gap-1.5">
+                            <i class="fas fa-user-friends text-emerald-600"></i> Individual Staff Balances & Provision
+                        </h4>
+                        <div class="overflow-x-auto border border-gray-200 rounded-xl max-h-72">
+                            <table class="w-full text-xs" id="liabilityStaffTable">
+                                <thead class="bg-gray-50 border-b border-gray-200 text-gray-600 sticky top-0 z-10">
+                                    <tr>
+                                        <th class="py-2.5 px-3 text-left">Staff Member</th>
+                                        <th class="py-2.5 px-3 text-left">Department</th>
+                                        <th class="py-2.5 px-3 text-center">Entitlement</th>
+                                        <th class="py-2.5 px-3 text-center">Accrued</th>
+                                        <th class="py-2.5 px-3 text-center">Carried Fwd</th>
+                                        <th class="py-2.5 px-3 text-center">Days Taken</th>
+                                        <th class="py-2.5 px-3 text-center font-bold text-emerald-800">Liability Days</th>
+                                        <th class="py-2.5 px-3 text-right font-bold text-emerald-800">Provision Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="liabilityStaffTableBody" class="divide-y divide-gray-100"></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -10156,6 +10379,9 @@
                 html += '<button type="button" onclick="triggerSheetsDatabaseSync()" class="px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5"><i class="fas fa-sync-alt text-emerald-600 text-[10px]"></i> Sync All to Sheets</button>';
                 html += '<button type="button" onclick="triggerRestoreFromSheets()" class="px-3.5 py-2 bg-amber-50 border border-amber-200 hover:bg-amber-100 text-amber-800 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5"><i class="fas fa-undo text-amber-600 text-[10px]"></i> Restore from Sheets</button>';
                 html += '<button type="button" onclick="triggerColdStorageArchive()" class="px-3.5 py-2 bg-gray-50 border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5"><i class="fas fa-archive text-gray-600 text-[10px]"></i> Archive Closed Leaves</button>';
+                html += '<button type="button" onclick="openArchivedApplicationsModal()" class="px-3.5 py-2 bg-purple-50 border border-purple-200 hover:bg-purple-100 text-purple-800 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5"><i class="fas fa-search text-purple-600 text-[10px]"></i> Browse Archives</button>';
+                html += '<button type="button" onclick="openLeaveLiabilityModal()" class="px-3.5 py-2 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5"><i class="fas fa-coins text-emerald-600 text-[10px]"></i> Leave Liability Report</button>';
+                html += '<button type="button" onclick="openSystemDiagnosticsModal()" class="px-3.5 py-2 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-800 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5"><i class="fas fa-heartbeat text-blue-600 text-[10px]"></i> Diagnostics & Triggers</button>';
                 html += '</div></div></div>';
 
                 pageElement.innerHTML = html;
@@ -10239,6 +10465,445 @@
                 hideLoading();
                 showToast('error', 'Archive Error', err.message);
             }
+        }
+
+        // ============================================================
+        // HISTORICAL ARCHIVES EXPLORER FUNCTIONS
+        // ============================================================
+        let currentArchivedData = [];
+
+        async function openArchivedApplicationsModal() {
+            const modal = document.getElementById('archivedApplicationsModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                try {
+                    const sumRes = await callGoogleScriptFunction('apiGetArchiveSummary');
+                    if (sumRes.success && sumRes.data && Array.isArray(sumRes.data.years)) {
+                        const yearSelect = document.getElementById('archiveYearFilter');
+                        if (yearSelect) {
+                            const currentVal = yearSelect.value;
+                            yearSelect.innerHTML = '<option value="all">All Archive Years</option>' +
+                                sumRes.data.years.map(y => `<option value="${y}">${y}</option>`).join('');
+                            if (currentVal && sumRes.data.years.includes(parseInt(currentVal, 10))) {
+                                yearSelect.value = currentVal;
+                            }
+                        }
+                    }
+                } catch (e) {}
+                loadArchivedApplications();
+            }
+        }
+
+        function closeArchivedApplicationsModal() {
+            const modal = document.getElementById('archivedApplicationsModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        async function loadArchivedApplications() {
+            const listEl = document.getElementById('archivedApplicationsList');
+            if (!listEl) return;
+
+            const year = document.getElementById('archiveYearFilter')?.value || 'all';
+            const leaveType = document.getElementById('archiveTypeFilter')?.value || 'all';
+            const status = document.getElementById('archiveStatusFilter')?.value || 'all';
+            const search = document.getElementById('archiveSearchInput')?.value || '';
+
+            listEl.innerHTML = '<div class="text-center py-8 text-gray-400 text-xs"><i class="fas fa-spinner fa-spin mr-2"></i> Loading historical archive partition...</div>';
+
+            try {
+                const res = await callGoogleScriptFunction('apiGetArchivedApplications', {
+                    year: year,
+                    leaveType: leaveType,
+                    status: status,
+                    search: search
+                });
+
+                if (res.success && Array.isArray(res.data)) {
+                    currentArchivedData = res.data;
+                    if (currentArchivedData.length === 0) {
+                        listEl.innerHTML = `
+                            <div class="p-8 text-center text-gray-500 text-xs">
+                                <i class="fas fa-archive text-gray-300 text-3xl mb-2"></i>
+                                <p class="font-bold text-gray-700">No Archived Applications Found</p>
+                                <p class="text-gray-400 mt-1">No closed records match the selected archive filters.</p>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    listEl.innerHTML = `
+                        <div class="overflow-x-auto border border-gray-200 rounded-xl">
+                            <table class="w-full text-xs">
+                                <thead class="bg-gray-50 border-b border-gray-200 text-gray-600">
+                                    <tr>
+                                        <th class="py-2.5 px-3 text-left">App ID</th>
+                                        <th class="py-2.5 px-3 text-left">Staff Name</th>
+                                        <th class="py-2.5 px-3 text-left">Leave Type</th>
+                                        <th class="py-2.5 px-3 text-center">Dates</th>
+                                        <th class="py-2.5 px-3 text-center">Days</th>
+                                        <th class="py-2.5 px-3 text-center">Status</th>
+                                        <th class="py-2.5 px-3 text-left">Coverage Colleague</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    ${currentArchivedData.map(a => `
+                                        <tr class="hover:bg-gray-50/60 transition-colors">
+                                            <td class="py-2.5 px-3 font-mono font-medium text-purple-700">${escapeHtml(a.ID || a.Id || 'APP')}</td>
+                                            <td class="py-2.5 px-3">
+                                                <div class="font-bold text-gray-900">${escapeHtml(a.Name || a.Email)}</div>
+                                                <div class="text-[10px] text-gray-500">${escapeHtml(a.Department || '')}</div>
+                                            </td>
+                                            <td class="py-2.5 px-3 font-medium">${escapeHtml(a.LeaveType || '')}</td>
+                                            <td class="py-2.5 px-3 text-center text-gray-600 whitespace-nowrap">${formatDate(a.StartDate)} to ${formatDate(a.EndDate)}</td>
+                                            <td class="py-2.5 px-3 text-center font-bold text-gray-800">${a.Duration || 0}d</td>
+                                            <td class="py-2.5 px-3 text-center">
+                                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${a.Status === 'Approved' ? 'bg-emerald-100 text-emerald-800' : a.Status === 'Declined' ? 'bg-rose-100 text-rose-800' : 'bg-gray-100 text-gray-700'}">
+                                                    ${escapeHtml(a.Status || 'Closed')}
+                                                </span>
+                                            </td>
+                                            <td class="py-2.5 px-3 text-gray-600">${escapeHtml(a.HandoverColleagueName || a.HandoverColleagueEmail || 'None')}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                } else {
+                    listEl.innerHTML = `<div class="p-6 text-center text-rose-500 text-xs">Failed to load archives: ${escapeHtml(res.error || 'Unknown error')}</div>`;
+                }
+            } catch (err) {
+                listEl.innerHTML = `<div class="p-6 text-center text-rose-500 text-xs">Error loading archives: ${escapeHtml(err.message)}</div>`;
+            }
+        }
+
+        function exportArchivedApplicationsCSV() {
+            if (!currentArchivedData || currentArchivedData.length === 0) {
+                showToast('warning', 'No Records', 'No archived records available to export');
+                return;
+            }
+            const headers = ['ID', 'Applicant Name', 'Email', 'Department', 'Leave Type', 'Start Date', 'End Date', 'Duration (Days)', 'Status', 'Handover Colleague', 'Reason'];
+            const rows = currentArchivedData.map(a => [
+                a.ID || a.Id || '',
+                a.Name || '',
+                a.Email || '',
+                a.Department || '',
+                a.LeaveType || '',
+                a.StartDate || '',
+                a.EndDate || '',
+                a.Duration || '',
+                a.Status || '',
+                a.HandoverColleagueName || a.HandoverColleagueEmail || '',
+                `"${(a.Reason || '').replace(/"/g, '""')}"`
+            ]);
+            const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement('a');
+            link.setAttribute('href', encodedUri);
+            link.setAttribute('download', `AgriLeave_Archived_Applications_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('success', 'CSV Exported', `Exported ${currentArchivedData.length} archived records`);
+        }
+
+        // ============================================================
+        // SYSTEM DIAGNOSTICS & TRIGGERS HEALTH FUNCTIONS
+        // ============================================================
+        async function openSystemDiagnosticsModal() {
+            const modal = document.getElementById('systemDiagnosticsModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                loadSystemDiagnostics();
+            }
+        }
+
+        function closeSystemDiagnosticsModal() {
+            const modal = document.getElementById('systemDiagnosticsModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        async function loadSystemDiagnostics() {
+            const banner = document.getElementById('diagnosticsSummaryBanner');
+            const statusText = document.getElementById('diagOverallStatus');
+            const timeText = document.getElementById('diagTimestamp');
+            const grid = document.getElementById('diagnosticsCardsGrid');
+            const triggersList = document.getElementById('triggersStatusList');
+
+            if (statusText) statusText.textContent = 'Running Telemetry...';
+            if (grid) grid.innerHTML = '<div class="col-span-2 text-center py-8 text-gray-400 text-xs"><i class="fas fa-spinner fa-spin mr-2"></i> Inspecting system engine...</div>';
+
+            try {
+                const res = await callGoogleScriptFunction('apiGetSystemDiagnostics');
+                if (res.success && res.data) {
+                    const d = res.data;
+                    const isHealthy = d.status === 'HEALTHY';
+
+                    if (statusText) {
+                        statusText.textContent = isHealthy ? '100% HEALTHY & OPERATIONAL' : d.status;
+                        statusText.className = isHealthy ? 'text-emerald-700 font-extrabold' : 'text-amber-700 font-extrabold';
+                    }
+                    if (timeText) timeText.textContent = `Telemetry checked at ${new Date(d.timestamp).toLocaleTimeString()}`;
+                    if (banner) {
+                        banner.className = isHealthy
+                            ? 'p-4 rounded-xl flex items-center justify-between gap-3 text-xs bg-emerald-50 border border-emerald-200 text-emerald-900'
+                            : 'p-4 rounded-xl flex items-center justify-between gap-3 text-xs bg-amber-50 border border-amber-200 text-amber-900';
+                    }
+
+                    if (grid) {
+                        const fileCount = Object.keys(d.databaseFiles || {}).length;
+                        const filesOk = Object.values(d.databaseFiles || {}).every(f => f.exists);
+
+                        grid.innerHTML = `
+                            <div class="p-4 bg-white border border-gray-200 rounded-xl shadow-xs space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-bold text-xs text-gray-900 flex items-center gap-1.5">
+                                        <i class="fas fa-folder text-emerald-600"></i> Project System Folder
+                                    </span>
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold ${d.folder.exists ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
+                                        ${d.folder.exists ? 'Connected' : 'Missing'}
+                                    </span>
+                                </div>
+                                <p class="text-[11px] text-gray-500 font-mono">${escapeHtml(d.folder.name)}</p>
+                                <div class="text-[11px] text-gray-600 pt-1 border-t border-gray-100 flex items-center justify-between">
+                                    <span>JSON Database Files: <strong>${fileCount} active</strong></span>
+                                    <span class="${filesOk ? 'text-emerald-600' : 'text-rose-600'} font-bold">${filesOk ? '✓ All files intact' : '⚠️ Errors detected'}</span>
+                                </div>
+                            </div>
+
+                            <div class="p-4 bg-white border border-gray-200 rounded-xl shadow-xs space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-bold text-xs text-gray-900 flex items-center gap-1.5">
+                                        <i class="fas fa-file-excel text-emerald-600"></i> Sheets Dual-Store Mirror
+                                    </span>
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold ${d.sheetsMirror && d.sheetsMirror.enabled ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">
+                                        ${d.sheetsMirror && d.sheetsMirror.enabled ? 'Active Mirror' : 'Unavailable'}
+                                    </span>
+                                </div>
+                                <p class="text-[11px] text-gray-500 truncate">${escapeHtml(d.sheetsMirror?.fileName || 'AgriLeave Master Database')}</p>
+                                <div class="text-[11px] text-gray-600 pt-1 border-t border-gray-100 flex items-center justify-between">
+                                    <span>Applications Tab: <strong>${d.sheetsMirror?.recordCounts?.applications || 0} rows</strong></span>
+                                    <span>Balances Tab: <strong>${d.sheetsMirror?.recordCounts?.balances || 0} rows</strong></span>
+                                </div>
+                            </div>
+
+                            <div class="p-4 bg-white border border-gray-200 rounded-xl shadow-xs space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-bold text-xs text-gray-900 flex items-center gap-1.5">
+                                        <i class="fas fa-bolt text-amber-500"></i> Distributed Cache Tiers
+                                    </span>
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold ${d.cache.distributedTier === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">
+                                        Tier 2: ${d.cache.distributedTier}
+                                    </span>
+                                </div>
+                                <p class="text-[11px] text-gray-500">Tier 1: Local RAM Memory Map (Active)</p>
+                                <div class="text-[11px] text-gray-600 pt-1 border-t border-gray-100">
+                                    Google Script CacheService: <strong class="text-emerald-700">Sub-second reads</strong>
+                                </div>
+                            </div>
+
+                            <div class="p-4 bg-white border border-gray-200 rounded-xl shadow-xs space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-bold text-xs text-gray-900 flex items-center gap-1.5">
+                                        <i class="fas fa-plug text-blue-600"></i> External Integrations
+                                    </span>
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800">
+                                        Active
+                                    </span>
+                                </div>
+                                <div class="text-[11px] text-gray-600 space-y-1">
+                                    <div class="flex items-center justify-between">
+                                        <span>Google Calendar:</span>
+                                        <span class="${d.integrations.calendar.configured ? 'text-emerald-600' : 'text-gray-400'} font-semibold">${d.integrations.calendar.configured ? '✓ Configured' : 'Optional / Default'}</span>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span>Google Chat Webhook:</span>
+                                        <span class="${d.integrations.chatWebhook.configured ? 'text-emerald-600' : 'text-gray-400'} font-semibold">${d.integrations.chatWebhook.configured ? '✓ Active' : 'Optional'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    if (triggersList) {
+                        const triggerNames = [
+                            { fn: 'scheduledDailyHeartbeat', name: 'Daily Maintenance Heartbeat', schedule: 'Daily at 06:00 (Easter, Accrual Heal, Morning Digest)' },
+                            { fn: 'scheduledMonthlyAccrual', name: 'Monthly Accrual Execution', schedule: '1st of each month at 01:00' },
+                            { fn: 'scheduledYearEnd', name: 'Annual Year-End Reset', schedule: 'Jan 1st at 00:30' },
+                            { fn: 'scheduledEasterWarning', name: 'Dynamic Easter Warning', schedule: 'March 15th at 08:00 (14-day notice)' },
+                            { fn: 'scheduledEasterExpiry', name: 'Easter Forfeiture Engine', schedule: 'April 5th at 07:00' }
+                        ];
+
+                        const regList = (d.triggers?.triggers || []).map(t => t.handler);
+
+                        triggersList.innerHTML = triggerNames.map(tr => {
+                            const isInstalled = regList.includes(tr.fn);
+                            return `
+                                <div class="p-2.5 bg-white rounded-lg border border-gray-200/80 flex items-center justify-between">
+                                    <div>
+                                        <span class="font-bold text-gray-900">${tr.name}</span>
+                                        <p class="text-[10px] text-gray-500">${tr.schedule}</p>
+                                    </div>
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold ${isInstalled ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
+                                        ${isInstalled ? '<i class="fas fa-check mr-1"></i> Installed' : '<i class="fas fa-exclamation mr-1"></i> Missing'}
+                                    </span>
+                                </div>
+                            `;
+                        }).join('');
+                    }
+
+                } else {
+                    if (statusText) statusText.textContent = 'Diagnostic inspection failed';
+                }
+            } catch (err) {
+                if (statusText) statusText.textContent = 'Telemetry error: ' + err.message;
+            }
+        }
+
+        async function handleInstallSystemTriggers() {
+            if (!confirm('Reinstall and verify all 5 automatic background triggers in Google Apps Script?\n\nThis configures the Daily Heartbeat, Monthly Accruals, Year-End Reset, and Easter Forfeiture routines.')) return;
+
+            showLoading('Installing & verifying automatic triggers...');
+            try {
+                const res = await callGoogleScriptFunction('apiInstallSystemTriggers');
+                hideLoading();
+                if (res.success) {
+                    showToast('success', 'Triggers Configured', 'All 5 background triggers verified and registered successfully');
+                    loadSystemDiagnostics();
+                } else {
+                    showToast('error', 'Trigger Installation Failed', res.error || 'Could not install triggers');
+                }
+            } catch (err) {
+                hideLoading();
+                showToast('error', 'Error', err.message);
+            }
+        }
+
+        // ============================================================
+        // FINANCIAL LEAVE LIABILITY & ACCRUAL PROVISION FUNCTIONS
+        // ============================================================
+        let currentLiabilityReport = null;
+
+        async function openLeaveLiabilityModal() {
+            const modal = document.getElementById('leaveLiabilityModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                loadLeaveLiabilityReport(false);
+            }
+        }
+
+        function closeLeaveLiabilityModal() {
+            const modal = document.getElementById('leaveLiabilityModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        async function loadLeaveLiabilityReport(syncToSheet = false) {
+            const currency = document.getElementById('liabilityCurrency')?.value || 'KES';
+            const defaultDailySalary = parseFloat(document.getElementById('liabilityDefaultRate')?.value || 0);
+
+            showLoading(syncToSheet ? 'Calculating & syncing provision to Google Sheet...' : 'Calculating leave liability provision...');
+            try {
+                const res = await callGoogleScriptFunction('apiGetLeaveLiabilityReport', {
+                    currency: currency,
+                    defaultDailySalary: defaultDailySalary,
+                    syncToSheet: syncToSheet
+                });
+                hideLoading();
+
+                if (res.success && res.data) {
+                    currentLiabilityReport = res.data;
+                    renderLiabilityReport(currentLiabilityReport);
+                    if (syncToSheet) {
+                        showToast('success', 'Synced to Google Sheet', 'Leave liability provision exported to Leave_Liability_Report tab');
+                    }
+                } else {
+                    showToast('error', 'Report Failed', res.error || 'Failed to generate liability report');
+                }
+            } catch (err) {
+                hideLoading();
+                showToast('error', 'Error', err.message);
+            }
+        }
+
+        function renderLiabilityReport(report) {
+            const metricsGrid = document.getElementById('liabilityMetricsGrid');
+            const deptTableBody = document.getElementById('liabilityDeptTableBody');
+            const staffTableBody = document.getElementById('liabilityStaffTableBody');
+
+            if (metricsGrid) {
+                metricsGrid.innerHTML = `
+                    <div class="p-3.5 bg-blue-50/60 border border-blue-200 rounded-xl">
+                        <span class="text-xs font-semibold text-blue-700">Active Staff Pool</span>
+                        <div class="text-xl font-extrabold text-blue-900 mt-1">${report.activeStaffCount}</div>
+                        <p class="text-[10px] text-blue-600 mt-0.5">Eligible employees</p>
+                    </div>
+                    <div class="p-3.5 bg-emerald-50/60 border border-emerald-200 rounded-xl">
+                        <span class="text-xs font-semibold text-emerald-700">Total Liability Days</span>
+                        <div class="text-xl font-extrabold text-emerald-900 mt-1">${report.totalLiabilityDays}d</div>
+                        <p class="text-[10px] text-emerald-600 mt-0.5">Unutilized leave days</p>
+                    </div>
+                    <div class="p-3.5 bg-amber-50/60 border border-amber-200 rounded-xl">
+                        <span class="text-xs font-semibold text-amber-700">Carried Forward (BF)</span>
+                        <div class="text-xl font-extrabold text-amber-900 mt-1">${report.totalCarriedForwardDays}d</div>
+                        <p class="text-[10px] text-amber-600 mt-0.5">Expiring by Easter</p>
+                    </div>
+                    <div class="p-3.5 bg-purple-50/60 border border-purple-200 rounded-xl">
+                        <span class="text-xs font-semibold text-purple-700">Estimated Provision</span>
+                        <div class="text-xl font-extrabold text-purple-900 mt-1">${report.currency} ${report.totalEstimatedValue.toLocaleString()}</div>
+                        <p class="text-[10px] text-purple-600 mt-0.5">Financial balance liability</p>
+                    </div>
+                `;
+            }
+
+            if (deptTableBody) {
+                deptTableBody.innerHTML = (report.departmentalSummary || []).map(d => `
+                    <tr class="hover:bg-gray-50/60 transition-colors">
+                        <td class="py-2.5 px-3 font-bold text-gray-900">${escapeHtml(d.department)}</td>
+                        <td class="py-2.5 px-3 text-center">${d.staffCount}</td>
+                        <td class="py-2.5 px-3 text-center font-bold text-emerald-700">${Math.round(d.liabilityDays * 100) / 100}d</td>
+                        <td class="py-2.5 px-3 text-center text-amber-700">${Math.round(d.carriedForwardDays * 100) / 100}d</td>
+                        <td class="py-2.5 px-3 text-right font-bold text-purple-900">${report.currency} ${(Math.round(d.estimatedValue * 100) / 100).toLocaleString()}</td>
+                    </tr>
+                `).join('');
+            }
+
+            if (staffTableBody) {
+                staffTableBody.innerHTML = (report.staffRecords || []).map(s => `
+                    <tr class="hover:bg-gray-50/60 transition-colors">
+                        <td class="py-2 px-3">
+                            <div class="font-bold text-gray-900">${escapeHtml(s.name)}</div>
+                            <div class="text-[10px] text-gray-500">${escapeHtml(s.email)}</div>
+                        </td>
+                        <td class="py-2 px-3 text-gray-600">${escapeHtml(s.department)}</td>
+                        <td class="py-2 px-3 text-center">${s.entitlement}</td>
+                        <td class="py-2 px-3 text-center text-blue-700">${s.accruedThisYear}</td>
+                        <td class="py-2 px-3 text-center text-amber-700">${s.carriedForwardDays}</td>
+                        <td class="py-2 px-3 text-center text-gray-600">${s.daysTaken}</td>
+                        <td class="py-2 px-3 text-center font-bold text-emerald-700">${s.remainingLiabilityDays}d</td>
+                        <td class="py-2 px-3 text-right font-bold text-purple-900">${report.currency} ${s.estimatedLiabilityValue.toLocaleString()}</td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        function exportLeaveLiabilityCSV() {
+            if (!currentLiabilityReport || !currentLiabilityReport.staffRecords) {
+                showToast('warning', 'No Report', 'Please generate the report before downloading CSV');
+                return;
+            }
+            const r = currentLiabilityReport;
+            const headers = ['Staff Name', 'Email', 'Department', 'Job Title', 'Entitlement', 'Accrued This Year', 'Carried Forward (BF)', 'Days Taken', 'Pending Days', 'Liability Days', `Daily Rate (${r.currency})`, `Estimated Provision (${r.currency})`];
+            const rows = r.staffRecords.map(s => [
+                s.name, s.email, s.department, s.jobTitle, s.entitlement, s.accruedThisYear, s.carriedForwardDays, s.daysTaken, s.daysPending, s.remainingLiabilityDays, s.dailyRate, s.estimatedLiabilityValue
+            ]);
+            const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement('a');
+            link.setAttribute('href', encodedUri);
+            link.setAttribute('download', `AgriLeave_Liability_Report_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('success', 'CSV Downloaded', 'Financial leave liability report downloaded');
         }
 
         // ============================================================
@@ -11304,6 +11969,47 @@
 
                         html += `</tr>`;
                     });
+
+                    // Check for departmental leave overlaps (2 or more from same dept away on same day)
+                    const dayConflicts = [];
+                    for (let d = 0; d < daysInMonth; d++) {
+                        const deptAwayCounts = {};
+                        matrix.forEach(row => {
+                            const day = row.days && row.days[d];
+                            if (day && (day.status === 'leave' || day.status === 'pending')) {
+                                const dept = (row.staff && row.staff.department) ? row.staff.department : 'General';
+                                deptAwayCounts[dept] = (deptAwayCounts[dept] || 0) + 1;
+                            }
+                        });
+                        const conflicts = Object.keys(deptAwayCounts)
+                            .filter(dept => deptAwayCounts[dept] >= 2)
+                            .map(dept => `${dept} (${deptAwayCounts[dept]} away)`);
+                        dayConflicts.push(conflicts);
+                    }
+
+                    const hasAnyConflicts = dayConflicts.some(c => c.length > 0);
+                    if (hasAnyConflicts) {
+                        html += `
+                            <tr class="bg-rose-50/70 border-t-2 border-rose-200">
+                                <td class="sticky left-0 bg-rose-50 z-10 py-1.5 px-3 border-r border-rose-200 font-bold text-rose-900 shadow-sm flex items-center gap-1.5">
+                                    <i class="fas fa-exclamation-triangle text-rose-600 text-[10px]"></i> Dept Overlaps
+                                </td>
+                        `;
+                        dayConflicts.forEach(conflicts => {
+                            if (conflicts.length > 0) {
+                                html += `
+                                    <td class="py-1 px-0.5 text-center border-r border-rose-100 bg-rose-100/80 font-bold text-rose-900" title="Scheduling Conflict: ${escapeHtml(conflicts.join(', '))}">
+                                        <div class="h-6 w-full flex items-center justify-center">
+                                            <span class="px-1 py-0.5 rounded bg-rose-600 text-white text-[9px] font-bold leading-none animate-pulse">!</span>
+                                        </div>
+                                    </td>
+                                `;
+                            } else {
+                                html += `<td class="py-1 px-0.5 text-center border-r border-gray-100 bg-rose-50/20"><div class="h-6"></div></td>`;
+                            }
+                        });
+                        html += `</tr>`;
+                    }
                 }
 
                 html += `
@@ -11333,6 +12039,10 @@
                             <span class="inline-flex items-center gap-1.5">
                                 <span class="h-3 w-3 rounded bg-gray-100 inline-block"></span>
                                 <span class="text-[11px] font-medium text-gray-700">Weekend</span>
+                            </span>
+                            <span class="inline-flex items-center gap-1.5">
+                                <span class="h-3 w-3 rounded bg-rose-600 inline-block"></span>
+                                <span class="text-[11px] font-bold text-rose-900">2+ Dept Overlap Alert</span>
                             </span>
                         </div>
                         <div class="text-[11px] text-gray-400">
@@ -11906,6 +12616,47 @@
         window.triggerSheetsDatabaseSync = triggerSheetsDatabaseSync;
         window.triggerRestoreFromSheets = triggerRestoreFromSheets;
         window.triggerColdStorageArchive = triggerColdStorageArchive;
+        window.openArchivedApplicationsModal = openArchivedApplicationsModal;
+        window.closeArchivedApplicationsModal = closeArchivedApplicationsModal;
+        window.loadArchivedApplications = loadArchivedApplications;
+        window.exportArchivedApplicationsCSV = exportArchivedApplicationsCSV;
+        window.openSystemDiagnosticsModal = openSystemDiagnosticsModal;
+        window.closeSystemDiagnosticsModal = closeSystemDiagnosticsModal;
+        window.loadSystemDiagnostics = loadSystemDiagnostics;
+        window.handleInstallSystemTriggers = handleInstallSystemTriggers;
+        window.openLeaveLiabilityModal = openLeaveLiabilityModal;
+        window.closeLeaveLiabilityModal = closeLeaveLiabilityModal;
+        window.loadLeaveLiabilityReport = loadLeaveLiabilityReport;
+        window.exportLeaveLiabilityCSV = exportLeaveLiabilityCSV;
+
+        // Progressive Web App Manifest Dynamic Registration
+        (function setupPWAManifest() {
+            try {
+                const manifestObj = {
+                    name: "AgriLeave - Staff Leave Management",
+                    short_name: "AgriLeave",
+                    description: "Agri Experience Leave Management System",
+                    start_url: window.location.href,
+                    display: "standalone",
+                    orientation: "any",
+                    background_color: "#f8fafc",
+                    theme_color: "#059669",
+                    icons: [
+                        {
+                            src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23059669'/><path d='M30 65 C30 45, 45 30, 70 30 C70 50, 55 65, 30 65 Z' fill='%23ffffff'/></svg>",
+                            sizes: "192x192 512x512",
+                            type: "image/svg+xml"
+                        }
+                    ]
+                };
+                const blob = new Blob([JSON.stringify(manifestObj)], { type: 'application/manifest+json' });
+                const manifestURL = URL.createObjectURL(blob);
+                const manifestLink = document.createElement('link');
+                manifestLink.rel = 'manifest';
+                manifestLink.href = manifestURL;
+                document.head.appendChild(manifestLink);
+            } catch (e) {}
+        })();
     </script>
 
     <!-- ── Mobile Bottom Navigation Bar ─────────────────────────── -->
