@@ -3209,6 +3209,32 @@
         }
 
         // Update dashboard UI
+        function renderLeaveRowHolidayBadge(app) {
+            if (!app || app.LeaveMode === 'Hourly' || !app.StartDate || !app.EndDate) return '';
+            if (typeof getHolidaysInRange !== 'function') return '';
+            const hols = getHolidaysInRange(app.StartDate, app.EndDate).filter(h => !h.isWeekend);
+            if (!hols || hols.length === 0) return '';
+            return '<br><span class="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded font-medium mt-1" title="Excludes: ' + escapeHtml(hols.map(h => h.name).join(', ')) + '"><i class="fas fa-calendar-check text-[10px]"></i> ' + hols.length + ' holiday' + (hols.length > 1 ? 's' : '') + ' excl.</span>';
+        }
+
+        function renderLeaveRowCancelButton(app) {
+            if (!app) return '';
+            if (app.Status === 'Pending') {
+                return '<button class="text-red-600 hover:text-red-800 font-semibold cancel-application-btn" data-id="' + escapeHtml(app.ID || '') + '" title="Cancel pending leave">Cancel</button>';
+            }
+            if (app.Status === 'Approved') {
+                const endInput = app.EndDate || app.StartDate || app.HourlyDate;
+                const leaveEnd = parseLocalDate(endInput);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                if (leaveEnd) leaveEnd.setHours(0, 0, 0, 0);
+                if (leaveEnd && today <= leaveEnd) {
+                    return '<button class="text-amber-600 hover:text-amber-800 font-semibold cancel-application-btn" data-id="' + escapeHtml(app.ID || '') + '" title="Cancel upcoming/active approved leave">Cancel</button>';
+                }
+            }
+            return '';
+        }
+
         // Update dashboard UI
         function updateDashboardUI(data) {
             const dashboardPage = document.getElementById('dashboardPage');
