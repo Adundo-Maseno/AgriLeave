@@ -11036,9 +11036,9 @@
                             const triggerNames = [
                                 { fn: 'scheduledDailyHeartbeat', name: 'Daily Maintenance Heartbeat', schedule: 'Daily at 06:00 (Easter, Accrual Heal, Morning Digest)' },
                                 { fn: 'scheduledMonthlyAccrual', name: 'Monthly Accrual Execution', schedule: '1st of each month at 01:00' },
-                                { fn: 'scheduledYearEnd', name: 'Annual Year-End Reset', schedule: 'Jan 1st at 00:30' },
-                                { fn: 'scheduledEasterWarning', name: 'Dynamic Easter Warning', schedule: 'March 15th at 08:00 (14-day notice)' },
-                                { fn: 'scheduledEasterExpiry', name: 'Easter Forfeiture Engine', schedule: 'April 5th at 07:00' }
+                                { fn: 'scheduledYearEnd', name: 'Annual Year-End Reset', schedule: 'Jan 1st at 00:30 (Monthly 1st check)' },
+                                { fn: 'scheduledEasterWarning', name: 'Dynamic Easter Warning', schedule: 'Monthly 15th at 08:00 (Easter season check)' },
+                                { fn: 'scheduledEasterExpiry', name: 'Easter Forfeiture Engine', schedule: 'Monthly 5th at 07:00 (Easter season check)' }
                             ];
 
                             const regList = (d.triggers?.triggers || []).map(t => t.handler);

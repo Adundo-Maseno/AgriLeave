@@ -3921,13 +3921,15 @@ const DashboardManager = {
 // =============================================
 
 const AdminManager = {
-    processYearEnd: function () {
+    processYearEnd: function (isSystemAutomated = false) {
         try {
-            const currentUser = Session.getActiveUser().getEmail();
-            const userRole = StaffManager.getUserRole(currentUser);
+            if (!isSystemAutomated) {
+                const currentUser = Session.getActiveUser().getEmail();
+                const userRole = StaffManager.getUserRole(currentUser);
 
-            if (userRole !== SYSTEM.ROLES.ADMIN && userRole !== SYSTEM.ROLES.HR) {
-                return Utils.createErrorResponse('Only administrators can run year-end processing');
+                if (userRole !== SYSTEM.ROLES.ADMIN && userRole !== SYSTEM.ROLES.HR) {
+                    return Utils.createErrorResponse('Only administrators can run year-end processing');
+                }
             }
 
             const today = new Date();
@@ -8655,48 +8657,41 @@ function setupAutomaticAccrual() {
             .atHour(1)
             .create();
 
-        // ── 2. Year-end reset — January 1st at 00:30 ─────────────────────────
+        // ── 2. Year-end reset — monthly on the 1st at 00:30 (guarded to Jan 1st) ──
         ScriptApp.newTrigger('scheduledYearEnd')
             .timeBased()
             .onMonthDay(1)
-            .inMonth(ScriptApp.Month.JANUARY)
             .atHour(0)
             .nearMinute(30)
             .create();
 
-        // ── 3. Easter BF warning — March 15th at 08:00 each year ─────────────
-        // Runs annually on Mar 15. The handler itself checks whether today is
-        // exactly 14 days before Easter and only acts if so.
+        // ── 3. Easter BF warning — monthly on the 15th at 08:00 (guarded to Easter 14-day notice) ──
         ScriptApp.newTrigger('scheduledEasterWarning')
             .timeBased()
             .onMonthDay(15)
-            .inMonth(ScriptApp.Month.MARCH)
             .atHour(8)
             .create();
 
-        // ── 4. Easter BF expiry — April 5th at 07:00 each year ───────────────
-        // Runs annually on Apr 5. The handler checks whether today is Easter
-        // Sunday (or past it) and only acts if so.
+        // ── 4. Easter BF expiry — monthly on the 5th at 07:00 (guarded to on/after Easter) ──
         ScriptApp.newTrigger('scheduledEasterExpiry')
             .timeBased()
             .onMonthDay(5)
-            .inMonth(ScriptApp.Month.APRIL)
             .atHour(7)
             .create();
 
-        console.log('✅ All automatic triggers registered');
+        console.log('✅ All 5 automatic triggers registered');
         return (
             'Triggers registered:\n' +
             '  • Daily Heartbeat: Daily at 06:00 (Easter, Accrual Heal, Stale App Reminders)\n' +
             '  • Monthly accrual: 1st of each month at 01:00\n' +
-            '  • Year-end reset:  Jan 1st at 00:30\n' +
-            '  • BF warning:      Mar 15th at 08:00 (fires only when 14 days from Easter)\n' +
-            '  • BF expiry:       Apr 5th at 07:00  (fires only on/after Easter)'
+            '  • Year-end reset:  Monthly 1st at 00:30 (executes on Jan 1st)\n' +
+            '  • BF warning:      Monthly 15th at 08:00 (executes 14 days before Easter)\n' +
+            '  • BF expiry:       Monthly 5th at 07:00  (executes on/after Easter)'
         );
 
     } catch (error) {
         console.error('❌ Failed to setup triggers:', error);
-        return 'Failed to setup triggers: ' + error.message;
+        throw new Error('Failed to setup triggers: ' + error.message);
     }
 }
 
@@ -8731,15 +8726,22 @@ function apiTriggerDailyHeartbeat() {
         return Utils.createErrorResponse('Heartbeat execution failed: ' + error.message);
     }
 }
-// ── Fires Jan 1st at 00:30 — runs year-end reset once ────────────────────
+// ── Fires monthly on the 1st at 00:30 — runs year-end reset once on Jan 1st ─
 function scheduledYearEnd() {
-    console.log('⏰ Scheduled year-end processing started...');
+    console.log('⏰ Scheduled year-end processing check started...');
     try {
+        const today = new Date();
+        // Guard: Only execute in January (month 0 in JS Date) on the 1st
+        if (today.getMonth() !== 0 || today.getDate() !== 1) {
+            console.log(`Today is ${today.toDateString()} (Month: ${today.getMonth() + 1}). Year-end reset only runs on Jan 1st. Skipping.`);
+            return { skipped: true, reason: 'Not January 1st' };
+        }
+
         // Re-initialise cache before any data operations
         EnhancedCacheManager.initialize();
         EnhancedCacheManager.buildIndexes();
 
-        const result = AdminManager.processYearEnd();
+        const result = AdminManager.processYearEnd(true);
         console.log('✅ Scheduled year-end completed:', result.message || result.error);
         return result;
     } catch (error) {
@@ -8748,14 +8750,20 @@ function scheduledYearEnd() {
     }
 }
 
-// ── Fires Mar 15th — sends 2-week BF expiry warning if Easter is 14 days away ──
+// ── Fires monthly on the 15th — sends 2-week BF expiry warning if Easter is 14 days away ──
 function scheduledEasterWarning() {
     console.log('⏰ Easter BF warning check started...');
     try {
+        const today = new Date();
+        // Guard: Easter warnings only evaluate in March or April (months 2 and 3)
+        if (today.getMonth() !== 2 && today.getMonth() !== 3) {
+            console.log(`Today is ${today.toDateString()}. Easter warnings only evaluate in March/April. Skipping.`);
+            return { skipped: true, reason: 'Outside Easter season' };
+        }
+
         EnhancedCacheManager.initialize();
         EnhancedCacheManager.buildIndexes();
 
-        const today = new Date();
         const easterDate = Utils.calculateEasterDate(today.getFullYear());
 
         // Calculate days until Easter
@@ -8798,15 +8806,21 @@ function scheduledEasterWarning() {
     }
 }
 
-// ── Fires Apr 5th — expires BF days if today is Easter Sunday or later ───────
+// ── Fires monthly on the 5th — expires BF days if today is Easter Sunday or later ───────
 function scheduledEasterExpiry() {
     console.log('⏰ Easter BF expiry check started...');
     try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        // Guard: Easter expiry only evaluates in March or April (months 2 and 3)
+        if (today.getMonth() !== 2 && today.getMonth() !== 3) {
+            console.log(`Today is ${today.toDateString()}. Easter expiry only evaluates in March/April. Skipping.`);
+            return { skipped: true, reason: 'Outside Easter season' };
+        }
+
         EnhancedCacheManager.initialize();
         EnhancedCacheManager.buildIndexes();
 
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
         const easterDate = Utils.calculateEasterDate(today.getFullYear());
         easterDate.setHours(0, 0, 0, 0);
 
