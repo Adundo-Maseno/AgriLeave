@@ -2686,6 +2686,73 @@
             </div>
         </div>
 
+        <!-- Re-calibrate Leave Days Modal (HR/Admin) -->
+        <div id="recalibrateLeaveModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+            <div class="flex items-center justify-center min-h-screen p-4">
+                <div class="fixed inset-0 modal-overlay" id="recalibrateLeaveModalBackdrop" onclick="closeRecalibrateModal()"></div>
+                <div class="relative bg-white rounded-2xl text-left shadow-2xl w-full max-w-md flex flex-col border border-emerald-100 overflow-hidden">
+                    <div class="bg-gradient-to-r from-emerald-700 to-teal-800 px-6 py-4 rounded-t-2xl text-white flex justify-between items-center">
+                        <div class="flex items-center space-x-3">
+                            <div class="h-9 w-9 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
+                                <i class="fas fa-sync-alt text-white"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-bold">Re-calibrate Leave Days</h3>
+                                <p class="text-xs text-emerald-200">Audit & refund gazetted holiday overlaps</p>
+                            </div>
+                        </div>
+                        <button type="button" onclick="closeRecalibrateModal()" class="text-white/80 hover:text-white p-1">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="p-6 space-y-4">
+                        <p class="text-xs text-gray-600 leading-relaxed">
+                            Evaluates approved and pending leave applications against all statutory public holidays and state-gazetted dates. Any business days overlapping with holidays are automatically deducted from duration and refunded back to employee leave balances.
+                        </p>
+                        <div class="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 space-y-1.5">
+                            <div class="font-bold flex items-center gap-1.5">
+                                <i class="fas fa-check-circle text-emerald-600"></i> Automatic Benefits
+                            </div>
+                            <ul class="list-disc list-inside space-y-0.5 text-emerald-700 text-[11px]">
+                                <li>Accurate recalculation of business days</li>
+                                <li>Instant balance refunds (Annual, Brought-Forward, Comp)</li>
+                                <li>Full audit trail logged & email notice to affected staff</li>
+                            </ul>
+                        </div>
+                        <div class="pt-2">
+                            <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">Recalibration Scope</label>
+                            <div class="grid grid-cols-2 gap-3">
+                                <label class="border-2 border-emerald-500 bg-emerald-50/50 p-3 rounded-xl cursor-pointer flex items-start gap-2.5 transition-all" id="scopeAllLabel">
+                                    <input type="radio" name="recalibrateScope" value="all" checked onchange="handleScopeChange('all')" class="mt-0.5 text-emerald-600">
+                                    <div>
+                                        <span class="text-xs font-bold text-gray-900 block">All Holidays</span>
+                                        <span class="text-[10px] text-gray-500">Scan all active gazetted & statutory dates</span>
+                                    </div>
+                                </label>
+                                <label class="border-2 border-gray-200 p-3 rounded-xl cursor-pointer hover:border-emerald-300 flex items-start gap-2.5 transition-all" id="scopeSingleLabel">
+                                    <input type="radio" name="recalibrateScope" value="single" onchange="handleScopeChange('single')" class="mt-0.5 text-emerald-600">
+                                    <div>
+                                        <span class="text-xs font-bold text-gray-900 block">Specific Date</span>
+                                        <span class="text-[10px] text-gray-500">Recalibrate for one specific holiday</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                        <div id="recalibrateDatePickerGroup" class="hidden">
+                            <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">Select Holiday Date *</label>
+                            <input type="date" id="recalibrateSpecificDateInput" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500">
+                        </div>
+                        <div class="pt-3 border-t border-gray-100 flex justify-end space-x-3">
+                            <button type="button" onclick="closeRecalibrateModal()" class="px-4 py-2 border border-gray-300 rounded-xl text-sm text-gray-700 hover:bg-gray-50 font-medium">Cancel</button>
+                            <button type="button" onclick="executeLeaveRecalibration()" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold shadow-sm transition-all flex items-center gap-1.5">
+                                <i class="fas fa-play text-xs"></i> Start Recalibration
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Vacation Responder Template Preview Modal -->
         <div id="vacationResponderModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen p-4">
@@ -10462,6 +10529,9 @@
                         <button onclick="triggerDataExport('leave_liability')" class="px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5">
                             <i class="fas fa-clipboard-list text-purple-600"></i> Unconsumed Days CSV
                         </button>
+                        <button onclick="openRecalibrateModal()" class="px-3.5 py-2 bg-emerald-50 border border-emerald-300 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5" title="Recalibrate leave applications against statutory & gazetted holidays and refund days">
+                            <i class="fas fa-sync-alt text-emerald-600"></i> Re-calibrate Leave Days
+                        </button>
                         <button onclick="triggerSheetsDatabaseSync()" class="px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5">
                             <i class="fas fa-file-excel text-emerald-600"></i> Sync Sheets Master
                         </button>
@@ -10530,6 +10600,9 @@
                         '</div>';
 
                     html += '</div>';
+
+                    // ── Interactive Team Availability Wallchart ──────────────────
+                    html += '<div id="hrWallchartContainer" class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-emerald-100/80 mb-8 overflow-hidden"></div>';
 
                     // ── HR Endorsement Queue (Tier-2 Sign-Off) ──────────────────────
                     const hrEndorsements = (result.data.applications && result.data.applications.hrEndorsements) ? result.data.applications.hrEndorsements : [];
@@ -10659,8 +10732,10 @@
                     html += '<div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-emerald-100/80 p-6 mt-8">';
                     html += '<div class="flex flex-wrap items-center justify-between gap-3 mb-4">';
                     html += '<div><h3 class="text-lg font-bold text-gray-900 flex items-center gap-2"><i class="fas fa-flag text-emerald-600"></i> Gazetted Public Holidays & Retroactive Recalibration</h3><p class="text-xs text-gray-500 mt-0.5">Manage state-gazetted holidays with 1-click automatic leave day refund & duration recalibration</p></div>';
+                    html += '<div class="flex flex-wrap items-center gap-2">';
+                    html += '<button type="button" onclick="openRecalibrateModal()" class="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5" title="Recalibrate overlapping leaves and refund days to staff balances"><i class="fas fa-sync-alt text-emerald-600"></i> Re-calibrate Leave Days</button>';
                     html += '<button type="button" onclick="openGazettedHolidayModal()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5"><i class="fas fa-plus"></i> Gazette New Holiday</button>';
-                    html += '</div>';
+                    html += '</div></div>';
                     html += '<div id="gazettedHolidaysListContainer" class="space-y-3">';
                     html += '<div class="text-xs text-gray-400 py-3 text-center"><i class="fas fa-spinner fa-spin mr-1"></i> Loading gazetted holidays...</div>';
                     html += '</div></div>';
@@ -10693,6 +10768,7 @@
                     html += '</div></div></div>';
 
                     pageElement.innerHTML = html;
+                    renderTeamAvailabilityWallchart('hrWallchartContainer');
                     renderBlackoutPeriodsList('blackoutPeriodsList');
                     renderGazettedHolidaysList('gazettedHolidaysListContainer');
 
@@ -12554,6 +12630,87 @@
                 }
             }
 
+            function openRecalibrateModal() {
+                const modal = document.getElementById('recalibrateLeaveModal');
+                if (modal) {
+                    modal.classList.remove('hidden');
+                    handleScopeChange('all');
+                }
+            }
+
+            function closeRecalibrateModal() {
+                const modal = document.getElementById('recalibrateLeaveModal');
+                if (modal) modal.classList.add('hidden');
+            }
+
+            function handleScopeChange(scope) {
+                const dateGroup = document.getElementById('recalibrateDatePickerGroup');
+                const allLabel = document.getElementById('scopeAllLabel');
+                const singleLabel = document.getElementById('scopeSingleLabel');
+
+                if (scope === 'all') {
+                    if (dateGroup) dateGroup.classList.add('hidden');
+                    if (allLabel) {
+                        allLabel.className = 'border-2 border-emerald-500 bg-emerald-50/50 p-3 rounded-xl cursor-pointer flex items-start gap-2.5 transition-all';
+                    }
+                    if (singleLabel) {
+                        singleLabel.className = 'border-2 border-gray-200 p-3 rounded-xl cursor-pointer hover:border-emerald-300 flex items-start gap-2.5 transition-all';
+                    }
+                } else {
+                    if (dateGroup) dateGroup.classList.remove('hidden');
+                    if (allLabel) {
+                        allLabel.className = 'border-2 border-gray-200 p-3 rounded-xl cursor-pointer hover:border-emerald-300 flex items-start gap-2.5 transition-all';
+                    }
+                    if (singleLabel) {
+                        singleLabel.className = 'border-2 border-emerald-500 bg-emerald-50/50 p-3 rounded-xl cursor-pointer flex items-start gap-2.5 transition-all';
+                    }
+                }
+            }
+
+            async function executeLeaveRecalibration() {
+                const scope = document.querySelector('input[name="recalibrateScope"]:checked')?.value || 'all';
+                let holidayDate = null;
+
+                if (scope === 'single') {
+                    holidayDate = document.getElementById('recalibrateSpecificDateInput')?.value;
+                    if (!holidayDate) {
+                        showToast('error', 'Date Required', 'Please select a holiday date to recalibrate');
+                        return;
+                    }
+                }
+
+                closeRecalibrateModal();
+                showLoading(scope === 'all'
+                    ? 'Recalibrating leaves across all statutory & gazetted holidays...'
+                    : `Recalibrating leaves overlapping ${holidayDate}...`);
+
+                try {
+                    const res = await callGoogleScriptFunction('apiRecalibrateOverlappingLeaves', {
+                        all: scope === 'all',
+                        date: holidayDate
+                    });
+                    hideLoading();
+
+                    if (res.success) {
+                        const affected = res.data?.affectedCount || 0;
+                        const refunded = res.data?.totalDaysRefunded || 0;
+                        showToast(
+                            'success',
+                            'Recalibration Complete',
+                            `Recalibrated ${affected} application(s). Refunded ${refunded} day(s) to staff balances.`
+                        );
+                        if (AppState.currentPage === 'hrDashboard') {
+                            loadHRDashboardPage();
+                        }
+                    } else {
+                        showToast('error', 'Recalibration Notice', res.error || 'Failed to recalibrate applications');
+                    }
+                } catch (err) {
+                    hideLoading();
+                    showToast('error', 'Error', err.message);
+                }
+            }
+
             // ============================================================
             // 2. HR ENDORSEMENT DECISION HANDLER (TIER 2 APPROVAL)
             // ============================================================
@@ -12948,6 +13105,10 @@
             window.renderGazettedHolidaysList = renderGazettedHolidaysList;
             window.handleDeleteGazettedHoliday = handleDeleteGazettedHoliday;
             window.handleRecalibrateHoliday = handleRecalibrateHoliday;
+            window.openRecalibrateModal = openRecalibrateModal;
+            window.closeRecalibrateModal = closeRecalibrateModal;
+            window.handleScopeChange = handleScopeChange;
+            window.executeLeaveRecalibration = executeLeaveRecalibration;
             window.handleHREndorsementDecision = handleHREndorsementDecision;
             window.openVacationResponderModal = function (appId) { previewVacationResponder(appId); };
             window.closeVacationResponderModal = closeVacationResponderModal;

@@ -6306,6 +6306,97 @@ const HolidayManager = {
         } catch (error) {
             return Utils.createErrorResponse('Failed to recalibrate applications: ' + error.message);
         }
+    },
+
+    recalibrateAllLeaves: function (callerEmail = null) {
+        try {
+            const currentUser = (callerEmail || Session.getActiveUser().getEmail() || '').trim();
+            const user = StaffManager.getUserData(currentUser);
+            const isAdminOrHR = user && (user.Role === SYSTEM.ROLES.ADMIN || user.Role === SYSTEM.ROLES.HR);
+            if (!isAdminOrHR) {
+                return Utils.createErrorResponse('Only HR or System Administrators can recalibrate leave applications');
+            }
+
+            const appsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.APPLICATIONS);
+            const applications = appsFile.data || [];
+            const affectedApps = [];
+            let totalDaysRefunded = 0;
+
+            applications.forEach(app => {
+                if (app.LeaveMode === 'Hourly') return;
+                if (app.Status !== SYSTEM.STATUS.PENDING && app.Status !== SYSTEM.STATUS.APPROVED) return;
+
+                const start = Utils.parseLocalDate(app.StartDate);
+                const end = Utils.parseLocalDate(app.EndDate);
+                if (!start || !end) return;
+
+                const oldDuration = app.Duration;
+                const accurateBusinessDays = Utils.getBusinessDays(app.StartDate, app.EndDate);
+
+                if (accurateBusinessDays < oldDuration) {
+                    const dayDiff = oldDuration - accurateBusinessDays;
+                    app.Duration = accurateBusinessDays;
+                    totalDaysRefunded += dayDiff;
+
+                    if (!app.Metadata) app.Metadata = {};
+                    if (!Array.isArray(app.Metadata.recalibrations)) app.Metadata.recalibrations = [];
+
+                    app.Metadata.recalibrations.push({
+                        holidayDate: 'ALL_GAZETTED_HOLIDAYS',
+                        refund: dayDiff,
+                        oldDuration,
+                        newDuration: accurateBusinessDays,
+                        timestamp: new Date().toISOString()
+                    });
+
+                    // If approved, refund the deducted day
+                    if (app.Status === SYSTEM.STATUS.APPROVED) {
+                        if (app.DeductFromAnnual >= dayDiff) {
+                            app.DeductFromAnnual -= dayDiff;
+                        } else if (app.DeductFromBroughtForward >= dayDiff) {
+                            app.DeductFromBroughtForward -= dayDiff;
+                        } else if (app.DeductFromCompensation >= dayDiff) {
+                            app.DeductFromCompensation -= dayDiff;
+                        } else {
+                            app.DeductFromAnnual = Math.max(0, app.DeductFromAnnual - dayDiff);
+                        }
+                        EnhancedCacheManager.clearBalance(app.Email);
+                    }
+
+                    affectedApps.push({
+                        id: app.ID,
+                        email: app.Email,
+                        name: app.Name,
+                        oldDuration,
+                        newDuration: accurateBusinessDays,
+                        refunded: dayDiff,
+                        status: app.Status
+                    });
+
+                    try {
+                        NotificationManager.notifyLeaveRecalibrated(app, dayDiff, 'Gazetted Public Holidays');
+                    } catch (nErr) {}
+                }
+            });
+
+            if (affectedApps.length > 0) {
+                DataManager.writeDataFile(SYSTEM.DATA_FILES.APPLICATIONS, appsFile);
+                EnhancedCacheManager.buildIndexes();
+                Utils.logAction('RECALIBRATE_ALL_LEAVES', {
+                    recalibratedBy: currentUser,
+                    affectedCount: affectedApps.length,
+                    totalDaysRefunded
+                });
+            }
+
+            return Utils.createSuccessResponse({
+                affectedCount: affectedApps.length,
+                totalDaysRefunded,
+                affectedApplications: affectedApps
+            }, `Recalibrated ${affectedApps.length} leave application(s). Refunded ${totalDaysRefunded} total day(s) to staff balances.`);
+        } catch (error) {
+            return Utils.createErrorResponse('Failed to recalibrate applications: ' + error.message);
+        }
     }
 };
 
@@ -9839,10 +9930,20 @@ function apiDeleteGazettedHoliday(id) {
 function apiRecalibrateOverlappingLeaves(params) {
     try {
         const date = (params && typeof params === 'object') ? (params.date || params.holidayDate) : params;
-        if (!date) return Utils.createErrorResponse('Holiday date is required for recalibration');
+        if (!date || date === 'ALL' || (params && params.all)) {
+            return HolidayManager.recalibrateAllLeaves();
+        }
         return HolidayManager.recalibrateLeavesForHoliday(date);
     } catch (error) {
         return Utils.createErrorResponse('Failed to recalibrate leaves: ' + error.message);
+    }
+}
+
+function apiRecalibrateAllLeaves() {
+    try {
+        return HolidayManager.recalibrateAllLeaves();
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to recalibrate all leaves: ' + error.message);
     }
 }
 
