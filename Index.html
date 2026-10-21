@@ -5606,20 +5606,31 @@
             }
             // Add filter function
             function filterStaffList() {
-                const searchTerm = document.getElementById('staffSearch')?.value.toLowerCase() || '';
-                const roleFilter = document.getElementById('roleFilter')?.value || '';
+                const searchTerm = (document.getElementById('staffSearch')?.value || '').toLowerCase().trim();
+                const roleFilter = (document.getElementById('roleFilter')?.value || '').toLowerCase().trim();
                 const eligibilityFilter = document.getElementById('eligibilityFilter')?.value || '';
+
+                // Remove existing no-matching-results row if present
+                const existingEmpty = document.getElementById('noStaffFilterResultsRow');
+                if (existingEmpty) existingEmpty.remove();
 
                 // Get all rows
                 const rows = document.querySelectorAll('#staffTableBody tr');
+                let visibleCount = 0;
+                let dataRowCount = 0;
 
                 rows.forEach(row => {
                     if (row.cells.length < 8) return; // Skip header or empty rows
+                    dataRowCount++;
 
-                    const name = row.cells[0]?.textContent.toLowerCase() || '';
-                    const email = row.cells[1]?.textContent.toLowerCase() || '';
-                    const role = row.cells[2]?.textContent.toLowerCase() || '';
-                    const eligible = row.cells[5]?.textContent.toLowerCase() === 'yes';
+                    const name = (row.getAttribute('data-name') || row.cells[0]?.textContent || '').toLowerCase().trim();
+                    const email = (row.getAttribute('data-email') || row.cells[1]?.textContent || '').toLowerCase().trim();
+                    const role = (row.getAttribute('data-role') || row.cells[2]?.textContent || '').toLowerCase().trim();
+
+                    const rowEligibleAttr = row.getAttribute('data-eligible');
+                    const eligible = (rowEligibleAttr !== null && rowEligibleAttr !== '')
+                        ? (rowEligibleAttr === 'true')
+                        : ((row.cells[5]?.textContent || '').trim().toLowerCase() === 'yes');
 
                     let show = true;
 
@@ -5627,7 +5638,7 @@
                         show = false;
                     }
 
-                    if (roleFilter && !role.includes(roleFilter.toLowerCase())) {
+                    if (roleFilter && !role.includes(roleFilter)) {
                         show = false;
                     }
 
@@ -5637,8 +5648,20 @@
                         show = false;
                     }
 
+                    if (show) visibleCount++;
                     row.style.display = show ? '' : 'none';
                 });
+
+                // Show no matching results row if all rows are filtered out
+                if (visibleCount === 0 && dataRowCount > 0) {
+                    const tbody = document.getElementById('staffTableBody');
+                    if (tbody) {
+                        const tr = document.createElement('tr');
+                        tr.id = 'noStaffFilterResultsRow';
+                        tr.innerHTML = '<td colspan="8" class="px-6 py-10 text-center text-gray-500 text-sm"><div class="flex flex-col items-center justify-center"><i class="fas fa-filter text-gray-300 text-2xl mb-2"></i><span>No staff members match the selected filter criteria</span></div></td>';
+                        tbody.appendChild(tr);
+                    }
+                }
             }
             function loadStaffList() {
                 callGoogleScriptFunction('apiGetAllStaff')
@@ -5698,7 +5721,7 @@
                                 const escapedSupervisor = escapeHtml(supervisorDisplay);
 
                                 return `
-            <tr>
+            <tr data-name="${escapedName.toLowerCase()}" data-email="${escapedEmail.toLowerCase()}" data-role="${escapedRole.toLowerCase()}" data-eligible="${eligible}">
               <td class="px-6 py-4 whitespace-nowrap">
                 <div class="font-medium text-gray-900">${escapedName}</div>
               </td>
@@ -5751,6 +5774,7 @@
             </tr>
           `;
                             }).join('');
+                            filterStaffList();
                         }
                     })
                     .catch(error => {
@@ -12250,21 +12274,30 @@
             // ============================================================
             // INTERACTIVE TEAM AVAILABILITY WALLCHART
             // ============================================================
-            let currentWallchartState = {
-                month: new Date().getMonth() + 1,
-                year: new Date().getFullYear(),
-                department: 'All'
-            };
+            const wallchartStates = {};
+            function getWallchartState(containerId) {
+                if (!wallchartStates[containerId]) {
+                    wallchartStates[containerId] = {
+                        month: new Date().getMonth() + 1,
+                        year: new Date().getFullYear(),
+                        department: 'All'
+                    };
+                }
+                return wallchartStates[containerId];
+            }
 
             async function renderTeamAvailabilityWallchart(containerId = 'teamWallchartContainer', initialDepartment, initialMonth, initialYear) {
                 const container = document.getElementById(containerId);
                 if (!container) return;
 
-                if (initialMonth !== undefined) currentWallchartState.month = initialMonth;
-                if (initialYear !== undefined) currentWallchartState.year = initialYear;
-                if (initialDepartment !== undefined) currentWallchartState.department = initialDepartment;
+                const state = getWallchartState(containerId);
+                if (initialMonth !== undefined) state.month = initialMonth;
+                if (initialYear !== undefined) state.year = initialYear;
+                if (initialDepartment !== undefined) state.department = initialDepartment;
 
-                const { month, year, department } = currentWallchartState;
+                const { month, year, department } = state;
+                const isSupervisorScope = (containerId === 'teamWallchartContainer') || (AppState.userRole === 'supervisor');
+                const scope = isSupervisorScope ? 'supervisor' : 'hr';
 
                 container.innerHTML = `
                 <div class="p-8 text-center text-gray-500">
@@ -12274,7 +12307,7 @@
             `;
 
                 try {
-                    const res = await callGoogleScriptFunction('apiGetTeamAvailability', { month, year, department });
+                    const res = await callGoogleScriptFunction('apiGetTeamAvailability', { month, year, department, scope, containerId });
                     if (!res.success || !res.data) {
                         container.innerHTML = `<div class="p-6 text-center text-rose-500 text-xs">Failed to load team availability: ${escapeHtml(res.error || 'Unknown error')}</div>`;
                         return;
@@ -12293,15 +12326,15 @@
                                 <i class="fas fa-th text-white"></i>
                             </div>
                             <div>
-                                <h3 class="text-base font-bold">Team Availability Wallchart</h3>
-                                <p class="text-xs text-emerald-100">Monthly cross-department staffing, leave coverage & handovers</p>
+                                <h3 class="text-base font-bold">${isSupervisorScope ? 'Team Availability Wallchart' : 'All Staff Availability Wallchart'}</h3>
+                                <p class="text-xs text-emerald-100">${isSupervisorScope ? 'Monthly schedule & leave coverage for staff reporting to you' : 'Monthly cross-department staffing, leave coverage & handovers'}</p>
                             </div>
                         </div>
 
                         <!-- Month & Dept Navigation -->
                         <div class="flex flex-wrap items-center gap-2">
-                            <select id="wallchartDeptSelect" onchange="renderTeamAvailabilityWallchart('${containerId}', this.value, ${month}, ${year})" class="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-white">
-                                <option value="All" ${department === 'All' ? 'selected' : ''} class="text-gray-900">All Departments</option>
+                            <select id="wallchartDeptSelect_${containerId}" onchange="renderTeamAvailabilityWallchart('${containerId}', this.value, ${month}, ${year})" class="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-white">
+                                <option value="All" ${department === 'All' ? 'selected' : ''} class="text-gray-900">${isSupervisorScope ? 'All Team Members' : 'All Departments'}</option>
                                 <option value="Agronomy" ${department === 'Agronomy' ? 'selected' : ''} class="text-gray-900">Agronomy</option>
                                 <option value="Operations" ${department === 'Operations' ? 'selected' : ''} class="text-gray-900">Operations</option>
                                 <option value="Admin" ${department === 'Admin' ? 'selected' : ''} class="text-gray-900">Admin</option>
@@ -12350,7 +12383,10 @@
                     html += `</tr></thead><tbody class="divide-y divide-gray-100">`;
 
                     if (matrix.length === 0) {
-                        html += `<tr><td colspan="${daysInMonth + 1}" class="py-8 text-center text-gray-400 text-xs">No staff found for selected department filter.</td></tr>`;
+                        const emptyMsg = isSupervisorScope
+                            ? 'No staff members currently report to you under this filter.'
+                            : 'No staff found for selected department filter.';
+                        html += `<tr><td colspan="${daysInMonth + 1}" class="py-8 text-center text-gray-400 text-xs">${emptyMsg}</td></tr>`;
                     } else {
                         matrix.forEach(row => {
                             html += `
@@ -12492,12 +12528,13 @@
             }
 
             function navigateWallchartMonth(containerId, offset) {
-                let m = currentWallchartState.month + offset;
-                let y = currentWallchartState.year;
+                const state = getWallchartState(containerId);
+                let m = state.month + offset;
+                let y = state.year;
                 if (m < 1) { m = 12; y--; }
                 if (m > 12) { m = 1; y++; }
-                currentWallchartState.month = m;
-                currentWallchartState.year = y;
+                state.month = m;
+                state.year = y;
                 renderTeamAvailabilityWallchart(containerId);
             }
 

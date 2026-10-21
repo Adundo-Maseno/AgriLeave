@@ -1340,10 +1340,14 @@ const StaffManager = {
 
     getStaffBySupervisor: function (supervisorEmail) {
         const staffData = this.getAllStaffData();
-        return staffData.filter(member =>
-            member.Supervisor && member.Supervisor.toLowerCase().trim() === supervisorEmail.toLowerCase().trim() &&
-            member.Metadata?.active !== false
-        );
+        const supEmail = (supervisorEmail || '').toLowerCase().trim();
+        const supUser = this.getUserData(supervisorEmail);
+        const supName = (supUser?.Name || '').toLowerCase().trim();
+        return staffData.filter(member => {
+            if (!member.Supervisor || member.Metadata?.active === false) return false;
+            const mSup = member.Supervisor.toLowerCase().trim();
+            return mSup === supEmail || (supName && mSup === supName);
+        });
     },
 
     createStaff: function (staffData) {
@@ -9629,19 +9633,33 @@ function apiGetTeamAvailability(params) {
         const isHR = user.Role === SYSTEM.ROLES.HR;
         const isSupervisor = user.Role === SYSTEM.ROLES.SUPERVISOR;
 
-        if (isAdmin || isHR) {
+        const userEmail = currentUser.toLowerCase().trim();
+        const userName = (user.Name || '').toLowerCase().trim();
+
+        // Staff directly reporting to this supervisor (matched by supervisor email or name)
+        const isSupervisedByMe = s => {
+            if (!s.Supervisor) return false;
+            const sup = s.Supervisor.toLowerCase().trim();
+            return sup === userEmail || (userName && sup === userName);
+        };
+
+        // Determine if request is in supervisor scope (Team Availability) or HR scope:
+        // 1. Explicitly requested via params.scope === 'supervisor' or containerId === 'teamWallchartContainer'
+        // 2. OR user is not an Admin/HR (regular supervisor or staff viewing their team)
+        const isSupervisorScope = params.scope === 'supervisor' || params.containerId === 'teamWallchartContainer' || (!isAdmin && !isHR);
+
+        if (isSupervisorScope) {
+            // Team Availability for supervisor: ONLY show staff under him or her
+            let myStaff = allStaff.filter(isSupervisedByMe);
+            if (departmentFilter && departmentFilter !== 'All') {
+                myStaff = myStaff.filter(s => s.Department && s.Department.toLowerCase() === departmentFilter.toLowerCase());
+            }
+            targetStaff = myStaff;
+        } else {
+            // For HR can have everybody
             targetStaff = departmentFilter && departmentFilter !== 'All'
                 ? allStaff.filter(s => s.Department && s.Department.toLowerCase() === departmentFilter.toLowerCase())
                 : allStaff;
-        } else if (isSupervisor) {
-            targetStaff = allStaff.filter(s =>
-                s.Supervisor && s.Supervisor.toLowerCase() === currentUser.toLowerCase() ||
-                s.Email.toLowerCase() === currentUser.toLowerCase()
-            );
-        } else {
-            targetStaff = allStaff.filter(s =>
-                s.Department && s.Department.toLowerCase() === (user.Department || '').toLowerCase()
-            );
         }
 
         const appsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.APPLICATIONS);
@@ -9737,7 +9755,9 @@ function apiGetTeamAvailability(params) {
             daysInMonth,
             holidays,
             coverage,
-            matrix
+            matrix,
+            scope: isSupervisorScope ? 'supervisor' : 'hr',
+            totalStaff: targetStaff.length
         }, 'Team availability loaded successfully');
 
     } catch (error) {
