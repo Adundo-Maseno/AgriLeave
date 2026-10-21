@@ -2411,7 +2411,7 @@
                         <div>
                             <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">Date
                                 Worked *</label>
-                            <input type="date" id="toilDateWorked"
+                            <input type="date" id="toilWorkDate" name="toilDateWorked"
                                 class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500"
                                 required>
                         </div>
@@ -2432,7 +2432,7 @@
                     <div>
                         <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">Location
                             / Field Activity</label>
-                        <input type="text" id="toilLocation" placeholder="E.g., Naivasha trial plots / Seed warehouse"
+                        <input type="text" id="toilLocation" name="toilActivityType" placeholder="E.g., Naivasha trial plots / Seed warehouse"
                             class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500">
                     </div>
                     <div>
@@ -2483,8 +2483,12 @@
                     <input type="hidden" id="amendAppId">
                     <div
                         class="p-3 bg-amber-50/80 border border-amber-200/60 rounded-xl text-xs text-amber-900 space-y-1">
+                        <div class="flex justify-between"><span class="text-gray-500">Staff:</span> <strong
+                                id="amendStaffName">-</strong></div>
+                        <div class="flex justify-between"><span class="text-gray-500">Leave Type:</span> <strong
+                                id="amendLeaveType">-</strong></div>
                         <div class="flex justify-between"><span class="text-gray-500">Current Period:</span> <strong
-                                id="amendCurrentPeriod">-</strong></div>
+                                id="amendCurrentDates">-</strong></div>
                         <div class="flex justify-between"><span class="text-gray-500">Current Duration:</span> <strong
                                 id="amendCurrentDuration">-</strong></div>
                     </div>
@@ -2492,19 +2496,22 @@
                         <div>
                             <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">New
                                 Start Date *</label>
-                            <input type="date" id="amendNewStartDate" onchange="calculateAmendmentImpact()"
+                            <input type="date" id="amendStartDate" onchange="calculateAmendmentImpact()"
                                 class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500"
                                 required>
                         </div>
                         <div>
                             <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">New
                                 End Date *</label>
-                            <input type="date" id="amendNewEndDate" onchange="calculateAmendmentImpact()"
+                            <input type="date" id="amendEndDate" onchange="calculateAmendmentImpact()"
                                 class="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500"
                                 required>
                         </div>
                     </div>
-                    <div id="amendmentImpactBanner" class="p-3.5 rounded-xl border text-xs font-medium hidden"></div>
+                    <div id="amendmentImpactBanner" class="p-3.5 rounded-xl border border-amber-200 bg-amber-50/80 text-xs font-medium space-y-1 hidden">
+                        <div id="amendDaysDiffBadge" class="text-sm font-bold text-amber-800"></div>
+                        <div id="amendDaysDiffText" class="text-xs text-amber-900"></div>
+                    </div>
                     <div>
                         <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">Reason
                             for Amendment *</label>
@@ -2910,7 +2917,7 @@
                                 <option value="Cancelled">Cancelled</option>
                             </select>
                             <input type="text" id="archiveSearchInput" placeholder="Search staff, email, reason..."
-                                oninput="debounce(loadArchivedApplications, 300)()"
+                                oninput="window.debouncedLoadArchivedApplications()"
                                 class="px-3 py-1.5 bg-white border border-gray-300 rounded-xl text-gray-700 flex-1 min-w-[150px] focus:ring-2 focus:ring-purple-500">
                         </div>
                         <div class="flex items-center gap-2">
@@ -3246,6 +3253,22 @@
 
                 setTimeout(() => toast.classList.add('hidden'), duration);
             }
+
+            function debounce(func, wait) {
+                let timeout;
+                return function (...args) {
+                    const context = this;
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => func.apply(context, args), wait);
+                };
+            }
+            window.debounce = debounce;
+
+            window.debouncedLoadArchivedApplications = debounce(function () {
+                if (typeof loadArchivedApplications === 'function') {
+                    loadArchivedApplications();
+                }
+            }, 300);
 
             function formatDate(dateString) {
                 if (!dateString) return 'N/A';
@@ -5701,7 +5724,11 @@
                                 const role = s.Role || s.role || '';
                                 const department = s.Department || s.department || '-';
                                 const supervisor = s.Supervisor || s.supervisor || '-';
-                                const eligible = s.EligibleForLeave !== undefined ? s.EligibleForLeave : (s.eligibleForLeave || false);
+                                const rawEligible = s.EligibleForLeave !== undefined ? s.EligibleForLeave :
+                                    (s.eligibleForLeave !== undefined ? s.eligibleForLeave :
+                                    (s.LeaveAccrual?.eligible !== undefined ? s.LeaveAccrual.eligible :
+                                    (s.Metadata?.eligibleForLeave !== undefined ? s.Metadata.eligibleForLeave : true)));
+                                const isEligible = !(rawEligible === false || rawEligible === 'false' || rawEligible === 0 || rawEligible === '0');
 
                                 // Get supervisor name if supervisor is an email
                                 let supervisorDisplay = supervisor;
@@ -5721,7 +5748,7 @@
                                 const escapedSupervisor = escapeHtml(supervisorDisplay);
 
                                 return `
-            <tr data-name="${escapedName.toLowerCase()}" data-email="${escapedEmail.toLowerCase()}" data-role="${escapedRole.toLowerCase()}" data-eligible="${eligible}">
+            <tr data-name="${escapedName.toLowerCase()}" data-email="${escapedEmail.toLowerCase()}" data-role="${escapedRole.toLowerCase()}" data-eligible="${isEligible ? 'true' : 'false'}">
               <td class="px-6 py-4 whitespace-nowrap">
                 <div class="font-medium text-gray-900">${escapedName}</div>
               </td>
@@ -5737,8 +5764,8 @@
               <td class="px-6 py-4 whitespace-nowrap">${escapedDepartment}</td>
               <td class="px-6 py-4 whitespace-nowrap">${escapedSupervisor}</td>
               <td class="px-6 py-4 whitespace-nowrap text-center">
-                <span class="px-2 py-1 text-xs font-medium rounded-full ${eligible ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
-                  ${eligible ? 'Yes' : 'No'}
+                <span class="px-2 py-1 text-xs font-medium rounded-full ${isEligible ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                  ${isEligible ? 'Yes' : 'No'}
                 </span>
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-center bg-indigo-50/20">
@@ -11861,10 +11888,12 @@
                 const modal = document.getElementById('toilClaimModal');
                 if (!modal) return;
                 const today = new Date().toISOString().split('T')[0];
-                const dateInput = document.getElementById('toilWorkDate');
+                const dateInput = document.getElementById('toilWorkDate') || document.getElementById('toilDateWorked');
                 if (dateInput) dateInput.value = today;
                 const hoursInput = document.getElementById('toilHoursWorked');
                 if (hoursInput) hoursInput.value = 8;
+                const locInput = document.getElementById('toilLocation') || document.getElementById('toilActivityType');
+                if (locInput) locInput.value = '';
                 const reasonInput = document.getElementById('toilReason');
                 if (reasonInput) reasonInput.value = '';
                 updateTOILDaysPreview();
@@ -11878,17 +11907,24 @@
 
             function updateTOILDaysPreview() {
                 const hours = parseFloat(document.getElementById('toilHoursWorked')?.value) || 0;
-                const previewEl = document.getElementById('toilPreviewDays');
+                const previewEl = document.getElementById('toilEarnedPreview') || document.getElementById('toilPreviewDays');
                 if (!previewEl) return;
-                const days = (hours / 8).toFixed(2);
-                previewEl.textContent = `${days} days (8h = 1 full day)`;
+                let days = 1.0;
+                if (hours >= 8) {
+                    days = 1.0;
+                } else if (hours >= 4) {
+                    days = 0.5;
+                } else {
+                    days = Number((hours / 8).toFixed(2));
+                }
+                previewEl.textContent = `${days} day(s) (${hours} hrs)`;
             }
 
             async function handleTOILClaimSubmit(event) {
                 if (event) event.preventDefault();
-                const workDate = document.getElementById('toilWorkDate')?.value;
+                const workDate = document.getElementById('toilWorkDate')?.value || document.getElementById('toilDateWorked')?.value;
                 const hoursWorked = parseFloat(document.getElementById('toilHoursWorked')?.value) || 0;
-                const activityType = document.getElementById('toilActivityType')?.value || 'Field Trials';
+                const activityType = document.getElementById('toilLocation')?.value || document.getElementById('toilActivityType')?.value || 'Field Duty';
                 const reason = document.getElementById('toilReason')?.value || '';
 
                 if (!workDate) {
@@ -11908,8 +11944,10 @@
                 try {
                     const res = await callGoogleScriptFunction('apiSubmitCompensationClaim', {
                         workDate,
+                        dateWorked: workDate,
                         hoursWorked,
                         activityType,
+                        location: activityType,
                         reason: reason.trim()
                     });
                     hideLoading();
@@ -11944,13 +11982,26 @@
                     return;
                 }
 
-                document.getElementById('amendAppId').value = appId;
-                document.getElementById('amendStaffName').textContent = app.Name || app.Email || 'Staff';
-                document.getElementById('amendLeaveType').textContent = `${app.LeaveType} (${app.Duration} business days)`;
-                document.getElementById('amendCurrentDates').textContent = `${formatDate(app.StartDate)} to ${formatDate(app.EndDate)}`;
+                const appIdInput = document.getElementById('amendAppId');
+                if (appIdInput) appIdInput.value = appId;
 
-                const startInput = document.getElementById('amendStartDate');
-                const endInput = document.getElementById('amendEndDate');
+                const modalAppId = document.getElementById('amendModalAppId');
+                if (modalAppId) modalAppId.textContent = appId;
+
+                const staffNameEl = document.getElementById('amendStaffName');
+                if (staffNameEl) staffNameEl.textContent = app.Name || app.Email || 'Staff';
+
+                const leaveTypeEl = document.getElementById('amendLeaveType');
+                if (leaveTypeEl) leaveTypeEl.textContent = `${app.LeaveType} (${app.Duration} business days)`;
+
+                const currentDatesEl = document.getElementById('amendCurrentDates') || document.getElementById('amendCurrentPeriod');
+                if (currentDatesEl) currentDatesEl.textContent = `${formatDate(app.StartDate)} to ${formatDate(app.EndDate)}`;
+
+                const currentDurEl = document.getElementById('amendCurrentDuration');
+                if (currentDurEl) currentDurEl.textContent = `${app.Duration} business days`;
+
+                const startInput = document.getElementById('amendStartDate') || document.getElementById('amendNewStartDate');
+                const endInput = document.getElementById('amendEndDate') || document.getElementById('amendNewEndDate');
                 if (startInput) startInput.value = app.StartDate;
                 if (endInput) endInput.value = app.EndDate;
 
@@ -11959,8 +12010,8 @@
 
                 modal.setAttribute('data-original-duration', app.Duration || 0);
 
-                startInput.onchange = calculateAmendmentImpact;
-                endInput.onchange = calculateAmendmentImpact;
+                if (startInput) startInput.onchange = calculateAmendmentImpact;
+                if (endInput) endInput.onchange = calculateAmendmentImpact;
 
                 calculateAmendmentImpact();
                 modal.classList.remove('hidden');
@@ -11974,11 +12025,14 @@
             function calculateAmendmentImpact() {
                 const modal = document.getElementById('amendLeaveModal');
                 const originalDuration = parseFloat(modal?.getAttribute('data-original-duration')) || 0;
-                const newStart = document.getElementById('amendStartDate')?.value;
-                const newEnd = document.getElementById('amendEndDate')?.value;
+                const newStart = document.getElementById('amendStartDate')?.value || document.getElementById('amendNewStartDate')?.value;
+                const newEnd = document.getElementById('amendEndDate')?.value || document.getElementById('amendNewEndDate')?.value;
                 const badge = document.getElementById('amendDaysDiffBadge');
                 const text = document.getElementById('amendDaysDiffText');
+                const banner = document.getElementById('amendmentImpactBanner');
                 const submitBtn = document.getElementById('submitAmendBtn');
+
+                if (banner) banner.classList.remove('hidden');
 
                 if (!newStart || !newEnd) {
                     if (badge) badge.textContent = '0 days';
@@ -12027,8 +12081,8 @@
             async function handleAmendLeaveSubmit(event) {
                 if (event) event.preventDefault();
                 const appId = document.getElementById('amendAppId')?.value;
-                const newStartDate = document.getElementById('amendStartDate')?.value;
-                const newEndDate = document.getElementById('amendEndDate')?.value;
+                const newStartDate = document.getElementById('amendStartDate')?.value || document.getElementById('amendNewStartDate')?.value;
+                const newEndDate = document.getElementById('amendEndDate')?.value || document.getElementById('amendNewEndDate')?.value;
                 const reason = document.getElementById('amendReason')?.value || '';
 
                 if (!appId || !newStartDate || !newEndDate) {

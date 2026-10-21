@@ -1907,6 +1907,13 @@ const StaffManager = {
     },
     deleteStaff: function (email) {
         try {
+            if (typeof email === 'object' && email !== null) {
+                email = email.email || email.targetEmail || '';
+            }
+            if (!email || typeof email !== 'string') {
+                return Utils.createErrorResponse('Valid email is required to delete staff');
+            }
+
             const currentUser = Session.getActiveUser().getEmail();
             const userRole = this.getUserRole(currentUser);
 
@@ -1914,7 +1921,7 @@ const StaffManager = {
                 return Utils.createErrorResponse('Only administrators can delete staff');
             }
 
-            if (email.toLowerCase() === currentUser.toLowerCase()) {
+            if (email.toLowerCase().trim() === currentUser.toLowerCase().trim()) {
                 return Utils.createErrorResponse('You cannot delete your own account');
             }
 
@@ -7948,6 +7955,9 @@ function apiUpdateStaff(originalEmail, staffData) {
     }
 }
 function apiDeleteStaff(email) {
+    if (typeof email === 'object' && email !== null) {
+        email = email.email || email.targetEmail || '';
+    }
     return StaffManager.deleteStaff(email);
 }
 
