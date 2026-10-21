@@ -10360,24 +10360,52 @@
             async function viewApplicationDetails(appId, isTeamView = false) {
                 showLoading('Loading application details...');
 
+                const cleanAppId = String(appId || '').trim();
+                const matchesId = a => a && (
+                    String(a.ID || '').trim() === cleanAppId ||
+                    String(a.Id || '').trim() === cleanAppId ||
+                    String(a.id || '').trim() === cleanAppId
+                );
+
                 let application = null;
-                if (isTeamView && AppState.allTeamApplications && Array.isArray(AppState.allTeamApplications)) {
-                    application = AppState.allTeamApplications.find(a => String(a.Id) === String(appId));
+
+                // 1. If team view, prioritize team applications
+                if (isTeamView) {
+                    if (Array.isArray(AppState.allTeamApplications)) {
+                        application = AppState.allTeamApplications.find(matchesId);
+                    }
+                    if (!application && Array.isArray(AppState.teamApplications)) {
+                        application = AppState.teamApplications.find(matchesId);
+                    }
                 }
-                if (!application && AppState.myApplications && Array.isArray(AppState.myApplications)) {
-                    application = AppState.myApplications.find(a => String(a.Id) === String(appId));
+
+                // 2. Check user's own applications cache
+                if (!application && Array.isArray(AppState.applications)) {
+                    application = AppState.applications.find(matchesId);
                 }
-                if (!application && AppState.allTeamApplications && Array.isArray(AppState.allTeamApplications)) {
-                    application = AppState.allTeamApplications.find(a => String(a.Id) === String(appId));
+
+                // 3. Fallback to team applications even if isTeamView was false
+                if (!application && Array.isArray(AppState.allTeamApplications)) {
+                    application = AppState.allTeamApplications.find(matchesId);
                 }
-                if (!application) {
-                    const rowMatch = document.querySelector(`tr[data-id="${appId}"]`);
-                    if (rowMatch && rowMatch.dataset && rowMatch.dataset.application) {
-                        try {
-                            application = JSON.parse(decodeURIComponent(rowMatch.dataset.application));
-                        } catch (parseErr) {
-                            console.warn('Failed to parse cached application from DOM attribute:', parseErr);
+                if (!application && Array.isArray(AppState.teamApplications)) {
+                    application = AppState.teamApplications.find(matchesId);
+                }
+
+                // 4. Check archived applications partition if loaded
+                if (!application && typeof currentArchivedData !== 'undefined' && Array.isArray(currentArchivedData)) {
+                    application = currentArchivedData.find(matchesId);
+                }
+
+                // 5. Query backend directly by ID if not in memory
+                if (!application && cleanAppId) {
+                    try {
+                        const res = await callGoogleScriptFunction('apiGetApplicationById', { appId: cleanAppId });
+                        if (res && res.success && res.data) {
+                            application = res.data;
                         }
+                    } catch (fetchErr) {
+                        console.warn('apiGetApplicationById fetch failed:', fetchErr);
                     }
                 }
 
@@ -10388,11 +10416,13 @@
                 }
 
                 // Populate modal with application details
-                document.getElementById('applicationIdTitle').textContent = 'Application ID: ' + appId;
+                const effectiveAppId = application.ID || application.Id || appId;
+                document.getElementById('applicationIdTitle').textContent = 'Application ID: ' + effectiveAppId;
 
                 const user = AppState.currentUser;
-                const isSupervisorOrAdmin = user && (user.role === 'supervisor' || user.role === 'admin');
-                const canTakeAction = isSupervisorOrAdmin && application.Status === 'Pending' && isTeamView;
+                const isSupervisorOrAdmin = user && (user.role === 'supervisor' || user.role === 'admin' || user.role === 'hr');
+                const isActualSupervisor = user && application.SupervisorEmail && (user.email || '').toLowerCase() === (application.SupervisorEmail || '').toLowerCase();
+                const canTakeAction = (isSupervisorOrAdmin || isActualSupervisor) && application.Status === 'Pending' && (isTeamView || isActualSupervisor);
 
                 document.getElementById('applicationDetailsContent').innerHTML = renderApplicationDetailsContent(application);
 
@@ -10405,7 +10435,7 @@
 
                 // Set up action buttons
                 const actionButtons = document.getElementById('applicationActionButtons');
-                const buttonsHtml = renderApplicationModalActionButtons(application, canTakeAction, isTeamView, appId, isConcluded);
+                const buttonsHtml = renderApplicationModalActionButtons(application, canTakeAction, isTeamView, effectiveAppId, isConcluded);
 
                 if (buttonsHtml) {
                     actionButtons.classList.remove('hidden');

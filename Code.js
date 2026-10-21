@@ -7767,6 +7767,35 @@ function debugCheckApplication(email) {
     };
 }
 
+function apiGetApplicationById(appId) {
+    try {
+        if (typeof appId === 'object' && appId !== null) {
+            appId = appId.appId || appId.id || appId.ID;
+        }
+        if (!appId || typeof appId !== 'string') {
+            return Utils.createErrorResponse('Application ID is required');
+        }
+        const app = ApplicationsManager.getApplicationById(appId.trim());
+        if (!app) return Utils.createErrorResponse('Application not found');
+
+        const currentUser = (Session.getActiveUser().getEmail() || '').toLowerCase().trim();
+        const userRole = StaffManager.getUserRole(currentUser);
+
+        const isOwner = (app.Email || '').toLowerCase().trim() === currentUser;
+        const isSupervisor = (app.SupervisorEmail || '').toLowerCase().trim() === currentUser;
+        const isAdminOrHr = userRole === SYSTEM.ROLES.ADMIN || userRole === SYSTEM.ROLES.HR;
+        const isCoverageColleague = (app.HandoverColleagueEmail || '').toLowerCase().trim() === currentUser;
+
+        if (!isOwner && !isSupervisor && !isAdminOrHr && !isCoverageColleague) {
+            return Utils.createErrorResponse('You are not authorized to view this application');
+        }
+
+        return Utils.createSuccessResponse(app, 'Application details retrieved');
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to get application: ' + error.message);
+    }
+}
+
 function apiSubmitLeaveApplication(applicationData) {
     return ApplicationsManager.submitLeaveApplication(applicationData);
 }
