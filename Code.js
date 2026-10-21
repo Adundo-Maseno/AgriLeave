@@ -3734,7 +3734,9 @@ const DashboardManager = {
             const stats = {
                 totalApplications: applications.length,
                 approvedApplications: applications.filter(app => app.Status === SYSTEM.STATUS.APPROVED).length,
-                pendingApplications: applications.filter(app => app.Status === SYSTEM.STATUS.PENDING).length
+                pendingApplications: applications.filter(app => app.Status === SYSTEM.STATUS.PENDING).length,
+                declinedApplications: applications.filter(app => app.Status === SYSTEM.STATUS.DECLINED).length,
+                cancelledApplications: applications.filter(app => app.Status === SYSTEM.STATUS.CANCELLED).length
             };
 
             let supervisedData = null;
@@ -3799,6 +3801,7 @@ const DashboardManager = {
 
             let pendingCount = 0;
             let approvedThisMonth = 0;
+            let cancelledCount = 0;
             let totalTheoreticalAllocation = 0;
             let totalUsed = 0;
             let totalAccrued = 0;
@@ -3814,6 +3817,7 @@ const DashboardManager = {
                 );
 
                 pendingCount += staffApplications.filter(app => app.Status === SYSTEM.STATUS.PENDING).length;
+                cancelledCount += staffApplications.filter(app => app.Status === SYSTEM.STATUS.CANCELLED).length;
 
                 approvedThisMonth += staffApplications.filter(app => {
                     if (app.Status !== SYSTEM.STATUS.APPROVED) return false;
@@ -3902,6 +3906,7 @@ const DashboardManager = {
                 eligibleTeamSize: eligibleSupervisedStaff.length,
                 ineligibleTeamSize: ineligibleStaff.length,
                 pendingCount: pendingCount,
+                cancelledCount: cancelledCount,
                 approvedThisMonth: approvedThisMonth,
                 utilizationRate: utilizationRate,
                 effectiveUtilizationRate: effectiveUtilizationRate,
@@ -8475,6 +8480,8 @@ function apiGetHRDashboard() {
 
         const pendingApps = allApps.filter(a => a.Status === SYSTEM.STATUS.PENDING);
         const approvedApps = allApps.filter(a => a.Status === SYSTEM.STATUS.APPROVED);
+        const declinedApps = allApps.filter(a => a.Status === SYSTEM.STATUS.DECLINED);
+        const cancelledApps = allApps.filter(a => a.Status === SYSTEM.STATUS.CANCELLED);
         const hrEndorsements = pendingApps.filter(a => a.ApprovalStage === 'pending_hr');
 
         // Calculate leave liability across active eligible staff
@@ -8505,14 +8512,21 @@ function apiGetHRDashboard() {
                 all: allApps,
                 pending: pendingApps,
                 approved: approvedApps,
+                declined: declinedApps,
+                cancelled: cancelledApps,
                 pendingCount: pendingApps.length,
+                cancelledCount: cancelledApps.length,
                 hrEndorsements: hrEndorsements,
                 hrEndorsementCount: hrEndorsements.length
             },
             summary: {
                 totalStaff: staffData.length,
                 eligibleStaff: staffData.filter(s => s.EligibleForLeave).length,
+                totalApplications: allApps.length,
                 pendingApplications: pendingApps.length,
+                approvedApplications: approvedApps.length,
+                declinedApplications: declinedApps.length,
+                cancelledApplications: cancelledApps.length,
                 pendingHREndorsements: hrEndorsements.length
             },
             liability

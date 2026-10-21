@@ -4684,8 +4684,8 @@
                             };
 
                             pageHTML += `
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:border-gray-200 transition-all">
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+            <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:border-gray-200 transition-all cursor-pointer my-app-stat-card" data-status-filter="all" title="Click to show all applications">
               <div class="flex items-center justify-between">
                 <div>
                   <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Total</p>
@@ -4696,7 +4696,7 @@
                 </div>
               </div>
             </div>
-            <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-emerald-100 p-4 hover:border-emerald-200 transition-all">
+            <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-emerald-100 p-4 hover:border-emerald-200 transition-all cursor-pointer my-app-stat-card" data-status-filter="approved" title="Click to filter by Approved">
               <div class="flex items-center justify-between">
                 <div>
                   <p class="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Approved</p>
@@ -4707,7 +4707,7 @@
                 </div>
               </div>
             </div>
-            <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-amber-100 p-4 hover:border-amber-200 transition-all">
+            <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-amber-100 p-4 hover:border-amber-200 transition-all cursor-pointer my-app-stat-card" data-status-filter="pending" title="Click to filter by Pending">
               <div class="flex items-center justify-between">
                 <div>
                   <p class="text-xs font-semibold text-amber-600 uppercase tracking-wider">Pending</p>
@@ -4718,7 +4718,7 @@
                 </div>
               </div>
             </div>
-            <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-red-100 p-4 hover:border-red-200 transition-all">
+            <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-red-100 p-4 hover:border-red-200 transition-all cursor-pointer my-app-stat-card" data-status-filter="declined" title="Click to filter by Declined">
               <div class="flex items-center justify-between">
                 <div>
                   <p class="text-xs font-semibold text-red-600 uppercase tracking-wider">Declined</p>
@@ -4726,6 +4726,17 @@
                 </div>
                 <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-red-500 to-red-600 text-white flex items-center justify-center shadow-sm shadow-red-200">
                   <i class="fas fa-times-circle text-base"></i>
+                </div>
+              </div>
+            </div>
+            <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-slate-200 p-4 hover:border-slate-300 transition-all cursor-pointer my-app-stat-card" data-status-filter="cancelled" title="Click to filter by Cancelled">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-xs font-semibold text-slate-600 uppercase tracking-wider">Cancelled</p>
+                  <p class="text-2xl font-bold text-slate-700 mt-1">${stats.cancelled}</p>
+                </div>
+                <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-slate-500 to-slate-600 text-white flex items-center justify-center shadow-sm shadow-slate-200">
+                  <i class="fas fa-ban text-base"></i>
                 </div>
               </div>
             </div>
@@ -4746,7 +4757,7 @@
                 </thead>
                 <tbody class="divide-y divide-gray-200">
                   ${applications.map(app => `
-                  <tr class="hover:bg-gray-50/80 transition-colors">
+                  <tr class="hover:bg-gray-50/80 transition-colors my-app-row" data-status="${(app.Status || 'pending').toLowerCase()}">
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${formatDate(app.DateApplied)}</td>
                     <td class="px-6 py-4 whitespace-nowrap">
                       <span class="leave-type-badge ${(app.LeaveType || '').replace(/\s+/g, '-').toLowerCase()} px-3 py-1 rounded-full text-xs font-medium">
@@ -4800,7 +4811,57 @@
                         }
 
                         pageElement.innerHTML = pageHTML;
-                        // attachApplicationsPageEventListeners();
+
+                        // Wire up click-to-filter on My Applications stat cards
+                        const statCards = pageElement.querySelectorAll('.my-app-stat-card');
+                        const appRows = pageElement.querySelectorAll('.my-app-row');
+                        let currentStatusFilter = 'all';
+
+                        statCards.forEach(card => {
+                            card.addEventListener('click', function () {
+                                const filter = this.getAttribute('data-status-filter') || 'all';
+                                currentStatusFilter = (currentStatusFilter === filter && filter !== 'all') ? 'all' : filter;
+
+                                statCards.forEach(c => {
+                                    const cFilter = c.getAttribute('data-status-filter');
+                                    if (cFilter === currentStatusFilter && currentStatusFilter !== 'all') {
+                                        c.classList.add('ring-2', 'ring-emerald-500', 'shadow-md');
+                                    } else {
+                                        c.classList.remove('ring-2', 'ring-emerald-500', 'shadow-md');
+                                    }
+                                });
+
+                                let visibleCount = 0;
+                                appRows.forEach(row => {
+                                    const rowStatus = row.getAttribute('data-status');
+                                    if (currentStatusFilter === 'all' || rowStatus === currentStatusFilter) {
+                                        row.style.display = '';
+                                        visibleCount++;
+                                    } else {
+                                        row.style.display = 'none';
+                                    }
+                                });
+
+                                const emptyFilterRow = pageElement.querySelector('#myAppsEmptyFilterRow');
+                                if (visibleCount === 0) {
+                                    if (!emptyFilterRow) {
+                                        const tbody = pageElement.querySelector('tbody');
+                                        if (tbody) {
+                                            const tr = document.createElement('tr');
+                                            tr.id = 'myAppsEmptyFilterRow';
+                                            tr.innerHTML = `<td colspan="6" class="px-6 py-8 text-center text-sm text-gray-500"><i class="fas fa-filter mr-2 text-gray-400"></i>No ${currentStatusFilter} applications found</td>`;
+                                            tbody.appendChild(tr);
+                                        }
+                                    } else {
+                                        emptyFilterRow.style.display = '';
+                                        const td = emptyFilterRow.querySelector('td');
+                                        if (td) td.innerHTML = `<i class="fas fa-filter mr-2 text-gray-400"></i>No ${currentStatusFilter} applications found`;
+                                    }
+                                } else if (emptyFilterRow) {
+                                    emptyFilterRow.style.display = 'none';
+                                }
+                            });
+                        });
                     }
                 } catch (error) {
                     console.error('Failed to load applications page:', error);
@@ -4880,6 +4941,7 @@
                         pending: allTeamApps.filter(a => a.Status === 'Pending').length,
                         approved: allTeamApps.filter(a => a.Status === 'Approved').length,
                         declined: allTeamApps.filter(a => a.Status === 'Declined').length,
+                        cancelled: allTeamApps.filter(a => a.Status === 'Cancelled').length,
                     };
 
                     // ── Page header + search + summary cards ──────────────────────
@@ -4899,7 +4961,7 @@
         </div>
       </div>
 
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
         <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center cursor-pointer hover:border-emerald-300 transition-all tab-summary-card" data-filter="all">
           <p class="text-2xl font-bold text-gray-900">${counts.all}</p>
           <p class="text-xs text-gray-500 mt-1">Total Requests</p>
@@ -4916,6 +4978,10 @@
           <p class="text-2xl font-bold text-red-500">${counts.declined}</p>
           <p class="text-xs text-gray-500 mt-1">Declined</p>
         </div>
+        <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-slate-200 p-4 text-center cursor-pointer hover:border-slate-400 transition-all tab-summary-card" data-filter="cancelled">
+          <p class="text-2xl font-bold text-slate-600">${counts.cancelled}</p>
+          <p class="text-xs text-gray-500 mt-1">Cancelled</p>
+        </div>
       </div>
 
       <!-- Filter tabs -->
@@ -4925,6 +4991,7 @@
                             { key: 'pending', label: 'Pending', count: counts.pending },
                             { key: 'approved', label: 'Approved', count: counts.approved },
                             { key: 'declined', label: 'Declined', count: counts.declined },
+                            { key: 'cancelled', label: 'Cancelled', count: counts.cancelled },
                         ].map(t => `
           <button class="team-filter-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors
             ${t.key === 'pending' && counts.pending > 0 ? 'border-amber-500 text-amber-600' : 'border-transparent text-gray-500 hover:text-gray-700'}"
@@ -6084,7 +6151,7 @@
     </div>
 
     <!-- Stats Cards -->
-    <div id="teamStats" class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+    <div id="teamStats" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
       <!-- Dynamically populated -->
     </div>
 
@@ -6390,6 +6457,21 @@
                 </div>
               ` : ''}
             </div>
+          </div>
+
+          <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:border-slate-300 transition-all">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <p class="text-xs font-semibold text-slate-600 uppercase tracking-wider">Cancelled</p>
+                <p class="text-3xl font-bold text-slate-700 mt-1">${stats.cancelledCount || 0}</p>
+              </div>
+              <div class="h-12 w-12 rounded-xl bg-gradient-to-br from-slate-500 to-slate-600 text-white flex items-center justify-center shadow-sm shadow-slate-200">
+                <i class="fas fa-ban text-lg"></i>
+              </div>
+            </div>
+            <p class="text-xs text-gray-500">
+              ${(stats.cancelledCount || 0) === 1 ? 'Application' : 'Applications'} cancelled
+            </p>
           </div>
         `;
 
@@ -10673,7 +10755,11 @@
                 `;
 
                     // ── Summary Cards ──────────────────────────────────────────────
-                    html += '<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">';
+                    const cancelledAppsCount = summary.cancelledApplications != null
+                        ? summary.cancelledApplications
+                        : allApps.filter(a => (a.Status || a.status) === 'Cancelled').length;
+
+                    html += '<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">';
                     html += '<div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-blue-100 p-6 hover:border-blue-200 transition-all">' +
                         '<div class="flex items-center justify-between">' +
                         '<div>' +
@@ -10707,6 +10793,18 @@
                         '</div>' +
                         '<div class="h-12 w-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white flex items-center justify-center shadow-sm shadow-emerald-200">' +
                         '<i class="fas fa-file-invoice text-lg"></i>' +
+                        '</div>' +
+                        '</div></div>';
+
+                    html += '<div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:border-slate-300 transition-all">' +
+                        '<div class="flex items-center justify-between">' +
+                        '<div>' +
+                        '<p class="text-xs font-semibold text-slate-600 uppercase tracking-wider">Cancelled Applications</p>' +
+                        '<p class="text-3xl font-bold text-slate-700 mt-1">' + cancelledAppsCount + '</p>' +
+                        '<p class="text-xs text-gray-500 mt-1"><i class="fas fa-ban text-slate-400 mr-1"></i>Cancelled or voided</p>' +
+                        '</div>' +
+                        '<div class="h-12 w-12 rounded-xl bg-gradient-to-br from-slate-500 to-slate-600 text-white flex items-center justify-center shadow-sm shadow-slate-200">' +
+                        '<i class="fas fa-ban text-lg"></i>' +
                         '</div>' +
                         '</div></div>';
 
