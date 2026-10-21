@@ -10010,9 +10010,11 @@ function apiGetBootstrapData(params) {
         // 1. User Balance Breakdown
         const balances = DashboardManager.calculateUserBalance(currentUserEmail);
 
-        // 2. User's Applications (recent 15)
+        // 2. User's Applications (recent 15) and status counts
         const myApps = EnhancedCacheManager.getApplicationsByEmail(currentUserEmail, {});
         const recentApplications = myApps.slice(0, 15);
+        const myPendingCount = myApps.filter(app => app.Status === SYSTEM.STATUS.PENDING).length;
+        const myApprovedCount = myApps.filter(app => app.Status === SYSTEM.STATUS.APPROVED).length;
 
         // 3. Today's Absence Digest
         let absenceDigest = null;
@@ -10104,6 +10106,12 @@ function apiGetBootstrapData(params) {
             },
             balances,
             recentApplications,
+            myPendingCount,
+            stats: {
+                totalApplications: myApps.length,
+                pendingApplications: myPendingCount,
+                approvedApplications: myApprovedCount
+            },
             absenceDigestToday: absenceDigest,
             pendingHandovers,
             supervisorQueue,

@@ -1283,7 +1283,7 @@
             <a href="#" data-page="myApplications" class="sidebar-link">
                 <i class="fas fa-file-alt"></i>
                 <span>My Applications</span>
-                <span class="nav-badge" id="pendingAppsBadge">0</span>
+                <span class="nav-badge" id="pendingAppsBadge" style="display:none">0</span>
             </a>
 
             <a href="#" data-page="myBalance" class="sidebar-link">
@@ -3321,6 +3321,15 @@
                             if (cached.balances) AppState.leaveBalance = cached.balances;
                             if (cached.recentApplications) AppState.applications = cached.recentApplications;
                             if (cached.supervisorQueue) AppState.teamPendingCount = cached.supervisorQueue.count || 0;
+                            if (typeof cached.myPendingCount === 'number') {
+                                AppState.myPendingCount = cached.myPendingCount;
+                            } else if (cached.stats?.pendingApplications !== undefined) {
+                                AppState.myPendingCount = cached.stats.pendingApplications;
+                            } else if (cached.recentApplications) {
+                                AppState.myPendingCount = cached.recentApplications.filter(a => a && a.Status === 'Pending').length;
+                            }
+                            updateTeamPendingBadge();
+                            updatePendingAppsBadge();
                         }
                     }
                 } catch (cacheErr) {
@@ -3350,10 +3359,18 @@
                         if (data.supervisorQueue) {
                             AppState.teamPendingCount = data.supervisorQueue.count || 0;
                         }
+                        if (typeof data.myPendingCount === 'number') {
+                            AppState.myPendingCount = data.myPendingCount;
+                        } else if (data.stats?.pendingApplications !== undefined) {
+                            AppState.myPendingCount = data.stats.pendingApplications;
+                        } else if (data.recentApplications) {
+                            AppState.myPendingCount = data.recentApplications.filter(a => a && a.Status === 'Pending').length;
+                        }
 
                         updateUserInfoUI();
                         updateUIForUserRole();
                         updateTeamPendingBadge();
+                        updatePendingAppsBadge();
 
                         navigateToPage('dashboard');
 
@@ -3380,6 +3397,7 @@
 
                     updateUIForUserRole();
                     updateTeamPendingBadge();
+                    updatePendingAppsBadge();
 
                     navigateToPage('dashboard');
 
@@ -3444,6 +3462,15 @@
 
                         AppState.leaveBalance = data.balances;
                         AppState.applications = data.recentApplications || [];
+                        if (typeof data.myPendingCount === 'number') {
+                            AppState.myPendingCount = data.myPendingCount;
+                        } else if (data.stats?.pendingApplications !== undefined) {
+                            AppState.myPendingCount = data.stats.pendingApplications;
+                        } else if (data.recentApplications) {
+                            AppState.myPendingCount = data.recentApplications.filter(a => a && a.Status === 'Pending').length;
+                        }
+                        updatePendingAppsBadge();
+
                         if (data.supervisorQueue && (AppState.userRole === 'supervisor' || AppState.userRole === 'admin')) {
                             AppState.teamPendingCount = data.supervisorQueue.count || 0;
                             updateTeamPendingBadge();
@@ -3463,6 +3490,12 @@
                     if (result.success) {
                         AppState.leaveBalance = result.data.balance;
                         AppState.applications = result.data.applications || [];
+                        if (result.data.stats?.pendingApplications !== undefined) {
+                            AppState.myPendingCount = result.data.stats.pendingApplications;
+                        } else if (result.data.applications) {
+                            AppState.myPendingCount = result.data.applications.filter(a => a && a.Status === 'Pending').length;
+                        }
+                        updatePendingAppsBadge();
                         updateDashboardUI(result.data);
 
                         // Seed team pending badge from supervisedData without a separate API call
@@ -4607,6 +4640,7 @@
                     if (result.success) {
                         const applications = result.data.data || [];
                         AppState.applications = applications;
+                        AppState.myPendingCount = applications.filter(app => app && app.Status === 'Pending').length;
                         updatePendingAppsBadge();
 
                         let pageHTML = `
@@ -10360,15 +10394,30 @@
             // Make it globally available
             window.viewApplicationDetails = viewApplicationDetails;
             // Update pending applications badge for current user
-            function updatePendingAppsBadge() {
-                const pendingCount = AppState.applications?.filter(app => app.Status === 'Pending').length || 0;
+            function updatePendingAppsBadge(explicitCount) {
+                let pendingCount = 0;
+                if (typeof explicitCount === 'number') {
+                    pendingCount = explicitCount;
+                    AppState.myPendingCount = explicitCount;
+                } else if (typeof AppState.myPendingCount === 'number') {
+                    pendingCount = AppState.myPendingCount;
+                } else if (Array.isArray(AppState.applications)) {
+                    pendingCount = AppState.applications.filter(app => app && app.Status === 'Pending').length;
+                }
                 // Sidebar badge
                 const badge = document.getElementById('pendingAppsBadge');
-                if (badge) { badge.textContent = pendingCount; badge.style.display = pendingCount > 0 ? 'inline-block' : 'none'; }
+                if (badge) {
+                    badge.textContent = pendingCount;
+                    badge.style.display = pendingCount > 0 ? 'inline-block' : 'none';
+                }
                 // Mobile bottom nav badge
                 const mobileBadge = document.getElementById('mobileAppsBadge');
-                if (mobileBadge) { mobileBadge.textContent = pendingCount; mobileBadge.style.display = pendingCount > 0 ? 'flex' : 'none'; }
+                if (mobileBadge) {
+                    mobileBadge.textContent = pendingCount;
+                    mobileBadge.style.display = pendingCount > 0 ? 'flex' : 'none';
+                }
             }
+            window.updatePendingAppsBadge = updatePendingAppsBadge;
 
             // Update team pending applications badge for supervisors/admins
             function updateTeamPendingBadge() {
