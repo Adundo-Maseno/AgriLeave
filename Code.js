@@ -7663,8 +7663,13 @@ const FinancialProvisionManager = {
 // =============================================
 
 const AIAssistantManager = {
-    DEFAULT_MODEL: 'gemini-3.8-flash',
-    FALLBACK_MODEL: 'gemini-2.5-flash',
+    GEMINI_MODEL_FALLBACK_CHAIN: [
+        'gemini-3.5-flash-lite',
+        'gemini-3.5-flash',
+        'gemini-3.7-flash',
+        'gemini-3.8-flash'
+    ],
+    DEFAULT_MODEL: 'gemini-3.5-flash-lite',
     EMBEDDING_MODEL: 'text-embedding-004',
 
     getApiKey: function () {
@@ -7761,42 +7766,30 @@ const AIAssistantManager = {
         } catch (e) { }
 
         let modelsToTry = [];
-        if (cachedWorking) {
+        if (cachedWorking && this.GEMINI_MODEL_FALLBACK_CHAIN.indexOf(cachedWorking) !== -1) {
             modelsToTry.push(cachedWorking);
         }
 
-        const available = this.resolveAvailableModels();
-        if (available && available.length > 0) {
-            const scoreModel = function (name) {
-                const n = (name || '').toLowerCase();
-                if (n.indexOf('3.8') !== -1) return 100;
-                if (n.indexOf('2.5') !== -1) return 90;
-                if (n.indexOf('2.0') !== -1) return 80;
-                if (n.indexOf('1.5-flash-latest') !== -1 || n.indexOf('flash-latest') !== -1) return 75;
-                if (n.indexOf('1.5-flash-002') !== -1) return 70;
-                if (n.indexOf('1.5-flash-001') !== -1) return 65;
-                if (n.indexOf('1.5-flash') !== -1) return 60;
-                if (n.indexOf('flash') !== -1) return 50;
-                if (n.indexOf('pro') !== -1) return 30;
-                return 10;
-            };
-
-            const sorted = available.slice().sort(function (a, b) {
-                return scoreModel(b) - scoreModel(a);
-            });
-            modelsToTry = modelsToTry.concat(sorted.slice(0, 4));
-        }
-
-        const defaultFallbacks = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-1.5-flash-latest', 'gemini-pro'];
-        defaultFallbacks.forEach(function (m) {
+        // Add user-specified GEMINI_MODEL_FALLBACK_CHAIN in exact priority sequence
+        this.GEMINI_MODEL_FALLBACK_CHAIN.forEach(function (m) {
             if (modelsToTry.indexOf(m) === -1) {
                 modelsToTry.push(m);
             }
         });
 
+        // Check if any other models are reported by Google ListModels as backup
+        const available = this.resolveAvailableModels();
+        if (available && available.length > 0) {
+            available.forEach(function (m) {
+                if (modelsToTry.indexOf(m) === -1) {
+                    modelsToTry.push(m);
+                }
+            });
+        }
+
         return modelsToTry.filter(function (item, pos) {
             return modelsToTry.indexOf(item) === pos;
-        }).slice(0, 4);
+        });
     },
 
     generateEmbedding: function (text) {
