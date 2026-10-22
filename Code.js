@@ -7760,16 +7760,26 @@ const AIAssistantManager = {
     },
 
     getOrderedModelsToTry: function () {
-        const cache = (function () {
-            try { return CacheService.getScriptCache(); } catch (e) { return null; }
-        })();
+        let cachedWorking = null;
+        let props = null;
+        try {
+            props = PropertiesService.getScriptProperties();
+            cachedWorking = props ? props.getProperty('GEMINI_RESOLVED_MODEL') : null;
+        } catch (e) { }
 
         let modelsToTry = [];
         let notFoundModels = [];
 
+        // If we have an active, verified working model from the user's fallback chain,
+        // prioritize it first to prevent repeated 404 roundtrip delays that cause GAS server timeouts
+        if (cachedWorking && this.GEMINI_MODEL_FALLBACK_CHAIN.indexOf(cachedWorking) !== -1) {
+            modelsToTry.push(cachedWorking);
+        }
+
         // Add user-specified GEMINI_MODEL_FALLBACK_CHAIN in exact priority sequence
         this.GEMINI_MODEL_FALLBACK_CHAIN.forEach(function (m) {
-            if (cache && cache.get('GEMINI_MODEL_404_' + m) === '1') {
+            const isKnown404 = props && props.getProperty('GEMINI_MODEL_404_' + m) === '1';
+            if (isKnown404) {
                 notFoundModels.push(m);
             } else if (modelsToTry.indexOf(m) === -1) {
                 modelsToTry.push(m);
@@ -8079,13 +8089,15 @@ const AIAssistantManager = {
         // 2. Personal Recent Applications (Own applications only)
         try {
             const userApps = ApplicationsManager.getAllApplicationsData({ email: userEmail }) || [];
-            userApps.sort((a, b) => new Date(b.AppliedDate || b.CreatedAt || 0) - new Date(a.AppliedDate || a.CreatedAt || 0));
+            userApps.sort((a, b) => new Date(b.DateApplied || b.AppliedDate || b.CreatedAt || 0) - new Date(a.DateApplied || a.AppliedDate || a.CreatedAt || 0));
             const recentApps = userApps.slice(0, 8);
             if (recentApps.length > 0) {
                 context.push(`\n### Recent Leave Applications by ${user.Name}:`);
                 recentApps.forEach((app, idx) => {
-                    const appliedOn = app.AppliedDate ? app.AppliedDate.split('T')[0] : 'N/A';
-                    context.push(`${idx + 1}. [${app.LeaveType || 'Leave'}] from ${app.StartDate} to ${app.EndDate} (${app.Days || 0} days / ${app.Hours || 0} hrs) - Status: **${app.Status}** (Applied: ${appliedOn}, Handover: ${app.HandoverTo || 'None'}, Reason: "${app.Reason || 'Not stated'}")${app.RejectionReason ? ` - Note: "${app.RejectionReason}"` : ''}`);
+                    const appliedOn = app.DateApplied ? app.DateApplied.split('T')[0] : (app.AppliedDate ? app.AppliedDate.split('T')[0] : 'N/A');
+                    const days = app.Duration !== undefined ? app.Duration : (app.Days || 0);
+                    const handover = app.HandoverName || app.HandoverEmail || app.HandoverTo || 'None';
+                    context.push(`${idx + 1}. [${app.LeaveType || 'Leave'}] from ${app.StartDate} to ${app.EndDate} (${days} days) - Status: **${app.Status}** (Applied: ${appliedOn}, Handover: ${handover}, Reason: "${app.Reason || 'Not stated'}")${app.RejectionReason ? ` - Note: "${app.RejectionReason}"` : ''}`);
                 });
             } else {
                 context.push(`\n### Recent Leave Applications: None found.`);
@@ -8126,6 +8138,17 @@ const AIAssistantManager = {
             console.warn('Error adding blackout context:', e);
         }
 
+        // Pre-fetch all applications ONCE for Supervisor / Admin / HR to minimize Drive I/O
+        let allApps = null;
+        if (role === SYSTEM.ROLES.SUPERVISOR || role === SYSTEM.ROLES.ADMIN || role === SYSTEM.ROLES.HR) {
+            try {
+                allApps = ApplicationsManager.getAllApplicationsData({}) || [];
+            } catch (appErr) {
+                console.warn('Error fetching all applications for supervisor/admin context:', appErr);
+                allApps = [];
+            }
+        }
+
         // 5. SUPERVISOR-ONLY SCOPED CONTEXT
         if (role === SYSTEM.ROLES.SUPERVISOR || role === SYSTEM.ROLES.ADMIN || role === SYSTEM.ROLES.HR) {
             try {
@@ -8137,17 +8160,20 @@ const AIAssistantManager = {
                     });
 
                     // Pending applications requiring this supervisor's review
-                    const allApps = ApplicationsManager.getAllApplicationsData({}) || [];
-                    const pendingTeamApps = allApps.filter(app => {
-                        const isDirectReport = directReports.some(dr => dr.Email.toLowerCase() === (app.StaffEmail || '').toLowerCase());
-                        const isAssignedSup = (app.SupervisorEmail || '').toLowerCase() === userEmail.toLowerCase();
+                    const pendingTeamApps = (allApps || []).filter(app => {
+                        const appEmail = (app.Email || app.StaffEmail || '').toLowerCase();
+                        const isDirectReport = directReports.some(dr => (dr.Email || '').toLowerCase() === appEmail);
+                        const isAssignedSup = (app.Supervisor || app.SupervisorEmail || '').toLowerCase() === userEmail.toLowerCase();
                         return (isDirectReport || isAssignedSup) && app.Status === SYSTEM.STATUS.PENDING;
                     });
 
                     if (pendingTeamApps.length > 0) {
                         context.push(`\n### Pending Leave Applications Awaiting Review by ${user.Name}:`);
                         pendingTeamApps.forEach((app, idx) => {
-                            context.push(`${idx + 1}. Staff: ${app.StaffName} (${app.StaffEmail}) - [${app.LeaveType}] from ${app.StartDate} to ${app.EndDate} (${app.Days} days) - Reason: "${app.Reason || 'None'}"`);
+                            const staffName = app.Name || app.StaffName || app.Email || 'Staff';
+                            const appEmail = app.Email || app.StaffEmail || '';
+                            const days = app.Duration !== undefined ? app.Duration : (app.Days || 0);
+                            context.push(`${idx + 1}. Staff: ${staffName} (${appEmail}) - [${app.LeaveType}] from ${app.StartDate} to ${app.EndDate} (${days} days) - Reason: "${app.Reason || 'None'}"`);
                         });
                     } else {
                         context.push(`\n### Pending Leave Applications Awaiting Review: None.`);
@@ -8159,8 +8185,9 @@ const AIAssistantManager = {
                     nextMonthDate.setDate(nextMonthDate.getDate() + 30);
                     const nextMonthStr = nextMonthDate.toISOString().split('T')[0];
 
-                    const upcomingTeamLeaves = allApps.filter(app => {
-                        const isDirectReport = directReports.some(dr => dr.Email.toLowerCase() === (app.StaffEmail || '').toLowerCase());
+                    const upcomingTeamLeaves = (allApps || []).filter(app => {
+                        const appEmail = (app.Email || app.StaffEmail || '').toLowerCase();
+                        const isDirectReport = directReports.some(dr => (dr.Email || '').toLowerCase() === appEmail);
                         const isApproved = app.Status === SYSTEM.STATUS.APPROVED;
                         const isUpcoming = (app.EndDate || '') >= todayStr && (app.StartDate || '') <= nextMonthStr;
                         return isDirectReport && isApproved && isUpcoming;
@@ -8169,7 +8196,9 @@ const AIAssistantManager = {
                     if (upcomingTeamLeaves.length > 0) {
                         context.push(`\n### Upcoming Approved Absences in ${user.Name}'s Team (Next 30 Days):`);
                         upcomingTeamLeaves.forEach(app => {
-                            context.push(`- ${app.StaffName}: ${app.LeaveType} from ${app.StartDate} to ${app.EndDate} (${app.Days} days)`);
+                            const staffName = app.Name || app.StaffName || app.Email || 'Staff';
+                            const days = app.Duration !== undefined ? app.Duration : (app.Days || 0);
+                            context.push(`- ${staffName}: ${app.LeaveType} from ${app.StartDate} to ${app.EndDate} (${days} days)`);
                         });
                     }
                 }
@@ -8182,22 +8211,22 @@ const AIAssistantManager = {
         if (role === SYSTEM.ROLES.HR || role === SYSTEM.ROLES.ADMIN) {
             try {
                 const allStaff = StaffManager.getAllStaffData() || [];
-                const allApps = ApplicationsManager.getAllApplicationsData({}) || [];
                 const todayStr = new Date().toISOString().split('T')[0];
 
-                const pendingTotal = allApps.filter(a => a.Status === SYSTEM.STATUS.PENDING).length;
-                const onLeaveToday = allApps.filter(a => a.Status === SYSTEM.STATUS.APPROVED && (a.StartDate || '') <= todayStr && (a.EndDate || '') >= todayStr);
+                const pendingTotal = (allApps || []).filter(a => a.Status === SYSTEM.STATUS.PENDING).length;
+                const onLeaveToday = (allApps || []).filter(a => a.Status === SYSTEM.STATUS.APPROVED && (a.StartDate || '') <= todayStr && (a.EndDate || '') >= todayStr);
 
                 context.push(`\n### Organization-Wide HR Summary:`);
                 context.push(`- Total Staff Count: ${allStaff.length}`);
                 context.push(`- Staff Currently on Approved Leave Today: ${onLeaveToday.length}`);
                 if (onLeaveToday.length > 0) {
                     onLeaveToday.forEach(a => {
-                        context.push(`  * ${a.StaffName} (${a.Department || 'N/A'}): ${a.LeaveType} until ${a.EndDate}`);
+                        const staffName = a.Name || a.StaffName || a.Email || 'Staff';
+                        context.push(`  * ${staffName} (${a.Department || 'N/A'}): ${a.LeaveType} until ${a.EndDate}`);
                     });
                 }
                 context.push(`- Total Pending Leave Applications Across Company: ${pendingTotal}`);
-                context.push(`- System Leave Policy: Annual = ${SYSTEM.LEAVE_POLICY.ANNUAL_ALLOCATION} days, Sick = ${SYSTEM.LEAVE_POLICY.SICK_LEAVE} days, Monthly Accrual = ${SYSTEM.LEAVE_POLICY.MONTHLY_ACCRUAL_RATE} days/mo, Max Carry Forward = ${SYSTEM.LEAVE_POLICY.MAX_CARRY_FORWARD} days.`);
+                context.push(`- System Leave Policy Parameters: Annual = ${SYSTEM.LEAVE_POLICY.ANNUAL_ALLOCATION} days/year, Sick = ${SYSTEM.LEAVE_POLICY.SICK_LEAVE} days/year, Monthly Accrual Rate = ${SYSTEM.LEAVE_POLICY.MONTHLY_ACCRUAL_RATE} days/month, Maximum Carry Forward = ${SYSTEM.LEAVE_POLICY.MAX_CARRY_FORWARD} days, Max Advance Days = ${SYSTEM.LEAVE_POLICY.MAX_ADVANCE_DAYS || 5} days.`);
             } catch (e) {
                 console.warn('Error adding HR context:', e);
             }
@@ -8245,6 +8274,7 @@ STRICT ROLE-BASED ACCESS CONTROL (RBAC) SECURITY RULES:
 6. Ground your answers strictly on the LIVE SYSTEM DATA and POLICY CONTEXT provided below. If something is not in the data, state clearly that you do not have that specific record rather than guessing or hallucinating.
 7. Format responses beautifully using GitHub-flavored Markdown: use bold text, bulleted lists, and structured sections where helpful. Keep explanations clear, friendly, and concise.
 8. If the user asks how to apply for leave, cancel a request, or view their balance, guide them to the respective buttons/tabs in the AgriLeave interface (e.g. "Apply for Leave", "My Applications", or "My Balance").
+9. Be direct, crisp, and structured. Provide concise summaries without unnecessary conversational filler so answers arrive quickly.
 
 LIVE SYSTEM DATA CONTEXT:
 ${scopedDataContext}
@@ -8309,7 +8339,7 @@ ${policyChunks}`;
 
             try {
                 const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-                const payload = {
+                let payload = {
                     contents: contents,
                     systemInstruction: {
                         parts: [{ text: systemPrompt }]
@@ -8317,19 +8347,35 @@ ${policyChunks}`;
                     generationConfig: {
                         temperature: 0.2,
                         maxOutputTokens: 1024,
-                        topP: 0.95
+                        topP: 0.95,
+                        thinkingConfig: {
+                            thinkingLevel: 'low'
+                        }
                     }
                 };
 
-                const response = UrlFetchApp.fetch(url, {
+                let response = UrlFetchApp.fetch(url, {
                     method: 'post',
                     contentType: 'application/json',
                     payload: JSON.stringify(payload),
                     muteHttpExceptions: true
                 });
 
-                const code = response.getResponseCode();
-                const text = response.getContentText();
+                let code = response.getResponseCode();
+                let text = response.getContentText();
+
+                // If model does not support thinkingConfig (returns 400), retry immediately without it
+                if (code === 400 && (text.indexOf('thinkingConfig') !== -1 || text.indexOf('thinkingLevel') !== -1)) {
+                    delete payload.generationConfig.thinkingConfig;
+                    response = UrlFetchApp.fetch(url, {
+                        method: 'post',
+                        contentType: 'application/json',
+                        payload: JSON.stringify(payload),
+                        muteHttpExceptions: true
+                    });
+                    code = response.getResponseCode();
+                    text = response.getContentText();
+                }
 
                 if (code === 200) {
                     const json = JSON.parse(text);
@@ -8350,6 +8396,7 @@ ${policyChunks}`;
                 } else if (code === 404) {
                     try {
                         PropertiesService.getScriptProperties().deleteProperty('GEMINI_RESOLVED_MODEL');
+                        PropertiesService.getScriptProperties().setProperty('GEMINI_MODEL_404_' + model, '1');
                     } catch (propErr) { }
                     try {
                         CacheService.getScriptCache().put('GEMINI_MODEL_404_' + model, '1', 7200);
