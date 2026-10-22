@@ -7707,12 +7707,89 @@ const AIAssistantManager = {
         const key = this.getApiKey();
         const currentUser = Session.getActiveUser().getEmail();
         const role = StaffManager.getUserRole(currentUser) || SYSTEM.ROLES.STAFF;
+        let resolvedModel = null;
+        try {
+            resolvedModel = PropertiesService.getScriptProperties().getProperty('GEMINI_RESOLVED_MODEL');
+        } catch (e) { }
         return {
             configured: !!key,
-            model: this.DEFAULT_MODEL,
+            model: resolvedModel || this.DEFAULT_MODEL,
             userRole: role,
             isAdminOrHR: role === SYSTEM.ROLES.ADMIN || role === SYSTEM.ROLES.HR
         };
+    },
+
+    resolveAvailableModels: function () {
+        const apiKey = this.getApiKey();
+        if (!apiKey) return [];
+        try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+            const response = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+            if (response.getResponseCode() === 200) {
+                const data = JSON.parse(response.getContentText());
+                if (data.models && Array.isArray(data.models)) {
+                    const usable = data.models
+                        .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.indexOf('generateContent') !== -1)
+                        .map(m => m.name.replace(/^models\//, ''));
+                    return usable;
+                }
+            }
+        } catch (e) {
+            console.warn('Error fetching available models from Google:', e.message);
+        }
+        return [];
+    },
+
+    getOrderedModelsToTry: function () {
+        let cachedWorking = null;
+        try {
+            cachedWorking = PropertiesService.getScriptProperties().getProperty('GEMINI_RESOLVED_MODEL');
+        } catch (e) { }
+
+        const available = this.resolveAvailableModels();
+        let modelsToTry = [];
+        if (cachedWorking) {
+            modelsToTry.push(cachedWorking);
+        }
+
+        if (available && available.length > 0) {
+            const scoreModel = function (name) {
+                const n = (name || '').toLowerCase();
+                if (n.indexOf('3.8') !== -1) return 100;
+                if (n.indexOf('2.5') !== -1) return 90;
+                if (n.indexOf('2.0') !== -1) return 80;
+                if (n.indexOf('1.5-flash-latest') !== -1 || n.indexOf('flash-latest') !== -1) return 75;
+                if (n.indexOf('1.5-flash-002') !== -1) return 70;
+                if (n.indexOf('1.5-flash-001') !== -1) return 65;
+                if (n.indexOf('1.5-flash') !== -1) return 60;
+                if (n.indexOf('flash') !== -1) return 50;
+                if (n.indexOf('pro') !== -1) return 30;
+                return 10;
+            };
+
+            const sorted = available.slice().sort(function (a, b) {
+                return scoreModel(b) - scoreModel(a);
+            });
+            modelsToTry = modelsToTry.concat(sorted);
+        }
+
+        const hardcodedFallbacks = [
+            'gemini-3.8-flash',
+            'gemini-2.5-flash',
+            'gemini-2.0-flash',
+            'gemini-1.5-flash-latest',
+            'gemini-1.5-flash',
+            'gemini-pro'
+        ];
+        hardcodedFallbacks.forEach(function (m) {
+            if (modelsToTry.indexOf(m) === -1) {
+                modelsToTry.push(m);
+            }
+        });
+
+        return modelsToTry.filter(function (item, pos) {
+            return modelsToTry.indexOf(item) === pos;
+        });
     },
 
     generateEmbedding: function (text) {
@@ -8206,7 +8283,7 @@ ${policyChunks}`;
         const apiKey = this.getApiKey();
         if (!apiKey) throw new Error('Gemini API key is not configured');
 
-        const modelsToTry = [this.DEFAULT_MODEL, 'gemini-2.5-flash', 'gemini-1.5-flash'];
+        const modelsToTry = this.getOrderedModelsToTry();
         const tried = [];
         let lastError = null;
 
@@ -8242,11 +8319,17 @@ ${policyChunks}`;
                 if (code === 200) {
                     const json = JSON.parse(text);
                     if (json.candidates && json.candidates.length > 0 && json.candidates[0].content && json.candidates[0].content.parts) {
+                        try {
+                            PropertiesService.getScriptProperties().setProperty('GEMINI_RESOLVED_MODEL', model);
+                        } catch (propErr) { }
                         return json.candidates[0].content.parts.map(p => p.text).join('\n');
                     }
                     throw new Error('No text content returned from Gemini model');
-                } else if (code === 404 && text && text.indexOf('models/') !== -1) {
-                    // Self-healing: if Google suggests a newer model in the 404 message, dynamically queue it!
+                } else if (code === 404) {
+                    try {
+                        PropertiesService.getScriptProperties().deleteProperty('GEMINI_RESOLVED_MODEL');
+                    } catch (propErr) { }
+
                     const match = text.match(/models\/([a-zA-Z0-9.-]+)/);
                     if (match && match[1] && tried.indexOf(match[1]) === -1 && modelsToTry.indexOf(match[1]) === -1) {
                         modelsToTry.push(match[1]);
@@ -10994,6 +11077,21 @@ function apiReindexKnowledgeBase() {
         return Utils.createSuccessResponse(result);
     } catch (error) {
         return Utils.createErrorResponse('Failed to re-index knowledge base: ' + error.message);
+    }
+}
+
+function apiGetAvailableGeminiModels() {
+    try {
+        const currentUser = Session.getActiveUser().getEmail();
+        const userRole = StaffManager.getUserRole(currentUser);
+        if (userRole !== SYSTEM.ROLES.HR && userRole !== SYSTEM.ROLES.ADMIN) {
+            return Utils.createErrorResponse('Unauthorized.');
+        }
+        const models = AIAssistantManager.resolveAvailableModels();
+        const active = PropertiesService.getScriptProperties().getProperty('GEMINI_RESOLVED_MODEL');
+        return Utils.createSuccessResponse({ models: models, activeModel: active });
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to list models: ' + error.message);
     }
 }
 
