@@ -7722,6 +7722,15 @@ const AIAssistantManager = {
     resolveAvailableModels: function () {
         const apiKey = this.getApiKey();
         if (!apiKey) return [];
+
+        try {
+            const cache = CacheService.getScriptCache();
+            const cachedList = cache.get('GEMINI_AVAILABLE_MODELS');
+            if (cachedList) {
+                return JSON.parse(cachedList);
+            }
+        } catch (cErr) { }
+
         try {
             const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
             const response = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
@@ -7731,6 +7740,11 @@ const AIAssistantManager = {
                     const usable = data.models
                         .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.indexOf('generateContent') !== -1)
                         .map(m => m.name.replace(/^models\//, ''));
+                    
+                    try {
+                        CacheService.getScriptCache().put('GEMINI_AVAILABLE_MODELS', JSON.stringify(usable), 21600); // Cache 6 hours
+                    } catch (e) { }
+
                     return usable;
                 }
             }
@@ -7746,11 +7760,13 @@ const AIAssistantManager = {
             cachedWorking = PropertiesService.getScriptProperties().getProperty('GEMINI_RESOLVED_MODEL');
         } catch (e) { }
 
+        // If we already know a working model for this project, use it directly (0ms lookup)
+        if (cachedWorking) {
+            return [cachedWorking];
+        }
+
         const available = this.resolveAvailableModels();
         let modelsToTry = [];
-        if (cachedWorking) {
-            modelsToTry.push(cachedWorking);
-        }
 
         if (available && available.length > 0) {
             const scoreModel = function (name) {
@@ -7770,22 +7786,10 @@ const AIAssistantManager = {
             const sorted = available.slice().sort(function (a, b) {
                 return scoreModel(b) - scoreModel(a);
             });
-            modelsToTry = modelsToTry.concat(sorted);
+            modelsToTry = modelsToTry.concat(sorted.slice(0, 3)); // top 3 max to avoid long loops
+        } else {
+            modelsToTry = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-1.5-flash-latest'];
         }
-
-        const hardcodedFallbacks = [
-            'gemini-3.8-flash',
-            'gemini-2.5-flash',
-            'gemini-2.0-flash',
-            'gemini-1.5-flash-latest',
-            'gemini-1.5-flash',
-            'gemini-pro'
-        ];
-        hardcodedFallbacks.forEach(function (m) {
-            if (modelsToTry.indexOf(m) === -1) {
-                modelsToTry.push(m);
-            }
-        });
 
         return modelsToTry.filter(function (item, pos) {
             return modelsToTry.indexOf(item) === pos;
@@ -7983,12 +7987,15 @@ const AIAssistantManager = {
         const queryLower = (query || '').toLowerCase();
         const queryTokens = queryLower.split(/[^a-z0-9]+/).filter(w => w.length > 2);
 
-        // Try generating query embedding
+        // Only generate query embedding if knowledge chunks actually have precomputed embeddings
+        const hasEmbeddings = chunks.some(c => c.embedding && Array.isArray(c.embedding) && c.embedding.length > 0);
         let queryEmbedding = null;
-        try {
-            queryEmbedding = this.generateEmbedding(query);
-        } catch (e) {
-            console.warn('Query embedding skipped:', e.message);
+        if (hasEmbeddings) {
+            try {
+                queryEmbedding = this.generateEmbedding(query);
+            } catch (e) {
+                console.warn('Query embedding skipped:', e.message);
+            }
         }
 
         const scored = chunks.map(chunk => {

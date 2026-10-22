@@ -13795,7 +13795,7 @@
                     callGoogleScriptFunction('apiAskLeaveAssistant', {
                         message: message,
                         history: AIState.history.slice(-6)
-                    })
+                    }, 75000)
                         .then(result => {
                             removeMessageElement(loaderId);
                             AIState.isLoading = false;
@@ -13976,7 +13976,7 @@
                         saveApiKeyBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verifying...';
                     }
 
-                    callGoogleScriptFunction('apiSetGeminiApiKey', { apiKey: key })
+                    callGoogleScriptFunction('apiSetGeminiApiKey', { apiKey: key }, 45000)
                         .then(res => {
                             if (saveApiKeyBtn) {
                                 saveApiKeyBtn.disabled = false;
