@@ -7760,14 +7760,12 @@ const AIAssistantManager = {
             cachedWorking = PropertiesService.getScriptProperties().getProperty('GEMINI_RESOLVED_MODEL');
         } catch (e) { }
 
-        // If we already know a working model for this project, use it directly (0ms lookup)
+        let modelsToTry = [];
         if (cachedWorking) {
-            return [cachedWorking];
+            modelsToTry.push(cachedWorking);
         }
 
         const available = this.resolveAvailableModels();
-        let modelsToTry = [];
-
         if (available && available.length > 0) {
             const scoreModel = function (name) {
                 const n = (name || '').toLowerCase();
@@ -7786,14 +7784,19 @@ const AIAssistantManager = {
             const sorted = available.slice().sort(function (a, b) {
                 return scoreModel(b) - scoreModel(a);
             });
-            modelsToTry = modelsToTry.concat(sorted.slice(0, 3)); // top 3 max to avoid long loops
-        } else {
-            modelsToTry = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-1.5-flash-latest'];
+            modelsToTry = modelsToTry.concat(sorted.slice(0, 4));
         }
+
+        const defaultFallbacks = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-1.5-flash-latest', 'gemini-pro'];
+        defaultFallbacks.forEach(function (m) {
+            if (modelsToTry.indexOf(m) === -1) {
+                modelsToTry.push(m);
+            }
+        });
 
         return modelsToTry.filter(function (item, pos) {
             return modelsToTry.indexOf(item) === pos;
-        });
+        }).slice(0, 4);
     },
 
     generateEmbedding: function (text) {
@@ -8278,10 +8281,16 @@ ${policyChunks}`;
             };
         } catch (error) {
             console.error('Error in askAssistant:', error);
+            let userMsg = error.message;
+            if (userMsg && (userMsg.indexOf('503') !== -1 || userMsg.indexOf('high demand') !== -1 || userMsg.indexOf('UNAVAILABLE') !== -1)) {
+                userMsg = 'Google AI servers are currently experiencing temporary high demand on the free tier. Please click Send again in a few moments.';
+            } else if (userMsg && userMsg.indexOf('429') !== -1) {
+                userMsg = 'Gemini free tier rate limit reached. Please wait a moment before sending your next question.';
+            }
             return {
                 success: false,
                 error: error.message,
-                answer: `⚠️ I encountered an error while processing your request: ${error.message}. Please try again shortly or contact your system administrator.`
+                answer: `⚠️ ${userMsg}`
             };
         }
     },
@@ -8332,6 +8341,13 @@ ${policyChunks}`;
                         return json.candidates[0].content.parts.map(p => p.text).join('\n');
                     }
                     throw new Error('No text content returned from Gemini model');
+                } else if (code === 503) {
+                    console.warn(`Model ${model} experiencing high demand (503). Trying alternate model...`);
+                    try {
+                        PropertiesService.getScriptProperties().deleteProperty('GEMINI_RESOLVED_MODEL');
+                    } catch (propErr) { }
+                    lastError = new Error('Google AI servers are currently experiencing temporary high demand on the free tier. Please try again in a few moments.');
+                    // Continue loop to try next model candidate!
                 } else if (code === 404) {
                     try {
                         PropertiesService.getScriptProperties().deleteProperty('GEMINI_RESOLVED_MODEL');
@@ -8343,7 +8359,9 @@ ${policyChunks}`;
                     }
                     lastError = new Error(`Model ${model} not available: ${text}`);
                 } else if (code === 429) {
-                    throw new Error('Gemini free tier rate limit reached. Please wait a moment before trying again.');
+                    console.warn(`Model ${model} rate-limited (429). Trying alternate model...`);
+                    lastError = new Error('Gemini free tier rate limit reached. Please wait a moment before trying again.');
+                    // Continue loop to try next model candidate!
                 } else if (code === 400 || code === 403) {
                     throw new Error(`Gemini authorization error (${code}): ${text}`);
                 } else {
