@@ -7760,18 +7760,24 @@ const AIAssistantManager = {
     },
 
     getOrderedModelsToTry: function () {
-        let cachedWorking = null;
-        try {
-            cachedWorking = PropertiesService.getScriptProperties().getProperty('GEMINI_RESOLVED_MODEL');
-        } catch (e) { }
+        const cache = (function () {
+            try { return CacheService.getScriptCache(); } catch (e) { return null; }
+        })();
 
         let modelsToTry = [];
-        if (cachedWorking && this.GEMINI_MODEL_FALLBACK_CHAIN.indexOf(cachedWorking) !== -1) {
-            modelsToTry.push(cachedWorking);
-        }
+        let notFoundModels = [];
 
         // Add user-specified GEMINI_MODEL_FALLBACK_CHAIN in exact priority sequence
         this.GEMINI_MODEL_FALLBACK_CHAIN.forEach(function (m) {
+            if (cache && cache.get('GEMINI_MODEL_404_' + m) === '1') {
+                notFoundModels.push(m);
+            } else if (modelsToTry.indexOf(m) === -1) {
+                modelsToTry.push(m);
+            }
+        });
+
+        // Add any 404-marked models at the end as last-resort fallbacks
+        notFoundModels.forEach(function (m) {
             if (modelsToTry.indexOf(m) === -1) {
                 modelsToTry.push(m);
             }
@@ -8345,6 +8351,9 @@ ${policyChunks}`;
                     try {
                         PropertiesService.getScriptProperties().deleteProperty('GEMINI_RESOLVED_MODEL');
                     } catch (propErr) { }
+                    try {
+                        CacheService.getScriptCache().put('GEMINI_MODEL_404_' + model, '1', 7200);
+                    } catch (cErr) { }
 
                     const match = text.match(/models\/([a-zA-Z0-9.-]+)/);
                     if (match && match[1] && tried.indexOf(match[1]) === -1 && modelsToTry.indexOf(match[1]) === -1) {
@@ -11107,7 +11116,11 @@ function apiGetAvailableGeminiModels() {
         }
         const models = AIAssistantManager.resolveAvailableModels();
         const active = PropertiesService.getScriptProperties().getProperty('GEMINI_RESOLVED_MODEL');
-        return Utils.createSuccessResponse({ models: models, activeModel: active });
+        return Utils.createSuccessResponse({ 
+            priorityChain: AIAssistantManager.GEMINI_MODEL_FALLBACK_CHAIN,
+            activeModel: active,
+            availableModels: models 
+        });
     } catch (error) {
         return Utils.createErrorResponse('Failed to list models: ' + error.message);
     }
