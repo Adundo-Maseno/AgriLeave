@@ -4187,13 +4187,15 @@
 
                 if (user.eligibleForLeave === false) {
                     dashboardHTML = `
-      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div class="text-center py-12">
-          <div class="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <i class="fas fa-user-slash text-gray-400 text-2xl"></i>
-          </div>
-          <h3 class="text-xl font-bold text-gray-900 mb-2">Not Eligible for Leave</h3>
-          <p class="text-gray-600 max-w-md mx-auto">You are currently not eligible for leave. Please contact your administrator if you believe this is an error.</p>
+      <div class="bg-white rounded-xl shadow-xs border border-slate-200/90 p-8 max-w-xl mx-auto text-center my-6">
+        <div class="h-14 w-14 bg-slate-100 text-slate-500 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-200/80 shadow-2xs">
+          <i class="fas fa-user-lock text-2xl text-slate-400"></i>
+        </div>
+        <h3 class="text-base font-semibold text-slate-900 mb-1.5">Leave Accrual Inactive</h3>
+        <p class="text-slate-500 text-xs leading-relaxed max-w-md mx-auto mb-5">Your profile is currently designated as non-accruing or awaiting HR leave policy enrollment. If you believe this requires review, your supervisor or HR administrator can adjust your eligibility settings.</p>
+        <div class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600">
+          <i class="fas fa-shield-alt text-emerald-600"></i>
+          <span>Department: <strong>${escapeHtml(user.department || 'General')}</strong> &bull; Supervisor: <strong>${escapeHtml(user.supervisor || 'HR Administration')}</strong></span>
         </div>
       </div>
     `;
@@ -6522,22 +6524,38 @@
             }
 
             function processYearEnd() {
-                if (!confirm('Are you sure you want to run year-end processing? This will carry forward unused leave to next year.')) return;
-
-                showLoading('Processing year-end...');
-                callGoogleScriptFunction('apiProcessYearEnd')
-                    .then(result => {
-                        hideLoading();
-                        if (result.success) {
-                            showToast('success', 'Year-End Complete', result.message);
-                        } else {
-                            showToast('error', 'Processing Failed', result.error);
+                openActionConfirmDialog({
+                    title: 'Authorize Annual Year-End Rollover',
+                    subtitle: 'Execute irreversible ledger transition for all staff',
+                    theme: 'amber',
+                    icon: 'fas fa-calendar-check text-amber-600',
+                    actionBtnText: 'Authorize Rollover',
+                    actionBtnIcon: 'fas fa-play text-xs',
+                    alertText: 'WARNING (Accidental Data Loss Prevention): This batch ledger operation carries forward unused leaves up to 21 days, forfeits expired brought-forward balances, resets sick leave quotas, and archives active year records. This operation cannot be undone.',
+                    requireComment: true,
+                    commentLabel: 'Type "CONFIRM" to authorize rollover',
+                    commentPlaceholder: 'CONFIRM',
+                    onConfirm: async (confirmationText) => {
+                        if ((confirmationText || '').trim() !== 'CONFIRM') {
+                            showToast('error', 'Authorization Failed', 'You must type "CONFIRM" in capital letters to authorize the annual rollover.');
+                            return;
                         }
-                    })
-                    .catch(error => {
-                        hideLoading();
-                        showToast('error', 'Processing Failed', error.message);
-                    });
+                        showLoading('Executing annual year-end rollover...');
+                        try {
+                            const result = await callGoogleScriptFunction('apiProcessYearEnd');
+                            hideLoading();
+                            if (result && result.success) {
+                                showToast('success', 'Year-End Complete', result.message || 'Annual leave rollover completed successfully.');
+                                loadSystemAdminPage();
+                            } else {
+                                showToast('error', 'Processing Failed', result?.error || 'Failed to complete year-end processing');
+                            }
+                        } catch (err) {
+                            hideLoading();
+                            showToast('error', 'Processing Failed', err.message);
+                        }
+                    }
+                });
             }
             // Recalculate accrued days based on join date
             function recalculateAccruedDays(joinDate) {
@@ -8494,6 +8512,42 @@
                             return;
                         }
                     }
+
+                    // Enterprise Power Keyboard Shortcuts (active when not typing in fields)
+                    const isTyping = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable;
+                    if (!isTyping && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                        const anyModalOpen = document.querySelector('[id$="Modal"]:not(.hidden)');
+
+                        // Quick Search Focus: "/"
+                        if (e.key === '/') {
+                            e.preventDefault();
+                            const searchEl = document.querySelector('#teamSearchInput, #appSearchFilter, #staffSearch, #archiveSearchInput') || document.getElementById('aiChatInput');
+                            if (searchEl) searchEl.focus();
+                            return;
+                        }
+
+                        // Quick New Leave: "n" or "N"
+                        if ((e.key === 'n' || e.key === 'N') && !anyModalOpen) {
+                            e.preventDefault();
+                            if (typeof openApplyLeaveModal === 'function') openApplyLeaveModal();
+                            return;
+                        }
+
+                        // Quick AI Assistant: "c" or "C"
+                        if ((e.key === 'c' || e.key === 'C') && !anyModalOpen) {
+                            e.preventDefault();
+                            const btn = document.getElementById('aiChatToggleBtn');
+                            if (btn) btn.click();
+                            return;
+                        }
+
+                        // Keyboard Shortcuts Cheatsheet: "?"
+                        if (e.key === '?') {
+                            e.preventDefault();
+                            showToast('info', 'Enterprise Shortcuts', 'N: New Leave • /: Focus Search • C: AI Assistant • Esc: Dismiss');
+                            return;
+                        }
+                    }
                 });
 
                 // =============================================
@@ -9162,10 +9216,30 @@
                     }
                 }
                 const currentEmail = (window.AppState?.currentUser?.Email || window.AppState?.currentUser?.email || '').toLowerCase().trim();
+                const userDept = (window.AppState?.currentUser?.Department || window.AppState?.currentUser?.department || '').toLowerCase().trim();
+
+                const validStaff = staffList.filter(s => (s.Metadata?.active !== false) && (s.Email?.toLowerCase().trim() !== currentEmail));
+                const sameDeptStaff = validStaff.filter(s => userDept && (s.Department || '').toLowerCase().trim() === userDept);
+                const otherStaff = validStaff.filter(s => !userDept || (s.Department || '').toLowerCase().trim() !== userDept);
+
                 let html = '<option value="">-- Optional: Select Handover Colleague --</option>';
-                staffList.filter(s => (s.Metadata?.active !== false) && (s.Email?.toLowerCase().trim() !== currentEmail)).forEach(s => {
-                    html += `<option value="${s.Email}" data-name="${escapeHtml(s.Name)}">${escapeHtml(s.Name)} (${escapeHtml(s.Department || 'Staff')})</option>`;
-                });
+
+                if (sameDeptStaff.length > 0) {
+                    html += `<optgroup label="Recommended: Same Department (${escapeHtml(window.AppState?.currentUser?.Department || 'Your Team')})">`;
+                    sameDeptStaff.forEach(s => {
+                        html += `<option value="${s.Email}" data-name="${escapeHtml(s.Name)}">${escapeHtml(s.Name)} &mdash; ${escapeHtml(s.Role || s.Department || 'Colleague')}</option>`;
+                    });
+                    html += '</optgroup>';
+                }
+
+                if (otherStaff.length > 0) {
+                    html += `<optgroup label="${sameDeptStaff.length > 0 ? 'All Other Departments' : 'Staff Directory'}">`;
+                    otherStaff.forEach(s => {
+                        html += `<option value="${s.Email}" data-name="${escapeHtml(s.Name)}">${escapeHtml(s.Name)} (${escapeHtml(s.Department || 'Staff')})</option>`;
+                    });
+                    html += '</optgroup>';
+                }
+
                 el.innerHTML = html;
             }
 
@@ -10725,24 +10799,34 @@
                 }
             }
             function deleteStaff(email) {
-                if (!confirm(`Are you sure you want to deactivate ${email}? This action can be reversed.`)) return;
-
-                showLoading('Deactivating staff member...');
-
-                callGoogleScriptFunction('apiDeleteStaff', { email: email })
-                    .then(result => {
-                        hideLoading();
-                        if (result.success) {
-                            showToast('success', 'Staff Deactivated', `Successfully deactivated ${email}`);
-                            loadStaffList(); // Refresh the list
-                        } else {
-                            showToast('error', 'Deactivation Failed', result.error || 'Failed to deactivate staff member');
+                openActionConfirmDialog({
+                    title: 'Deactivate Staff Member',
+                    subtitle: `You are about to deactivate ${email}`,
+                    theme: 'rose',
+                    icon: 'fas fa-user-slash text-rose-600',
+                    actionBtnText: 'Deactivate Staff',
+                    actionBtnIcon: 'fas fa-trash-alt text-xs',
+                    alertText: 'This will remove the staff member from active directory selection, revoke pending applications, and archive their current leave ledger. This operation can only be reversed by a system admin.',
+                    requireComment: true,
+                    commentLabel: 'Reason for deactivation',
+                    commentPlaceholder: 'e.g., Contract ended, transferred department, or resigned...',
+                    onConfirm: async (reason) => {
+                        showLoading('Deactivating staff member...');
+                        try {
+                            const result = await callGoogleScriptFunction('apiDeleteStaff', { email: email, reason: reason });
+                            hideLoading();
+                            if (result && result.success) {
+                                showToast('success', 'Staff Deactivated', `Successfully deactivated ${email}`);
+                                loadStaffList();
+                            } else {
+                                showToast('error', 'Deactivation Failed', result?.error || 'Failed to deactivate staff member');
+                            }
+                        } catch (err) {
+                            hideLoading();
+                            showToast('error', 'Deactivation Failed', err.message);
                         }
-                    })
-                    .catch(error => {
-                        hideLoading();
-                        showToast('error', 'Deactivation Failed', error.message);
-                    });
+                    }
+                });
             }
             // View application details
 
