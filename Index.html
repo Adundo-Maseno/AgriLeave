@@ -1355,6 +1355,24 @@
             }
         }
 
+        /* Composite-only form error shake (hardware-accelerated: 60/120fps safe) */
+        @keyframes fieldShake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-4px); }
+            40%, 80% { transform: translateX(4px); }
+        }
+
+        .animate-shake {
+            animation: fieldShake 280ms cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+            will-change: transform;
+        }
+
+        .input-error {
+            border-color: #f43f5e !important;
+            box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.18) !important;
+            background-color: #fff1f2 !important;
+        }
+
         .animate-fade-in {
             animation: fadeIn var(--dur-fast) var(--ease-out) forwards;
         }
@@ -1588,6 +1606,8 @@
             transform-origin: bottom right;
             box-shadow: 0 28px 56px -12px rgba(15, 23, 42, 0.28), 0 0 0 1px rgba(15, 23, 42, 0.08);
             border-radius: var(--radius-2xl);
+            will-change: transform, opacity;
+            contain: layout style;
         }
 
         /* ── Glassmorphism & Surface Utilities ───────────────────────── */
@@ -5525,12 +5545,15 @@
                     // ── Application cards ─────────────────────────────────────────
                     if (allTeamApps.length === 0) {
                         pageHTML += `
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-16 text-center">
-          <div class="h-20 w-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <i class="fas fa-check-circle text-green-500 text-3xl"></i>
+        <div class="bg-white rounded-xl shadow-xs border border-slate-200/90 p-12 text-center">
+          <div class="h-14 w-14 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center mx-auto mb-4 border border-emerald-100">
+            <i class="fas fa-check-circle text-2xl text-emerald-600"></i>
           </div>
-          <h3 class="text-xl font-bold text-gray-900 mb-2">No Applications Found</h3>
-          <p class="text-gray-600 max-w-md mx-auto">No leave applications from your team members yet.</p>
+          <h3 class="text-base font-semibold text-slate-900 mb-1.5">Your approval queue is clear</h3>
+          <p class="text-slate-500 max-w-sm mx-auto mb-5 text-xs">All pending team leave requests have been reviewed. New applications from your direct reports will show up here.</p>
+          <button onclick="navigateToPage('teamWallchartPage')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-700 rounded-xl text-xs font-semibold border border-slate-300/80 transition-all inline-flex items-center gap-1.5 shadow-2xs">
+            <i class="fas fa-calendar-alt text-slate-500 text-xs"></i> View Team Wallchart
+          </button>
         </div>`;
                     } else {
                         pageHTML += `<div id="teamAppsContainer" class="space-y-4">`;
@@ -9691,8 +9714,31 @@
             async function submitLeaveApplicationCore(formData) {
                 const { leaveType, leaveMode, reason, startDate, endDate, hourlyDate, hours, handoverEmail, handoverName, handoverNotes, handoverTasks, attachment } = formData;
 
-                if (!leaveType || !reason || reason.length < 10) {
-                    showToast('warning', 'Missing Information', 'Please fill all required fields (reason minimum 10 characters)');
+                // Reset prior validation feedback
+                ['reason', 'pageReason', 'leaveType', 'pageLeaveType', 'startDate', 'pageStartDate', 'hourlyDate', 'pageHourlyDate'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.classList.remove('input-error', 'animate-shake');
+                });
+
+                if (!leaveType) {
+                    const el = document.getElementById('leaveType') || document.getElementById('pageLeaveType');
+                    if (el) {
+                        el.classList.add('input-error', 'animate-shake');
+                        el.focus();
+                        el.addEventListener('change', () => el.classList.remove('input-error', 'animate-shake'), { once: true });
+                    }
+                    showToast('warning', 'Leave Type Required', 'Please select a leave category.');
+                    return false;
+                }
+
+                if (!reason || reason.trim().length < 10) {
+                    const el = document.getElementById('reason') || document.getElementById('pageReason');
+                    if (el) {
+                        el.classList.add('input-error', 'animate-shake');
+                        el.focus();
+                        el.addEventListener('input', () => el.classList.remove('input-error', 'animate-shake'), { once: true });
+                    }
+                    showToast('warning', 'Detailed Reason Required', 'Please provide a reason of at least 10 characters.');
                     return false;
                 }
 
@@ -14095,7 +14141,7 @@
         <div id="aiChatBackdrop" class="hidden fixed inset-0 bg-slate-950/50 backdrop-blur-xs z-50 transition-opacity sm:hidden"></div>
 
         <!-- Floating Chatbox Window -->
-        <div id="aiChatPanel" class="hidden fixed bottom-20 right-4 sm:bottom-24 sm:right-6 z-55 w-[94vw] sm:w-[410px] max-w-[430px] h-[580px] max-h-[82vh] bg-white rounded-2xl shadow-2xl border border-gray-200/90 flex flex-col overflow-hidden animate-slide-up transition-all duration-300">
+        <div id="aiChatPanel" class="hidden fixed bottom-20 right-4 sm:bottom-24 sm:right-6 z-55 w-[94vw] sm:w-[410px] max-w-[430px] h-[580px] max-h-[82vh] bg-white rounded-2xl shadow-2xl border border-gray-200/90 flex flex-col overflow-hidden animate-slide-up">
             <!-- Mobile Bottom Sheet Drag Handle -->
             <div id="aiChatDragHandle" class="sm:hidden w-full flex items-center justify-center pt-2.5 pb-1.5 bg-emerald-900 cursor-pointer active:opacity-75 transition-opacity" title="Swipe or tap to close">
                 <span class="w-10 h-1 bg-white/40 rounded-full"></span>
@@ -14244,34 +14290,38 @@
                     userRole: 'staff'
                 };
 
-                // Role-Specific Quick Suggestion Chips
+                // Role-Specific Quick Suggestion Chips (Agentic task prompts)
                 const ROLE_CHIPS = {
                     staff: [
                         { label: 'My Leave Balance', icon: 'fa-chart-pie', q: 'How many annual, sick, and compensation leave days do I currently have available?' },
-                        { label: 'My Applications', icon: 'fa-file-lines', q: 'What is the status of my recent leave application?' },
+                        { label: 'Apply for Leave', icon: 'fa-calendar-plus', q: 'What are the requirements to apply for leave and what is my available balance?' },
+                        { label: 'My Applications', icon: 'fa-file-lines', q: 'What is the status of my recent leave applications?' },
                         { label: 'Public Holidays', icon: 'fa-calendar-day', q: 'When are the upcoming gazetted public holidays?' },
                         { label: 'Sick Leave Policy', icon: 'fa-notes-medical', q: 'What is the company policy for sick leave and when is a medical certificate required?' },
-                        { label: 'Carry Forward', icon: 'fa-rotate-right', q: 'How does annual leave carry-forward work and what is the maximum limit?' }
+                        { label: 'Carry Forward Limits', icon: 'fa-rotate-right', q: 'How does annual leave carry-forward work and what is the maximum limit?' },
+                        { label: 'Claim Overtime / TOIL', icon: 'fa-clock', q: 'How do I claim TOIL (Time Off In Lieu) for weekend or holiday work?' }
                     ],
                     supervisor: [
                         { label: 'Pending Approvals', icon: 'fa-clock', q: 'Do I have any pending leave applications awaiting my review as a supervisor?' },
                         { label: 'Team Balances', icon: 'fa-users', q: 'What are the current leave balances for my direct reports?' },
-                        { label: 'Team On Leave', icon: 'fa-users-viewfinder', q: 'Who in my direct team is currently on leave or scheduled for leave in the next 30 days?' },
-                        { label: 'My Balance', icon: 'fa-chart-pie', q: 'What is my personal leave balance?' },
+                        { label: 'Team Absences (30 Days)', icon: 'fa-users-viewfinder', q: 'Who in my direct team is currently on leave or scheduled for leave in the next 30 days?' },
+                        { label: 'Handover Policy', icon: 'fa-handshake', q: 'What are the handover requirements before leave is endorsed?' },
+                        { label: 'My Personal Balance', icon: 'fa-chart-pie', q: 'What is my personal leave balance across all categories?' },
                         { label: 'Upcoming Holidays', icon: 'fa-calendar-day', q: 'When are the upcoming gazetted public holidays?' }
                     ],
                     hr: [
                         { label: 'Company Overview', icon: 'fa-building', q: 'Give me a summary of total staff, active leaves today, and company-wide pending applications.' },
                         { label: 'Staff Balances', icon: 'fa-users', q: 'Show me the leave balances for all staff members across the company.' },
+                        { label: 'Leave Liability', icon: 'fa-coins', q: 'What is the company financial leave liability and unconsumed leave exposure?' },
                         { label: 'Year-End Process', icon: 'fa-calendar-check', q: 'When is the year-end processing and what happens?' },
                         { label: 'On Leave Today', icon: 'fa-user-check', q: 'Which staff members across all departments are currently on approved leave today?' },
                         { label: 'Pending Queue', icon: 'fa-inbox', q: 'How many leave applications are currently pending supervisor review across the company?' },
-                        { label: 'Accrual & Policies', icon: 'fa-sliders', q: 'What are the system configuration settings for annual allocation, sick days, and carry forward?' }
+                        { label: 'Accrual Settings', icon: 'fa-sliders', q: 'What are the system configuration settings for annual allocation, sick days, and carry forward?' }
                     ],
                     admin: [
                         { label: 'System Overview', icon: 'fa-server', q: 'Give me a summary of total staff, active leaves today, and system leave parameters.' },
                         { label: 'Staff Balances', icon: 'fa-users', q: 'Show me the leave balances for all staff members across the company.' },
-                        { label: 'Year-End Process', icon: 'fa-calendar-check', q: 'When is the year-end processing and what happens?' },
+                        { label: 'Year-End Process', icon: 'fa-calendar-check', q: 'When is the year-end processing and what happens during rollover?' },
                         { label: 'Pending Queue', icon: 'fa-inbox', q: 'Show me pending leave applications and supervisor review queues.' },
                         { label: 'AI Status', icon: 'fa-robot', q: 'Is the Gemini AI model and knowledge base active and configured?' },
                         { label: 'Leave Policies', icon: 'fa-book', q: 'Summarize the core leave entitlement and accrual rules for Agri Experience.' }
@@ -14514,11 +14564,79 @@
                     scrollToBottom();
                 }
 
+                function generateAgenticActionCards(text, userRole) {
+                    const lower = (text || '').toLowerCase();
+                    const actions = [];
+
+                    if (lower.includes('apply') || lower.includes('available') || lower.includes('annual leave') || lower.includes('balance')) {
+                        actions.push({
+                            label: 'Apply for Leave',
+                            icon: 'fa-calendar-plus',
+                            cls: 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200',
+                            handler: 'openApplyLeaveModal(); if (window.innerWidth < 640) toggleChat(false);'
+                        });
+                    }
+
+                    if (lower.includes('my application') || lower.includes('status') || lower.includes('recent application') || lower.includes('pending')) {
+                        actions.push({
+                            label: 'My Applications',
+                            icon: 'fa-file-lines',
+                            cls: 'bg-slate-50 hover:bg-slate-100 text-slate-800 border-slate-200',
+                            handler: "navigateToPage('myApplicationsPage'); if (window.innerWidth < 640) toggleChat(false);"
+                        });
+                    }
+
+                    if ((userRole === 'supervisor' || userRole === 'admin' || userRole === 'hr') &&
+                        (lower.includes('approval') || lower.includes('queue') || lower.includes('team') || lower.includes('review'))) {
+                        actions.push({
+                            label: 'Team Approvals',
+                            icon: 'fa-user-check',
+                            cls: 'bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border-indigo-200',
+                            handler: "navigateToPage('supervisorApprovalsPage'); if (window.innerWidth < 640) toggleChat(false);"
+                        });
+                    }
+
+                    if (lower.includes('toil') || lower.includes('overtime') || lower.includes('compensation')) {
+                        actions.push({
+                            label: 'Claim TOIL',
+                            icon: 'fa-clock',
+                            cls: 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200',
+                            handler: "if (typeof openTOILClaimModal === 'function') openTOILClaimModal(); if (window.innerWidth < 640) toggleChat(false);"
+                        });
+                    }
+
+                    if (lower.includes('holiday') || lower.includes('gazetted') || lower.includes('calendar') || lower.includes('wallchart')) {
+                        actions.push({
+                            label: 'Team Wallchart',
+                            icon: 'fa-calendar-days',
+                            cls: 'bg-teal-50 hover:bg-teal-100 text-teal-800 border-teal-200',
+                            handler: "navigateToPage('teamWallchartPage'); if (window.innerWidth < 640) toggleChat(false);"
+                        });
+                    }
+
+                    if (actions.length === 0) return '';
+
+                    return `
+                        <div class="mt-2.5 pt-2 border-t border-gray-100 flex flex-wrap items-center gap-1.5">
+                            <span class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mr-0.5 flex items-center gap-1">
+                                <i class="fa-solid fa-bolt text-amber-500 text-[9px]"></i> Action:
+                            </span>
+                            ${actions.slice(0, 3).map(act => `
+                                <button type="button" onclick="${act.handler}" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] font-semibold active:scale-95 transition-all shadow-2xs ${act.cls} cursor-pointer">
+                                    <i class="fa-solid ${act.icon} text-[10px]"></i>
+                                    <span>${act.label}</span>
+                                </button>
+                            `).join('')}
+                        </div>
+                    `;
+                }
+
                 function appendAssistantMessage(text) {
                     const row = document.createElement('div');
                     row.className = 'flex items-start gap-2.5 group';
                     const formattedHtml = formatAIMarkdown(text);
                     const safeAttr = escapeAttr(text);
+                    const actionCardsHtml = generateAgenticActionCards(text, AIState.userRole);
                     row.innerHTML = `
                         <div class="w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs flex-shrink-0 mt-0.5 border border-emerald-200 shadow-2xs">
                             <i class="fa-solid fa-robot"></i>
@@ -14530,6 +14648,7 @@
                             <div class="pr-5">
                                 ${formattedHtml}
                             </div>
+                            ${actionCardsHtml}
                         </div>
                     `;
                     messagesContainer.appendChild(row);
