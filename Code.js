@@ -4208,9 +4208,11 @@ const EmailService = {
       margin-bottom: 4px; 
     }
     .value { 
-      font-size: 16px; 
-      font-weight: 500; 
+      font-size: 15px; 
+      font-weight: 600; 
       color: #111827; 
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: 'tnum';
     }
     .reason-box { 
       background: white; 
@@ -4316,10 +4318,11 @@ const EmailService = {
                 <div><div class="label">Duration</div><div class="value">${data.duration} days</div></div>
               </div>
               <hr>
-              <div style="display: flex; justify-content: space-between; text-align: center;">
-                <div><div class="label">Annual Used</div><div class="value">${data.deductAnnual}</div></div>
-                <div><div class="label">B/Fwd Used</div><div class="value">${data.deductBroughtForward}</div></div>
-                <div><div class="label">Sick Used</div><div class="value">${data.deductSick}</div></div>
+              <div style="display: flex; justify-content: space-around; text-align: center; gap: 8px;">
+                <div><div class="label">Annual Used</div><div class="value">${data.deductAnnual || 0}</div></div>
+                <div><div class="label">B/Fwd Used</div><div class="value">${data.deductBroughtForward || 0}</div></div>
+                <div><div class="label">Comp Used</div><div class="value">${data.deductCompensation || 0}</div></div>
+                <div><div class="label">Sick Used</div><div class="value">${data.deductSick || 0}</div></div>
               </div>
               <div style="text-align: center;">
                 <a href="${data.dashboardUrl}" class="button">View Balance</a>
@@ -4536,24 +4539,63 @@ const NotificationManager = {
             const hrEmails = this.getHREmails();
             if (hrEmails.length === 0) return false;
 
+            const isApproved = String(decision).toLowerCase() === 'approved';
             const subject = `[Leave Decision] ${decision}: ${application.Name} — ${application.LeaveType}`;
+            const headerColor = isApproved ? '#059669' : '#dc2626';
+            const badgeClass = isApproved ? 'badge-approved' : 'badge-declined';
+            const badgeText = isApproved ? '✓ APPROVED' : '✗ DECLINED';
+
             const body = `
-        <p>A leave application has been <strong>${decision}</strong>.</p>
-        <table>
-          <tr><td><b>Staff</b></td><td>${application.Name} (${application.Email})</td></tr>
-          <tr><td><b>Department</b></td><td>${application.Department || '—'}</td></tr>
-          <tr><td><b>Leave Type</b></td><td>${application.LeaveType}</td></tr>
-          <tr><td><b>Period</b></td><td>${Utils.formatDateForDisplay(application.StartDate)} – ${Utils.formatDateForDisplay(application.EndDate)}</td></tr>
-          <tr><td><b>Duration</b></td><td>${application.Duration} day(s)</td></tr>
-          <tr><td><b>Processed By</b></td><td>${application.ProcessedBy}</td></tr>
-          ${comment ? `<tr><td><b>Comment</b></td><td>${comment}</td></tr>` : ''}
-          <tr><td><b>Deductions</b></td><td>
-            Annual: ${application.DeductFromAnnual || 0} |
-            BF: ${application.DeductFromBroughtForward || 0} |
-            Comp: ${application.DeductFromCompensation || 0} |
-            Sick: ${application.DeductFromSick || 0}
-          </td></tr>
-        </table>
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"><style>${EmailService.baseStyles}</style></head>
+        <body>
+          <div class="container">
+            <div class="header" style="background-color: ${headerColor};">
+              <div class="title">${SYSTEM.NAME}</div>
+              <div class="subtitle">HR Leave Activity Notification</div>
+            </div>
+            <div class="content">
+              <div style="text-align: center;">
+                <span class="badge ${badgeClass}">${badgeText}</span>
+                <div class="greeting" style="margin-top: 8px;">Leave Application Decision</div>
+                <p style="color: #6b7280; font-size: 13px;">Processed by <strong>${application.ProcessedBy || 'Supervisor'}</strong></p>
+              </div>
+              <hr>
+              <div class="grid">
+                <div><div class="label">Staff Member</div><div class="value">${application.Name}</div></div>
+                <div><div class="label">Department</div><div class="value">${application.Department || '—'}</div></div>
+                <div><div class="label">Leave Type</div><div class="value">${application.LeaveType}</div></div>
+                <div><div class="label">Period</div><div class="value">${Utils.formatDateForDisplay(application.StartDate)} – ${Utils.formatDateForDisplay(application.EndDate)}</div></div>
+                <div><div class="label">Duration</div><div class="value">${application.Duration} day(s)</div></div>
+                <div><div class="label">Staff Email</div><div class="value" style="font-size: 13px;">${application.Email}</div></div>
+              </div>
+              ${comment ? `
+              <div class="reason-box" style="border-left-color: ${headerColor};">
+                <div class="label">Supervisor Comment</div>
+                <div class="value">${comment}</div>
+              </div>` : ''}
+              ${isApproved ? `
+              <hr>
+              <div class="label" style="margin-bottom: 8px;">Deductions Applied</div>
+              <div style="display: flex; justify-content: space-around; text-align: center; gap: 8px;">
+                <div><div class="label">Annual</div><div class="value">${application.DeductFromAnnual || 0}</div></div>
+                <div><div class="label">B/Fwd</div><div class="value">${application.DeductFromBroughtForward || 0}</div></div>
+                <div><div class="label">Comp</div><div class="value">${application.DeductFromCompensation || 0}</div></div>
+                <div><div class="label">Sick</div><div class="value">${application.DeductFromSick || 0}</div></div>
+              </div>` : ''}
+              <div style="text-align: center;">
+                <a href="${EmailService.SYSTEM_URL}" class="button">Open HR Dashboard</a>
+              </div>
+            </div>
+            <div class="footer">
+              <div><a href="${EmailService.SYSTEM_URL}">${EmailService.SYSTEM_URL}</a></div>
+              <div style="margin-top: 8px;">© ${new Date().getFullYear()} ${SYSTEM.ORGANIZATION}</div>
+              <div style="margin-top: 16px; font-size: 11px;">This is an automated system notification for HR records.</div>
+            </div>
+          </div>
+        </body>
+        </html>
       `;
 
             hrEmails.forEach(hrEmail => {
@@ -4576,16 +4618,39 @@ const NotificationManager = {
 
             const subject = `[Year-End] ${summary.sourceYear} → ${summary.targetYear} Processing Complete`;
             const body = `
-        <p>Year-end leave processing has been completed.</p>
-        <table>
-          <tr><td><b>Source Year</b></td><td>${summary.sourceYear}</td></tr>
-          <tr><td><b>Target Year</b></td><td>${summary.targetYear}</td></tr>
-          <tr><td><b>Staff Processed</b></td><td>${summary.processedCount}</td></tr>
-          <tr><td><b>Days Carried Forward</b></td><td>${summary.totalCarriedForward}</td></tr>
-          <tr><td><b>Deficit Carried</b></td><td>${summary.totalAnnualDeficit}</td></tr>
-          <tr><td><b>BF Leave Expiry (Easter)</b></td><td>${summary.easterDate}</td></tr>
-          <tr><td><b>BF Days Forfeited</b></td><td>${summary.forfeitedCount} staff</td></tr>
-        </table>
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"><style>${EmailService.baseStyles}</style></head>
+        <body>
+          <div class="container">
+            <div class="header header-primary">
+              <div class="title">${SYSTEM.NAME}</div>
+              <div class="subtitle">Year-End Leave Rollover Report</div>
+            </div>
+            <div class="content">
+              <div class="greeting">Year-End Processing Completed Successfully</div>
+              <p style="color: #6b7280; font-size: 13px;">Rollover transition from <strong>${summary.sourceYear}</strong> to <strong>${summary.targetYear}</strong> has finalized.</p>
+              <div class="section">
+                <div class="grid">
+                  <div><div class="label">Staff Processed</div><div class="value">${summary.processedCount}</div></div>
+                  <div><div class="label">Carried Forward</div><div class="value" style="color: #059669;">${summary.totalCarriedForward} days</div></div>
+                  <div><div class="label">Deficit Carried</div><div class="value" style="color: #dc2626;">${summary.totalAnnualDeficit} days</div></div>
+                  <div><div class="label">BF Expiry (Easter)</div><div class="value">${summary.easterDate}</div></div>
+                  <div><div class="label">BF Days Forfeited</div><div class="value">${summary.forfeitedCount} staff</div></div>
+                </div>
+              </div>
+              <div style="text-align: center;">
+                <a href="${EmailService.SYSTEM_URL}" class="button">View Rollover in Admin</a>
+              </div>
+            </div>
+            <div class="footer">
+              <div><a href="${EmailService.SYSTEM_URL}">${EmailService.SYSTEM_URL}</a></div>
+              <div style="margin-top: 8px;">© ${new Date().getFullYear()} ${SYSTEM.ORGANIZATION}</div>
+              <div style="margin-top: 16px; font-size: 11px;">This is an automated system notification for HR records.</div>
+            </div>
+          </div>
+        </body>
+        </html>
       `;
 
             hrEmails.forEach(hrEmail => {
