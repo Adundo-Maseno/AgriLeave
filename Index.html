@@ -323,7 +323,7 @@
             position: fixed;
             top: 0.75rem;
             left: 0.75rem;
-            z-index: 60;
+            z-index: 35;
             display: none;
             background: white;
             color: #065f46;
@@ -500,7 +500,7 @@
             }
 
             /* Push header text right of hamburger */
-            .main-content header .flex {
+            .main-content header > div {
                 padding-left: 3.5rem;
             }
 
@@ -516,8 +516,8 @@
         }
 
         @media (max-width: 768px) {
-            .main-content header .flex {
-                padding-left: 3.75rem;
+            .main-content header > div {
+                padding-left: 3.5rem;
                 padding-right: 0.75rem;
                 padding-top: 0.75rem;
                 padding-bottom: 0.75rem;
@@ -643,8 +643,8 @@
         @media (max-width: 480px) {
 
             /* Even tighter header */
-            .main-content header .flex {
-                padding-left: 3.75rem;
+            .main-content header > div {
+                padding-left: 3.5rem;
                 padding-right: 0.5rem;
             }
 
@@ -2032,8 +2032,9 @@
                     </button>
                 </div>
 
-                <div class="px-6 py-5 overflow-y-auto flex-1 min-h-0 space-y-4">
-                    <form id="leaveApplicationForm" class="space-y-4">
+                <!-- Form Wrapping Scrollable Body & Sticky Footer -->
+                <form id="leaveApplicationForm" class="flex flex-col flex-1 min-h-0 m-0 overflow-hidden">
+                    <div class="px-6 py-5 overflow-y-auto flex-1 min-h-0 space-y-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Leave Type *</label>
                             <select id="leaveType" name="leaveType"
@@ -2209,23 +2210,24 @@
                             </div>
                             <div class="mt-3 text-xs" id="balanceCheckDetails"></div>
                         </div>
+                    </div>
 
-                        <div
-                            class="bg-gray-50/90 -mx-6 -mb-5 px-6 py-4 border-t border-gray-100 flex justify-end items-center space-x-3 rounded-b-2xl mt-6">
-                            <button type="button" id="cancelLeaveApplication"
-                                class="px-4 py-2.5 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 hover:border-gray-400 active:scale-97 transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-gray-400">Cancel</button>
-                            <button type="button" id="checkBalanceBtn"
-                                class="px-4 py-2.5 bg-slate-100 text-slate-700 border border-slate-300/80 rounded-xl text-sm font-semibold hover:bg-slate-200 active:scale-97 transition-all shadow-xs flex items-center cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-slate-400">
-                                <i class="fas fa-calculator mr-1.5 text-slate-500"></i> Check Balance
-                            </button>
-                            <button type="submit" id="submitLeaveApplication"
-                                class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 active:scale-97 text-white rounded-xl text-sm font-semibold shadow-sm transition-all flex items-center disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-                                disabled>
-                                <i class="fas fa-paper-plane mr-2 text-xs"></i> Submit Application
-                            </button>
-                        </div>
-                    </form>
-                </div>
+                    <!-- Fixed Modal Footer -->
+                    <div
+                        class="bg-slate-50 border-t border-slate-200/80 px-6 py-3.5 flex justify-end items-center space-x-2.5 flex-none rounded-b-2xl">
+                        <button type="button" id="cancelLeaveApplication"
+                            class="px-4 py-2 border border-gray-300 rounded-xl text-xs font-semibold text-gray-700 hover:bg-gray-100 hover:border-gray-400 active:scale-97 transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-gray-400">Cancel</button>
+                        <button type="button" id="checkBalanceBtn"
+                            class="px-3.5 py-2 bg-slate-100 text-slate-700 border border-slate-300/80 rounded-xl text-xs font-semibold hover:bg-slate-200 active:scale-97 transition-all shadow-2xs flex items-center cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-slate-400">
+                            <i class="fas fa-calculator mr-1.5 text-slate-500"></i> Check Balance
+                        </button>
+                        <button type="submit" id="submitLeaveApplication"
+                            class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 active:scale-97 text-white rounded-xl text-xs font-semibold shadow-xs transition-all flex items-center disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                            disabled>
+                            <i class="fas fa-paper-plane mr-2 text-[10px]"></i> Submit Application
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -7099,7 +7101,16 @@
                 callGoogleScriptFunction('apiGetSupervisorStats')
                     .then(result => {
                         if (result.success) {
-                            const stats = result.data;
+                            const stats = result.data || {};
+                            const summary = stats.summary || {};
+                            const totalUsed = typeof summary.totalUsed === 'number' ? summary.totalUsed : 0;
+                            const totalPool = typeof summary.totalTheoreticalAllocation === 'number' ? summary.totalTheoreticalAllocation : 0;
+                            const totalDeficit = typeof summary.totalDeficit === 'number' ? summary.totalDeficit : 0;
+                            const deficitStaff = Array.isArray(stats.deficitStaff) ? stats.deficitStaff : [];
+                            const utilizationRate = typeof stats.utilizationRate === 'number' ? stats.utilizationRate : 0;
+                            const teamSize = stats.teamSize || 0;
+                            const eligibleTeamSize = stats.eligibleTeamSize || 0;
+                            const pendingCount = stats.pendingCount || 0;
 
                             // Stats Cards - IMPROVED with icons and better visual hierarchy
                             document.getElementById('teamStats').innerHTML = `
@@ -7108,14 +7119,14 @@
               <p class="text-xs font-medium text-slate-500">Team Size</p>
               <i class="fas fa-users text-slate-400 text-sm"></i>
             </div>
-            <p class="text-2xl font-semibold text-slate-900 mt-2 tracking-tight tabular-nums">${stats.teamSize}</p>
+            <p class="text-2xl font-semibold text-slate-900 mt-2 tracking-tight tabular-nums">${teamSize}</p>
             <div class="mt-3">
               <div class="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                <div class="h-full bg-emerald-500 rounded-full transition-all" style="width: ${(stats.eligibleTeamSize / (stats.teamSize || 1)) * 100}%"></div>
+                <div class="h-full bg-emerald-500 rounded-full transition-all" style="width: ${(eligibleTeamSize / (teamSize || 1)) * 100}%"></div>
               </div>
               <div class="flex items-center justify-between text-xs text-slate-500 mt-1.5">
-                <span class="text-emerald-700 font-medium">${stats.eligibleTeamSize} eligible</span>
-                <span>${stats.teamSize - stats.eligibleTeamSize} ineligible</span>
+                <span class="text-emerald-700 font-medium">${eligibleTeamSize} eligible</span>
+                <span>${teamSize - eligibleTeamSize} ineligible</span>
               </div>
             </div>
           </div>
@@ -7125,10 +7136,10 @@
               <p class="text-xs font-medium text-slate-500">Pending Review</p>
               <i class="fas fa-clock text-amber-500 text-sm"></i>
             </div>
-            <p class="text-2xl font-semibold text-slate-900 mt-2 tracking-tight tabular-nums">${stats.pendingCount}</p>
+            <p class="text-2xl font-semibold text-slate-900 mt-2 tracking-tight tabular-nums">${pendingCount}</p>
             <p class="text-xs text-slate-500 mt-3 flex items-center gap-1.5">
               <span class="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block"></span>
-              ${stats.pendingCount === 1 ? 'Application' : 'Applications'} awaiting review
+              ${pendingCount === 1 ? 'Application' : 'Applications'} awaiting review
             </p>
           </div>
 
@@ -7137,14 +7148,14 @@
               <p class="text-xs font-medium text-slate-500">Leave Utilization</p>
               <i class="fas fa-chart-pie text-slate-400 text-sm"></i>
             </div>
-            <p class="text-2xl font-semibold text-slate-900 mt-2 tracking-tight tabular-nums">${stats.utilizationRate}%</p>
+            <p class="text-2xl font-semibold text-slate-900 mt-2 tracking-tight tabular-nums">${utilizationRate}%</p>
             <div class="mt-3">
               <div class="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                <div class="h-full bg-blue-500 rounded-full transition-all" style="width: ${Math.min(100, stats.utilizationRate)}%"></div>
+                <div class="h-full bg-blue-500 rounded-full transition-all" style="width: ${Math.min(100, utilizationRate)}%"></div>
               </div>
               <div class="flex items-center justify-between text-xs text-slate-500 mt-1.5">
-                <span>Used: ${stats.summary.totalUsed.toFixed(1)}d</span>
-                <span>Pool: ${stats.summary.totalTheoreticalAllocation.toFixed(1)}d</span>
+                <span>Used: ${totalUsed.toFixed(1)}d</span>
+                <span>Pool: ${totalPool.toFixed(1)}d</span>
               </div>
             </div>
           </div>
@@ -7154,13 +7165,13 @@
               <p class="text-xs font-medium text-slate-500">In Deficit</p>
               <i class="fas fa-exclamation-circle text-rose-500 text-sm"></i>
             </div>
-            <p class="text-2xl font-semibold text-slate-900 mt-2 tracking-tight tabular-nums">${stats.deficitStaff.length}</p>
+            <p class="text-2xl font-semibold text-slate-900 mt-2 tracking-tight tabular-nums">${deficitStaff.length}</p>
             <div class="mt-3">
-              <p class="text-xs text-slate-500">Total deficit: <span class="font-medium text-rose-600">${stats.summary.totalDeficit.toFixed(2)}d</span></p>
-              ${stats.deficitStaff.length > 0 ? `
+              <p class="text-xs text-slate-500">Total deficit: <span class="font-medium text-rose-600">${totalDeficit.toFixed(2)}d</span></p>
+              ${deficitStaff.length > 0 ? `
                 <p class="text-[11px] text-rose-700 font-medium mt-1 flex items-center gap-1">
                   <span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
-                  ${stats.deficitStaff.length} staff member${stats.deficitStaff.length > 1 ? 's' : ''} in deficit
+                  ${deficitStaff.length} staff member${deficitStaff.length > 1 ? 's' : ''} in deficit
                 </p>
               ` : `
                 <p class="text-[11px] text-emerald-600 font-medium mt-1 flex items-center gap-1">
@@ -7185,47 +7196,85 @@
         `;
 
                             // Team Balances Table - WITH COMPLETE BFW INFO
-                            document.getElementById('teamBalanceTableBody').innerHTML = stats.supervisedStaff.map(staff => {
-                                const compBalance = staff.compensationBalance ?? staff.balance?.compensation?.balance ?? 0;
-                                const compUsed = staff.compensationUsed ?? staff.balance?.compensation?.used ?? 0;
-                                const totalAvailable = (staff.balance.annual.available + (staff.balance.broughtForward?.remaining || 0) + compBalance).toFixed(3);
-                                const hasDeficit = staff.balance.annual.hasDeficit;
-                                const deficitAmount = hasDeficit ? staff.balance.annual.deficitAmount.toFixed(3) : '0';
+                            const rawStaffList = Array.isArray(stats.supervisedStaff) ? stats.supervisedStaff :
+                                                 (Array.isArray(stats.members) ? stats.members : []);
+                            const teamBalanceBody = document.getElementById('teamBalanceTableBody');
+                            if (teamBalanceBody) {
+                                if (rawStaffList.length === 0) {
+                                    teamBalanceBody.innerHTML = `
+                                        <tr>
+                                            <td colspan="7" class="px-4 py-8 text-center text-slate-500 text-sm">
+                                                No team members found for this supervisor.
+                                            </td>
+                                        </tr>
+                                    `;
+                                } else {
+                                    teamBalanceBody.innerHTML = rawStaffList.map(staff => {
+                                        const staffName = staff.name || staff.Name || 'Team Member';
+                                        const staffRole = staff.role || staff.Role || staff.Department || 'Staff';
+                                        const initials = staffName.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().substring(0, 2) || 'TM';
 
-                                // Brought forward calculations
-                                const bfTotal = staff.balance.broughtForward?.total || 0;
-                                const bfRemaining = staff.balance.broughtForward?.remaining || 0;
-                                const bfUsed = staff.balance.broughtForward?.used || 0;
-                                const bfPercentage = staff.balance.broughtForward?.percentage || 0;
+                                        // Normalize balance data whether from staff.balance or flat fields
+                                        const balance = staff.balance || {};
+                                        const annual = balance.annual || {
+                                            available: typeof staff.Annual === 'number' ? staff.Annual : 0,
+                                            accrued: typeof staff.Accrued === 'number' ? staff.Accrued : 0,
+                                            hasDeficit: !!staff.Deficit,
+                                            deficitAmount: staff.Deficit || 0
+                                        };
+                                        const compBalance = staff.compensationBalance ?? balance.compensation?.balance ?? staff.CompDays ?? 0;
+                                        const compUsed = staff.compensationUsed ?? balance.compensation?.used ?? 0;
+                                        const bfw = balance.broughtForward || (typeof staff.BroughtForward === 'number' ? {
+                                            total: staff.BroughtForward,
+                                            remaining: staff.BroughtForward,
+                                            used: 0,
+                                            percentage: 100,
+                                            isExpired: false
+                                        } : null);
 
-                                return `
-            <tr class="hover:bg-gray-50 transition-colors duration-150 team-balance-row" data-name="${escapeHtml((staff.name || '').toLowerCase())}" data-role="${escapeHtml((staff.role || '').toLowerCase())}" data-deficit="${hasDeficit ? '1' : '0'}" data-comp="${compBalance > 0 ? '1' : '0'}" data-bf="${bfRemaining > 0 ? '1' : '0'}">
+                                        const totalAvailable = typeof staff.Total === 'number' 
+                                            ? Number(staff.Total).toFixed(3)
+                                            : ((Number(annual.available) || 0) + (Number(bfw?.remaining) || 0) + Number(compBalance)).toFixed(3);
+
+                                        const hasDeficit = !!annual.hasDeficit || Boolean(staff.Deficit);
+                                        const deficitAmount = hasDeficit ? (Number(annual.deficitAmount || staff.Deficit) || 0).toFixed(3) : '0';
+
+                                        const bfTotal = Number(bfw?.total) || 0;
+                                        const bfRemaining = Number(bfw?.remaining) || 0;
+                                        const bfUsed = Number(bfw?.used) || 0;
+                                        const bfPercentage = Number(bfw?.percentage) || 0;
+
+                                        const sickBal = Number(balance.sick?.balance ?? staff.Sick ?? 0);
+                                        const sickUsed = Number(balance.sick?.used ?? 0);
+
+                                        return `
+            <tr class="hover:bg-gray-50 transition-colors duration-150 team-balance-row" data-name="${escapeHtml(staffName.toLowerCase())}" data-role="${escapeHtml(staffRole.toLowerCase())}" data-deficit="${hasDeficit ? '1' : '0'}" data-comp="${compBalance > 0 ? '1' : '0'}" data-bf="${bfRemaining > 0 ? '1' : '0'}">
               <td class="px-4 py-4">
                 <div class="flex items-center">
                   <div class="h-8 w-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 font-semibold text-xs mr-3">
-                    ${staff.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)}
+                    ${initials}
                   </div>
                   <div>
-                    <div class="font-medium text-gray-900">${escapeHtml(staff.name)}</div>
-                    <div class="text-xs text-gray-500">${escapeHtml(staff.role)}</div>
+                    <div class="font-medium text-gray-900">${escapeHtml(staffName)}</div>
+                    <div class="text-xs text-gray-500">${escapeHtml(staffRole)}</div>
                   </div>
                 </div>
               </td>
               <td class="px-4 py-4">
                 <div class="text-center">
-                  <span class="text-slate-900 font-medium tabular-nums">${staff.balance.annual.available.toFixed(3)}</span>
-                  <span class="text-xs text-slate-400 block tabular-nums">accrued: ${staff.balance.annual.accrued.toFixed(3)}</span>
+                  <span class="text-slate-900 font-medium tabular-nums">${(Number(annual.available) || 0).toFixed(3)}</span>
+                  <span class="text-xs text-slate-400 block tabular-nums">accrued: ${(Number(annual.accrued) || 0).toFixed(3)}</span>
                 </div>
               </td>
               <td class="px-4 py-4">
-                ${staff.balance.broughtForward ? `
+                ${bfw ? `
                   <div class="text-center">
                     <div class="flex items-center justify-center space-x-2">
-                      <span class="${staff.balance.broughtForward.isExpired ? 'text-gray-400 line-through' : 'text-amber-600'} font-semibold tabular-nums font-mono">${bfTotal.toFixed(3)}</span>
+                      <span class="${bfw.isExpired ? 'text-gray-400 line-through' : 'text-amber-600'} font-semibold tabular-nums font-mono">${bfTotal.toFixed(3)}</span>
                       <span class="text-xs text-gray-400">total</span>
                     </div>
                     <div class="flex items-center justify-center text-xs mt-1 space-x-2">
-                      ${staff.balance.broughtForward.isExpired ? `
+                      ${bfw.isExpired ? `
                         <span class="text-rose-600 font-semibold bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100">Forfeited</span>
                       ` : `
                         <span class="text-emerald-600 font-medium tabular-nums font-mono">✓ ${bfRemaining.toFixed(3)} left</span>
@@ -7234,11 +7283,11 @@
                       <span class="text-amber-600 font-medium tabular-nums font-mono">↗ ${bfUsed.toFixed(3)} used</span>
                     </div>
                     <div class="w-20 mx-auto mt-1 bg-gray-200 rounded-full h-1">
-                      <div class="${staff.balance.broughtForward.isExpired ? 'bg-gray-300' : 'bg-amber-500'} rounded-full h-1" style="width: ${bfPercentage}%"></div>
+                      <div class="${bfw.isExpired ? 'bg-gray-300' : 'bg-amber-500'} rounded-full h-1" style="width: ${bfPercentage}%"></div>
                     </div>
-                    ${staff.balance.broughtForward.expiryDate ? `
-                      <div class="text-xs ${staff.balance.broughtForward.isExpired ? 'text-rose-500 font-medium' : 'text-gray-400'} mt-1">
-                        <i class="far fa-calendar-alt mr-1"></i>${formatDate(staff.balance.broughtForward.expiryDate)} ${staff.balance.broughtForward.isExpired ? '(Forfeited)' : ''}
+                    ${bfw.expiryDate ? `
+                      <div class="text-xs ${bfw.isExpired ? 'text-rose-500 font-medium' : 'text-gray-400'} mt-1">
+                        <i class="far fa-calendar-alt mr-1"></i>${formatDate(bfw.expiryDate)} ${bfw.isExpired ? '(Forfeited)' : ''}
                       </div>
                     ` : ''}
                   </div>
@@ -7248,14 +7297,14 @@
               </td>
               <td class="px-4 py-4">
                 <div class="text-center">
-                  <span class="text-indigo-600 font-semibold tabular-nums font-mono">${compBalance.toFixed(3)}</span>
-                  <span class="text-xs text-gray-400 block tabular-nums font-mono">${compUsed > 0 ? `used: ${compUsed.toFixed(3)}` : 'earned'}</span>
+                  <span class="text-indigo-600 font-semibold tabular-nums font-mono">${(Number(compBalance) || 0).toFixed(3)}</span>
+                  <span class="text-xs text-gray-400 block tabular-nums font-mono">${compUsed > 0 ? `used: ${(Number(compUsed) || 0).toFixed(3)}` : 'earned'}</span>
                 </div>
               </td>
               <td class="px-4 py-4">
                 <div class="text-center">
-                  <span class="text-emerald-600 font-semibold tabular-nums font-mono">${staff.balance.sick.balance.toFixed(3)}</span>
-                  <span class="text-xs text-gray-400 block tabular-nums font-mono">used: ${staff.balance.sick.used.toFixed(3)}</span>
+                  <span class="text-emerald-600 font-semibold tabular-nums font-mono">${sickBal.toFixed(3)}</span>
+                  <span class="text-xs text-gray-400 block tabular-nums font-mono">used: ${sickUsed.toFixed(3)}</span>
                 </div>
               </td>
               <td class="px-4 py-4 text-center font-bold text-gray-900 tabular-nums font-mono">
@@ -7271,7 +7320,9 @@
               </td>
             </tr>
           `;
-                            }).join('');
+                                    }).join('');
+                                }
+                            }
                             setupTeamOverviewFilters();
                         }
                     })
@@ -9484,18 +9535,20 @@
             async function populateHandoverDropdown(selectElementId) {
                 const el = document.getElementById(selectElementId);
                 if (!el) return;
-                let staffList = window.AppState?.allStaff || [];
+                let staffList = Array.isArray(window.AppState?.allStaff) ? window.AppState.allStaff : [];
                 if (!staffList.length) {
                     try {
                         const res = await callGoogleScriptFunction('apiGetAllStaff');
                         if (res.success && res.data) {
-                            staffList = res.data.data || res.data || [];
+                            const raw = Array.isArray(res.data) ? res.data : (Array.isArray(res.data.data) ? res.data.data : []);
+                            staffList = raw;
                             if (window.AppState) window.AppState.allStaff = staffList;
                         }
                     } catch (e) {
                         console.warn('Could not fetch staff for handover dropdown:', e);
                     }
                 }
+                if (!Array.isArray(staffList)) staffList = [];
                 const currentEmail = (window.AppState?.currentUser?.Email || window.AppState?.currentUser?.email || '').toLowerCase().trim();
                 const userDept = (window.AppState?.currentUser?.Department || window.AppState?.currentUser?.department || '').toLowerCase().trim();
 
@@ -11428,9 +11481,10 @@
             }
 
             function renderApplicationDetailsContent(application) {
-                const initials = application.Name
-                    ? application.Name.trim().split(/\s+/).map(n => n[0]).join('').toUpperCase().substring(0, 3)
-                    : 'AP';
+                const applicantName = application.ApplicantName || application.Name || application.StaffName || 'Staff Member';
+                const initials = applicantName
+                    ? applicantName.trim().split(/\s+/).filter(Boolean).map(n => n[0]).join('').toUpperCase().substring(0, 2)
+                    : 'SM';
                 const statusLower = (application.Status || 'pending').toLowerCase();
                 const statusText = escapeHtml(application.Status || 'Pending');
                 const dateAppliedText = formatDate(application.DateApplied);
@@ -11491,7 +11545,7 @@
                     '      </div>',
                     '      <div>',
                     '        <div class="flex items-center gap-2 flex-wrap">',
-                    '          <h4 class="font-bold text-base sm:text-lg text-white tracking-tight">' + escapeHtml(application.Name || 'Staff Member') + '</h4>',
+                    '          <h4 class="font-bold text-base sm:text-lg text-white tracking-tight">' + escapeHtml(applicantName) + '</h4>',
                     '          <span class="status-badge ' + statusLower + ' px-2.5 py-0.5 text-xs font-semibold shadow-xs">' + statusText + '</span>',
                     '        </div>',
                     '        <div class="flex items-center gap-2 text-xs text-slate-300 mt-1 flex-wrap">',
@@ -11723,7 +11777,11 @@
                 }
 
                 hideLoading();
-                document.getElementById('applicationDetailsModal').classList.remove('hidden');
+                const modal = document.getElementById('applicationDetailsModal');
+                if (modal) {
+                    modal.classList.remove('hidden');
+                    if (contentEl) contentEl.scrollTop = 0;
+                }
             }
 
             // Make it globally available
@@ -12036,7 +12094,7 @@
                     html += '</div>';
 
                     // ── Staff Balances Table ────────────────────────────────────────
-                    var eligibleStaff = staffList.filter(function (s) { return s.eligibleForLeave; });
+                    var eligibleStaff = Array.isArray(staffList) ? staffList.filter(function (s) { return s.eligibleForLeave; }) : [];
                     html += '<div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-emerald-100/80 p-6 mb-8">';
                     html += '<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">';
                     html += '<div><h3 class="text-lg font-bold text-gray-900 flex items-center gap-2"><i class="fas fa-wallet text-emerald-600"></i> Staff Leave Balances</h3><p class="text-xs text-gray-500 mt-0.5">Real-time balances across annual, brought forward, comp, and sick leave</p></div>';
@@ -12056,7 +12114,7 @@
                     html += '<th class="text-center py-3.5 px-4 font-medium text-rose-700">Deficit</th>';
                     html += '</tr></thead><tbody class="divide-y divide-gray-100">';
 
-                    staffList.filter(function (s) { return s.eligibleForLeave; }).forEach(function (s) {
+                    eligibleStaff.forEach(function (s) {
                         var ann = s.balance && s.balance.annual ? s.balance.annual : {};
                         var bf = s.balance && s.balance.broughtForward ? s.balance.broughtForward : null;
                         var sick = s.balance && s.balance.sick ? s.balance.sick : {};
@@ -14001,40 +14059,45 @@
                         html += `<tr><td colspan="${daysInMonth + 1}" class="py-8 text-center text-gray-400 text-xs">${emptyMsg}</td></tr>`;
                     } else {
                         matrix.forEach(row => {
+                            const staffObj = row.staff || row.user || row;
+                            const staffName = staffObj.name || staffObj.Name || row.name || 'Staff Member';
+                            const staffDept = staffObj.department || staffObj.Department || row.department || '';
+                            const rowDays = Array.isArray(row.days) ? row.days : (row.days && typeof row.days === 'object' ? Object.values(row.days) : []);
+
                             html += `
                             <tr class="hover:bg-gray-50/50 transition-colors">
                                 <td class="sticky left-0 bg-white z-10 py-2 px-3 border-r border-gray-200 shadow-sm">
-                                    <div class="font-bold text-gray-900 truncate max-w-[160px]" title="${escapeHtml(row.staff.name)}">${escapeHtml(row.staff.name)}</div>
-                                    <div class="text-[10px] text-gray-500 truncate">${escapeHtml(row.staff.department || '')}</div>
+                                    <div class="font-bold text-gray-900 truncate max-w-[160px]" title="${escapeHtml(staffName)}">${escapeHtml(staffName)}</div>
+                                    <div class="text-[10px] text-gray-500 truncate">${escapeHtml(staffDept)}</div>
                                 </td>
                         `;
 
-                            row.days.forEach(day => {
+                            rowDays.forEach(day => {
                                 let cellBg = 'bg-white';
                                 let cellContent = '';
-                                let titleText = `${escapeHtml(row.staff.name)} - ${day.date}: Working`;
+                                let titleText = `${escapeHtml(staffName)} - ${day.date || ''}: Working`;
 
                                 if (day.status === 'weekend') {
                                     cellBg = 'bg-gray-50 text-gray-300';
                                     cellContent = '<span class="text-[9px] text-gray-300 font-light">•</span>';
-                                    titleText = `${day.date}: Weekend`;
+                                    titleText = `${day.date || ''}: Weekend`;
                                 } else if (day.status === 'holiday') {
                                     cellBg = 'bg-amber-100/60 text-amber-800 font-bold';
                                     cellContent = '<i class="fas fa-flag text-[9px] text-amber-600"></i>';
-                                    titleText = `${day.date}: Public Holiday (${day.detail || 'Holiday'})`;
+                                    titleText = `${day.date || ''}: Public Holiday (${day.detail || 'Holiday'})`;
                                 } else if (day.status === 'leave') {
                                     cellBg = 'bg-emerald-500 text-white font-bold shadow-sm';
                                     const initial = (day.detail || 'AL').substring(0, 2).toUpperCase();
                                     cellContent = `<span class="text-[10px] leading-none">${initial}</span>`;
-                                    titleText = `${escapeHtml(row.staff.name)}: Approved Leave (${day.detail || 'Leave'})`;
+                                    titleText = `${escapeHtml(staffName)}: Approved Leave (${day.detail || 'Leave'})`;
                                 } else if (day.status === 'pending') {
                                     cellBg = 'bg-amber-400 text-amber-950 font-bold';
                                     cellContent = '<span class="text-[10px] leading-none">?</span>';
-                                    titleText = `${escapeHtml(row.staff.name)}: Pending Application (${day.detail || 'Pending'})`;
+                                    titleText = `${escapeHtml(staffName)}: Pending Application (${day.detail || 'Pending'})`;
                                 } else if (day.status === 'handover') {
                                     cellBg = 'bg-indigo-100 text-indigo-700 border border-indigo-200';
                                     cellContent = '<i class="fas fa-hands-helping text-[9px] text-indigo-600"></i>';
-                                    titleText = `${escapeHtml(row.staff.name)}: Handover Coverage (${day.detail || 'Covering'})`;
+                                    titleText = `${escapeHtml(staffName)}: Handover Coverage (${day.detail || 'Covering'})`;
                                 } else {
                                     cellContent = '<span class="text-emerald-500 text-[10px] font-bold opacity-30">✓</span>';
                                 }
@@ -14875,7 +14938,7 @@
         <!-- ============================================================ -->
 
         <!-- Floating Trigger Button -->
-        <div id="aiChatFloatingBtnContainer" class="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-40 flex items-center gap-2">
+        <div id="aiChatFloatingBtnContainer" class="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-40 flex items-center gap-2 transition-all duration-300 transform">
             <!-- Tooltip Pill -->
             <div id="aiChatTooltip" class="hidden sm:flex items-center gap-2 bg-slate-900/90 text-white text-xs px-3.5 py-1.5 rounded-full shadow-lg border border-slate-700/50 backdrop-blur pointer-events-none transition-all duration-300">
                 <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
@@ -14894,31 +14957,37 @@
         </div>
 
         <!-- Mobile Backdrop for AI Chat Sheet -->
-        <div id="aiChatBackdrop" class="hidden fixed inset-0 bg-slate-950/50 backdrop-blur-xs z-50 transition-opacity sm:hidden"></div>
+        <div id="aiChatBackdrop" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-[65] transition-opacity duration-300 sm:hidden"></div>
 
         <!-- Floating Chatbox Window -->
-        <div id="aiChatPanel" class="hidden fixed bottom-20 right-4 sm:bottom-24 sm:right-6 z-55 w-[94vw] sm:w-[410px] max-w-[430px] h-[580px] max-h-[82vh] bg-white rounded-2xl shadow-2xl border border-gray-200/90 flex flex-col overflow-hidden animate-slide-up">
+        <div id="aiChatPanel" class="hidden fixed inset-x-0 bottom-0 sm:inset-x-auto sm:bottom-24 sm:right-6 z-[70] w-full sm:w-[420px] sm:max-w-[430px] h-[86vh] sm:h-[600px] sm:max-h-[82vh] bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl border border-slate-200/90 flex flex-col overflow-hidden animate-slide-up">
             <!-- Mobile Bottom Sheet Drag Handle -->
-            <div id="aiChatDragHandle" class="sm:hidden w-full flex items-center justify-center pt-2.5 pb-1.5 bg-emerald-900 cursor-pointer active:opacity-75 transition-opacity" title="Swipe or tap to close">
-                <span class="w-10 h-1 bg-white/40 rounded-full"></span>
+            <div id="aiChatDragHandle" class="sm:hidden w-full flex items-center justify-center pt-3 pb-2 bg-slate-900 cursor-pointer active:opacity-75 transition-opacity" title="Swipe or tap to close">
+                <span class="w-12 h-1.5 bg-white/30 rounded-full"></span>
             </div>
 
             <!-- Header -->
-            <div class="px-4 py-3 bg-emerald-900 border-b border-emerald-800 text-white flex items-center justify-between shadow-sm flex-shrink-0">
+            <div class="px-4 py-3 sm:py-3.5 bg-gradient-to-r from-emerald-900 via-slate-900 to-emerald-950 border-b border-emerald-800/80 text-white flex items-center justify-between shadow-xs flex-shrink-0">
                 <div class="flex items-center gap-2.5 min-w-0">
-                    <div class="w-8 h-8 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center text-white border border-white/20 flex-shrink-0">
-                        <i class="fa-solid fa-robot text-sm"></i>
+                    <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-white shadow-xs flex items-center justify-center border border-white/20 flex-shrink-0">
+                        <i class="fa-solid fa-wand-magic-sparkles text-xs"></i>
                     </div>
                     <div class="min-w-0">
-                        <div class="flex items-center gap-1.5 flex-wrap">
-                            <h3 class="text-sm font-semibold tracking-tight text-white leading-tight">AgriLeave AI</h3>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <h3 class="text-sm font-semibold tracking-tight text-white leading-tight flex items-center gap-1.5">
+                                <span>AgriLeave AI</span>
+                                <span class="inline-flex items-center gap-1 text-[10px] text-emerald-300/90 font-normal">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                    <span>Ready</span>
+                                </span>
+                            </h3>
                             <span id="aiChatRoleBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 uppercase tracking-wide">Staff</span>
                         </div>
-                        <p class="text-[11px] text-emerald-100/90 leading-none mt-0.5 truncate">Role-aware Leave & Policy Assistant</p>
+                        <p class="text-[11px] text-emerald-100/80 leading-none mt-0.5 truncate">Role-aware Leave & Policy Assistant</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-1 text-white/90 flex-shrink-0">
-                    <button id="aiApiKeyModalBtn" title="AI Settings / API Key" type="button" class="hidden p-2 sm:p-1.5 rounded-lg hover:bg-white/15 hover:text-white active:scale-90 transition-all text-xs cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-white/40">
+                    <button id="aiApiKeyModalBtn" title="Gemini AI Settings / API Key" type="button" class="hidden p-2 sm:p-1.5 rounded-lg hover:bg-white/15 hover:text-white active:scale-90 transition-all text-xs cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-white/40">
                         <i class="fa-solid fa-key"></i>
                     </button>
                     <button id="aiClearChatBtn" title="Clear chat history" type="button" class="p-2 sm:p-1.5 rounded-lg hover:bg-white/15 hover:text-white active:scale-90 transition-all text-xs cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-white/40">
@@ -14931,12 +15000,12 @@
             </div>
 
             <!-- Role Suggestion Chips Bar -->
-            <div class="px-3 py-2 bg-slate-50 border-b border-gray-100 flex-shrink-0">
-                <div class="flex items-center justify-between mb-1">
-                    <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+            <div class="px-3.5 py-2.5 bg-slate-50/90 border-b border-slate-200/70 flex-shrink-0">
+                <div class="flex items-center justify-between mb-1.5">
+                    <span class="text-[10px] font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1">
                         <i class="fa-solid fa-lightbulb text-amber-500"></i> Suggested Questions
                     </span>
-                    <span id="aiRoleLabel" class="text-[10px] text-emerald-600 font-medium">For You</span>
+                    <span id="aiRoleLabel" class="text-[10px] text-emerald-700 font-semibold">For You</span>
                 </div>
                 <div id="aiQuickChips" class="flex gap-1.5 overflow-x-auto pb-1 text-xs" style="scrollbar-width: thin;">
                     <!-- Populated dynamically based on user role -->
@@ -14947,41 +15016,41 @@
             <div id="aiMessagesContainer" class="flex-1 overflow-y-auto p-4 space-y-3.5 bg-slate-50/50" style="scrollbar-width: thin;">
                 <!-- Welcome Assistant Message -->
                 <div class="flex items-start gap-2.5">
-                    <div class="w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs flex-shrink-0 mt-0.5 border border-emerald-200 shadow-xs">
+                    <div class="w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs flex-shrink-0 mt-0.5 border border-emerald-200 shadow-2xs">
                         <i class="fa-solid fa-robot"></i>
                     </div>
-                    <div class="bg-white border border-gray-200/80 rounded-2xl rounded-tl-none p-3 shadow-xs text-xs text-gray-800 leading-relaxed max-w-[88%] space-y-2">
+                    <div class="bg-white border-l-3 border-emerald-500 border-t border-r border-b border-slate-200/80 rounded-2xl rounded-tl-xs p-3.5 shadow-2xs text-xs text-slate-800 leading-relaxed max-w-[88%] space-y-2">
                         <p id="aiWelcomeText">Hello! I am your <strong>AgriLeave Assistant</strong>. Ask me anything about your personal leave balances, status of applications, upcoming holidays, or company policies.</p>
-                        <div class="pt-1.5 border-t border-gray-100 text-[11px] text-gray-500 flex items-center gap-1">
+                        <div class="pt-1.5 border-t border-slate-100 text-[11px] text-slate-500 flex items-center gap-1.5">
                             <i class="fa-solid fa-shield-halved text-emerald-600"></i>
-                            <span>Responses are strictly tailored to your role.</span>
+                            <span>Role-aware responses strictly grounded in live leave data.</span>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Input Bar -->
-            <div class="p-3 bg-white border-t border-gray-200/80 flex-shrink-0 chat-input-bar">
+            <div class="p-3 sm:p-3.5 bg-white border-t border-slate-200/90 flex-shrink-0 chat-input-bar">
                 <form id="aiChatForm" class="flex items-center gap-2" onsubmit="return false;">
                     <input id="aiChatInput" type="text" autocomplete="off"
                         placeholder="Ask about leaves, balances, policies..."
-                        class="flex-1 px-3.5 py-2.5 sm:py-2 text-base sm:text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-gray-800 placeholder-gray-400">
+                        class="flex-1 px-3.5 py-2.5 sm:py-2 text-base sm:text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-slate-800 placeholder-slate-400">
                     <button id="aiSendBtn" type="submit" aria-label="Send message"
-                        class="px-4 py-2.5 sm:px-3.5 sm:py-2 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 active:scale-95 text-white rounded-xl text-xs font-medium transition-all shadow-sm flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+                        class="px-4 py-2.5 sm:px-3.5 sm:py-2 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 active:scale-95 text-white rounded-xl text-xs font-semibold transition-all shadow-2xs flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
                         <i class="fa-solid fa-paper-plane text-xs"></i>
                     </button>
                 </form>
-                <div class="flex items-center justify-between mt-1.5 px-1">
-                    <span class="text-[10px] text-gray-400 flex items-center gap-1">
+                <div class="flex items-center justify-between mt-2 px-1">
+                    <span class="text-[10px] text-slate-400 flex items-center gap-1">
                         <i class="fa-solid fa-bolt text-amber-500 text-[9px]"></i> Free Gemini Flash Chain
                     </span>
-                    <span class="text-[10px] text-gray-400">Confidential & Role-Grounded</span>
+                    <span class="text-[10px] text-slate-400">Confidential & Role-Grounded</span>
                 </div>
             </div>
         </div>
 
         <!-- AI API Key Configuration Modal (For Admin & HR) -->
-        <div id="aiApiKeyModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+        <div id="aiApiKeyModal" class="hidden fixed inset-0 z-[80] overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
                 <div class="fixed inset-0 modal-overlay" id="aiApiKeyModalBackdrop"></div>
                 <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
@@ -15164,16 +15233,37 @@
                         saveApiKeyBtn.addEventListener('click', handleSaveApiKey);
                     }
 
-                    // Delegate clickable action links in assistant responses
+                    // Execute navigation or action from chat
+                    function executeChatAction(action) {
+                        if (!action) return;
+                        if (action === 'applyLeave') {
+                            if (typeof openApplyLeaveModal === 'function') {
+                                openApplyLeaveModal();
+                            } else if (typeof navigateToPage === 'function') {
+                                navigateToPage('applyLeave');
+                            }
+                        } else if (action === 'teamApplications' || action === 'supervisorApprovals' || action === 'approvals') {
+                            if (typeof navigateToPage === 'function') navigateToPage('teamApplications');
+                        } else if (action === 'teamOverview' || action === 'teamWallchart' || action === 'wallchart') {
+                            if (typeof navigateToPage === 'function') navigateToPage('teamOverview');
+                        } else if (action === 'claimTOIL' || action === 'toil') {
+                            if (typeof openTOILClaimModal === 'function') openTOILClaimModal();
+                        } else {
+                            const cleanPage = action.replace(/Page$/, '');
+                            if (typeof navigateToPage === 'function') navigateToPage(cleanPage);
+                        }
+                        if (window.innerWidth < 640) {
+                            toggleChat(false);
+                        }
+                    }
+
+                    // Delegate clickable action links and cards in assistant responses
                     document.addEventListener('click', function (e) {
-                        const actionBtn = e.target.closest('.ai-action-link');
+                        const actionBtn = e.target.closest('.ai-action-link, .ai-agentic-action');
                         if (actionBtn) {
                             const action = actionBtn.getAttribute('data-action');
-                            if (action && typeof navigateTo === 'function') {
-                                navigateTo(action);
-                                if (window.innerWidth < 640) {
-                                    toggleChat(false);
-                                }
+                            if (action) {
+                                executeChatAction(action);
                             }
                         }
 
@@ -15202,6 +15292,9 @@
                         if (chatPanel) chatPanel.classList.remove('hidden');
                         if (chatBackdrop && window.innerWidth < 640) chatBackdrop.classList.remove('hidden');
                         if (tooltip) tooltip.classList.add('hidden');
+                        if (toggleBtn && toggleBtn.parentElement) {
+                            toggleBtn.parentElement.classList.add('opacity-0', 'pointer-events-none', 'scale-75');
+                        }
                         if (window.innerWidth < 640) {
                             document.body.classList.add('overflow-hidden');
                         }
@@ -15211,6 +15304,9 @@
                     } else {
                         if (chatPanel) chatPanel.classList.add('hidden');
                         if (chatBackdrop) chatBackdrop.classList.add('hidden');
+                        if (toggleBtn && toggleBtn.parentElement) {
+                            toggleBtn.parentElement.classList.remove('opacity-0', 'pointer-events-none', 'scale-75');
+                        }
                         if (window.innerWidth < 640) {
                             document.body.classList.remove('overflow-hidden');
                         }
@@ -15312,7 +15408,7 @@
                     const row = document.createElement('div');
                     row.className = 'flex justify-end';
                     row.innerHTML = `
-                        <div class="bg-gradient-to-tr from-emerald-700 to-emerald-600 text-white rounded-2xl rounded-tr-none px-3.5 py-2.5 max-w-[85%] shadow-sm text-xs leading-relaxed">
+                        <div class="bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-800 text-white rounded-2xl rounded-tr-xs px-4 py-2.5 max-w-[85%] shadow-xs text-xs leading-relaxed">
                             <p class="whitespace-pre-wrap">${escapeHTML(text)}</p>
                         </div>
                     `;
@@ -15329,7 +15425,7 @@
                             label: 'Apply for Leave',
                             icon: 'fa-calendar-plus',
                             cls: 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200',
-                            handler: 'openApplyLeaveModal(); if (window.innerWidth < 640) toggleChat(false);'
+                            action: 'applyLeave'
                         });
                     }
 
@@ -15338,7 +15434,7 @@
                             label: 'My Applications',
                             icon: 'fa-file-lines',
                             cls: 'bg-slate-50 hover:bg-slate-100 text-slate-800 border-slate-200',
-                            handler: "navigateToPage('myApplicationsPage'); if (window.innerWidth < 640) toggleChat(false);"
+                            action: 'myApplications'
                         });
                     }
 
@@ -15348,7 +15444,7 @@
                             label: 'Team Approvals',
                             icon: 'fa-user-check',
                             cls: 'bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border-indigo-200',
-                            handler: "navigateToPage('supervisorApprovalsPage'); if (window.innerWidth < 640) toggleChat(false);"
+                            action: 'teamApplications'
                         });
                     }
 
@@ -15357,7 +15453,7 @@
                             label: 'Claim TOIL',
                             icon: 'fa-clock',
                             cls: 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200',
-                            handler: "if (typeof openTOILClaimModal === 'function') openTOILClaimModal(); if (window.innerWidth < 640) toggleChat(false);"
+                            action: 'claimTOIL'
                         });
                     }
 
@@ -15366,19 +15462,19 @@
                             label: 'Team Wallchart',
                             icon: 'fa-calendar-days',
                             cls: 'bg-teal-50 hover:bg-teal-100 text-teal-800 border-teal-200',
-                            handler: "navigateToPage('teamWallchartPage'); if (window.innerWidth < 640) toggleChat(false);"
+                            action: 'teamOverview'
                         });
                     }
 
                     if (actions.length === 0) return '';
 
                     return `
-                        <div class="mt-2.5 pt-2 border-t border-gray-100 flex flex-wrap items-center gap-1.5">
-                            <span class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mr-0.5 flex items-center gap-1">
-                                <i class="fa-solid fa-bolt text-amber-500 text-[9px]"></i> Action:
+                        <div class="mt-2.5 pt-2 border-t border-slate-100 flex flex-wrap items-center gap-1.5">
+                            <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mr-0.5 flex items-center gap-1">
+                                <i class="fa-solid fa-bolt text-amber-500 text-[9px]"></i> Quick Action:
                             </span>
                             ${actions.slice(0, 3).map(act => `
-                                <button type="button" onclick="${act.handler}" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] font-semibold active:scale-95 transition-all shadow-2xs ${act.cls} cursor-pointer">
+                                <button type="button" data-action="${act.action}" class="ai-agentic-action inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] font-semibold active:scale-95 transition-all shadow-2xs ${act.cls} cursor-pointer">
                                     <i class="fa-solid ${act.icon} text-[10px]"></i>
                                     <span>${act.label}</span>
                                 </button>
@@ -15394,11 +15490,11 @@
                     const safeAttr = escapeAttr(text);
                     const actionCardsHtml = generateAgenticActionCards(text, AIState.userRole);
                     row.innerHTML = `
-                        <div class="w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs flex-shrink-0 mt-0.5 border border-emerald-200 shadow-2xs">
-                            <i class="fa-solid fa-robot"></i>
+                        <div class="w-7 h-7 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-600 text-white flex items-center justify-center text-xs flex-shrink-0 mt-0.5 shadow-2xs border border-white/20">
+                            <i class="fa-solid fa-robot text-[11px]"></i>
                         </div>
-                        <div class="relative bg-white border border-gray-200/80 rounded-2xl rounded-tl-none p-3 shadow-xs text-xs text-gray-800 leading-relaxed max-w-[88%] space-y-1.5">
-                            <button type="button" class="ai-copy-btn absolute top-2 right-2 p-1.5 text-gray-400 hover:text-emerald-700 text-[11px] rounded-lg hover:bg-slate-100 transition-colors opacity-70 group-hover:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 cursor-pointer" title="Copy response" data-copy="${safeAttr}">
+                        <div class="relative bg-white border border-slate-200/90 rounded-2xl rounded-tl-xs p-3.5 shadow-2xs text-xs text-slate-800 leading-relaxed max-w-[88%] space-y-1.5">
+                            <button type="button" class="ai-copy-btn absolute top-2 right-2 p-1.5 text-slate-400 hover:text-emerald-700 text-[11px] rounded-lg hover:bg-slate-100 transition-colors opacity-70 group-hover:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 cursor-pointer" title="Copy response" data-copy="${safeAttr}">
                                 <i class="fa-regular fa-copy"></i>
                             </button>
                             <div class="pr-5">
@@ -15417,14 +15513,16 @@
                     row.id = id;
                     row.className = 'flex items-start gap-2.5';
                     row.innerHTML = `
-                        <div class="w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs flex-shrink-0 mt-0.5 border border-emerald-200">
-                            <i class="fa-solid fa-robot"></i>
+                        <div class="w-7 h-7 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-600 text-white flex items-center justify-center text-xs flex-shrink-0 mt-0.5 shadow-2xs border border-white/20">
+                            <i class="fa-solid fa-robot text-[11px]"></i>
                         </div>
-                        <div class="bg-white border border-gray-200/80 rounded-2xl rounded-tl-none px-4 py-3 shadow-sm text-xs text-gray-500 max-w-[88%] flex items-center gap-1.5">
-                            <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                            <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" style="animation-delay: 0.2s"></span>
-                            <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" style="animation-delay: 0.4s"></span>
-                            <span class="text-[11px] text-gray-400 ml-1.5">Thinking...</span>
+                        <div class="bg-white border border-slate-200/90 rounded-2xl rounded-tl-xs px-3.5 py-2.5 shadow-2xs text-xs text-slate-500 max-w-[88%] flex items-center gap-2">
+                            <div class="flex items-center gap-1">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-bounce" style="animation-duration: 0.8s;"></span>
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-bounce" style="animation-duration: 0.8s; animation-delay: 0.15s;"></span>
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-bounce" style="animation-duration: 0.8s; animation-delay: 0.3s;"></span>
+                            </div>
+                            <span class="text-[11px] text-slate-500 font-medium">AgriLeave AI is thinking...</span>
                         </div>
                     `;
                     messagesContainer.appendChild(row);
@@ -15489,17 +15587,17 @@
 
                     // Code blocks
                     html = html.replace(/```([a-z]*)\n([\s\S]*?)```/g, function (match, lang, code) {
-                        return `<pre class="bg-slate-900 text-slate-100 p-2.5 rounded-lg my-1.5 overflow-x-auto text-[11px] font-mono leading-tight"><code>${code.trim()}</code></pre>`;
+                        return `<pre class="bg-slate-900 text-emerald-300 p-2.5 rounded-lg my-1.5 overflow-x-auto text-[11px] font-mono leading-tight border border-slate-800"><code>${code.trim()}</code></pre>`;
                     });
 
                     // Inline code
-                    html = html.replace(/`([^`]+)`/g, '<code class="bg-slate-100 text-emerald-800 px-1 py-0.5 rounded text-[11px] font-mono">$1</code>');
+                    html = html.replace(/`([^`]+)`/g, '<code class="bg-slate-100 text-emerald-800 px-1 py-0.5 rounded text-[11px] font-mono font-medium">$1</code>');
 
                     // Markdown Tables: parse rows like | A | B | C |
                     html = html.replace(/((?:^\|.+?\|(?:\r?\n|$))+)/gm, function (tableBlock) {
                         const rows = tableBlock.trim().split(/\r?\n/).filter(r => r.trim().startsWith('|'));
                         if (rows.length < 2) return tableBlock;
-                        let tableHtml = '<div class="overflow-x-auto my-2 rounded-xl border border-gray-200 shadow-2xs"><table class="w-full text-left border-collapse text-[11px]">';
+                        let tableHtml = '<div class="overflow-x-auto my-2 rounded-xl border border-slate-200 shadow-2xs"><table class="w-full text-left border-collapse text-[11px]">';
                         let isHeader = true;
                         rows.forEach((row, idx) => {
                             if (/^\|[\s\-:|]+\|$/.test(row.trim())) {
@@ -15508,16 +15606,16 @@
                             }
                             const cells = row.split('|').slice(1, -1).map(c => c.trim());
                             if (idx === 0 || isHeader) {
-                                tableHtml += '<thead class="bg-slate-100/80 text-slate-800 font-semibold border-b border-gray-200"><tr>';
+                                tableHtml += '<thead class="bg-slate-100/90 text-slate-800 font-semibold border-b border-slate-200"><tr>';
                                 cells.forEach(cell => {
                                     tableHtml += `<th class="px-2.5 py-1.5 whitespace-nowrap">${cell}</th>`;
                                 });
-                                tableHtml += '</tr></thead><tbody class="divide-y divide-gray-100 bg-white">';
+                                tableHtml += '</tr></thead><tbody class="divide-y divide-slate-100 bg-white">';
                                 isHeader = false;
                             } else {
-                                tableHtml += '<tr class="hover:bg-slate-50/70 transition-colors">';
+                                tableHtml += '<tr class="hover:bg-slate-50 transition-colors odd:bg-white even:bg-slate-50/50">';
                                 cells.forEach(cell => {
-                                    tableHtml += `<td class="px-2.5 py-1.5 whitespace-nowrap text-gray-700">${cell}</td>`;
+                                    tableHtml += `<td class="px-2.5 py-1.5 whitespace-nowrap text-slate-700">${cell}</td>`;
                                 });
                                 tableHtml += '</tr>';
                             }
@@ -15527,16 +15625,16 @@
                     });
 
                     // Blockquotes
-                    html = html.replace(/^>\s*(.*)$/gim, '<blockquote class="border-l-2 border-emerald-500 bg-emerald-50/60 pl-2.5 py-1 my-1.5 text-slate-700 rounded-r text-[11px] italic">$1</blockquote>');
+                    html = html.replace(/^>\s*(.*)$/gim, '<blockquote class="border-l-2 border-emerald-500 bg-emerald-50/70 pl-2.5 py-1 my-1.5 text-slate-700 rounded-r text-[11px] italic">$1</blockquote>');
 
                     // Headers
-                    html = html.replace(/^### (.*$)/gim, '<h4 class="font-bold text-xs text-gray-900 mt-2 mb-1 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>$1</h4>');
-                    html = html.replace(/^## (.*$)/gim, '<h3 class="font-bold text-sm text-gray-950 mt-2.5 mb-1">$1</h3>');
-                    html = html.replace(/^# (.*$)/gim, '<h2 class="font-bold text-sm text-gray-950 mt-3 mb-1">$1</h2>');
+                    html = html.replace(/^### (.*$)/gim, '<h4 class="font-bold text-xs text-slate-900 mt-2 mb-1 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>$1</h4>');
+                    html = html.replace(/^## (.*$)/gim, '<h3 class="font-bold text-sm text-slate-950 mt-2.5 mb-1">$1</h3>');
+                    html = html.replace(/^# (.*$)/gim, '<h2 class="font-bold text-sm text-slate-950 mt-3 mb-1">$1</h2>');
 
                     // Bold
-                    html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-900">$1</strong>');
-                    html = html.replace(/__(.*?)__/g, '<strong class="font-semibold text-gray-900">$1</strong>');
+                    html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-slate-900">$1</strong>');
+                    html = html.replace(/__(.*?)__/g, '<strong class="font-semibold text-slate-900">$1</strong>');
 
                     // Italics
                     html = html.replace(/\*(.*?)\*/g, '<em class="italic">$1</em>');
@@ -15553,12 +15651,12 @@
                     html = html.replace(/\n/g, '<br>');
 
                     // Action triggers: turn mentions of app tabs into clickable action buttons
-                    html = html.replace(/(['"]?Apply for Leave['"]?|['"]?Apply Leave['"]?)/gi, '<button type="button" class="ai-action-link inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-semibold text-[11px] transition-all active:scale-95 my-0.5 cursor-pointer" data-action="applyLeave"><i class="fa-solid fa-calendar-plus text-[10px]"></i>$1</button>');
-                    html = html.replace(/(['"]?My Applications['"]?)/gi, '<button type="button" class="ai-action-link inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-semibold text-[11px] transition-all active:scale-95 my-0.5 cursor-pointer" data-action="myApplications"><i class="fa-solid fa-file-alt text-[10px]"></i>$1</button>');
-                    html = html.replace(/(['"]?My Balance['"]?|['"]?Leave Balance['"]?)/gi, '<button type="button" class="ai-action-link inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-semibold text-[11px] transition-all active:scale-95 my-0.5 cursor-pointer" data-action="myBalance"><i class="fa-solid fa-chart-pie text-[10px]"></i>$1</button>');
-                    html = html.replace(/(['"]?Team Applications['"]?)/gi, '<button type="button" class="ai-action-link inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-semibold text-[11px] transition-all active:scale-95 my-0.5 cursor-pointer" data-action="teamApplications"><i class="fa-solid fa-users text-[10px]"></i>$1</button>');
-                    html = html.replace(/(['"]?Holiday Calendar['"]?|['"]?Calendar['"]?)/gi, '<button type="button" class="ai-action-link inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-semibold text-[11px] transition-all active:scale-95 my-0.5 cursor-pointer" data-action="calendar"><i class="fa-solid fa-calendar-day text-[10px]"></i>$1</button>');
-                    html = html.replace(/(['"]?Reports['"]?)/gi, '<button type="button" class="ai-action-link inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-semibold text-[11px] transition-all active:scale-95 my-0.5 cursor-pointer" data-action="reports"><i class="fa-solid fa-chart-line text-[10px]"></i>$1</button>');
+                    html = html.replace(/(['"]?Apply for Leave['"]?|['"]?Apply Leave['"]?)/gi, '<button type="button" class="ai-action-link inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-semibold text-[11px] transition-all active:scale-95 my-0.5 cursor-pointer" data-action="applyLeave"><i class="fa-solid fa-calendar-plus text-[10px]"></i>$1</button>');
+                    html = html.replace(/(['"]?My Applications['"]?)/gi, '<button type="button" class="ai-action-link inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 font-semibold text-[11px] transition-all active:scale-95 my-0.5 cursor-pointer" data-action="myApplications"><i class="fa-solid fa-file-alt text-[10px]"></i>$1</button>');
+                    html = html.replace(/(['"]?My Balance['"]?|['"]?Leave Balance['"]?)/gi, '<button type="button" class="ai-action-link inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-semibold text-[11px] transition-all active:scale-95 my-0.5 cursor-pointer" data-action="myBalance"><i class="fa-solid fa-chart-pie text-[10px]"></i>$1</button>');
+                    html = html.replace(/(['"]?Team Applications['"]?)/gi, '<button type="button" class="ai-action-link inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 font-semibold text-[11px] transition-all active:scale-95 my-0.5 cursor-pointer" data-action="teamApplications"><i class="fa-solid fa-users text-[10px]"></i>$1</button>');
+                    html = html.replace(/(['"]?Holiday Calendar['"]?|['"]?Calendar['"]?)/gi, '<button type="button" class="ai-action-link inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 font-semibold text-[11px] transition-all active:scale-95 my-0.5 cursor-pointer" data-action="teamOverview"><i class="fa-solid fa-calendar-day text-[10px]"></i>$1</button>');
+                    html = html.replace(/(['"]?Reports['"]?)/gi, '<button type="button" class="ai-action-link inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-semibold text-[11px] transition-all active:scale-95 my-0.5 cursor-pointer" data-action="reports"><i class="fa-solid fa-chart-line text-[10px]"></i>$1</button>');
 
                     return html;
                 }
