@@ -5158,6 +5158,14 @@ const CalendarSyncManager = {
         }
     },
 
+    getStaffInitials: function (name) {
+        if (!name || typeof name !== 'string') return '';
+        const parts = name.trim().split(/\s+/).filter(Boolean);
+        if (parts.length === 0) return '';
+        if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+        return parts.map(p => p[0]).join('').toUpperCase();
+    },
+
     syncLeaveToCalendar: function (application) {
         try {
             if (typeof CalendarApp === 'undefined') return null;
@@ -5171,23 +5179,17 @@ const CalendarSyncManager = {
             // Google Calendar all-day events are exclusive of the end date (start of next day)
             const calEnd = new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1);
 
-            const title = `🌿 [Leave] ${application.Name} - ${application.LeaveType}`;
+            const initials = this.getStaffInitials(application.Name);
+            const title = initials ? `${initials} on leave` : `${application.Name || 'Staff'} on leave`;
             const description = [
-                `Agri Experience Leave Management System`,
-                `Application ID: ${application.ID}`,
-                `Staff: ${application.Name} (${application.Email})`,
-                `Department: ${application.Department || 'N/A'}`,
-                `Leave Type: ${application.LeaveType}`,
-                `Duration: ${application.Duration} day(s)`,
-                `Period: ${Utils.formatDateForDisplay(start)} - ${Utils.formatDateForDisplay(end)}`,
-                `Approved by: ${application.ProcessedBy || 'Supervisor'}`,
-                application.HandoverName ? `Handover / Reliever: ${application.HandoverName} (${application.HandoverEmail || ''})` : '',
-                `Reason: ${application.Reason || 'N/A'}`
+                `Staff: ${application.Name || 'N/A'}`,
+                application.LeaveType ? `Leave Type: ${application.LeaveType}` : '',
+                application.HandoverName ? `Reliever / Handover: ${application.HandoverName}` : ''
             ].filter(Boolean).join('\n');
 
             const event = cal.createAllDayEvent(title, start, calEnd, {
                 description: description,
-                location: 'Agri Experience - ' + (application.Department || 'Office')
+                location: application.Department ? `Agri Experience - ${application.Department}` : 'Agri Experience'
             });
 
             if (event) {

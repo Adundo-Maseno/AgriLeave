@@ -1832,7 +1832,7 @@
                 <a href="#" data-page="teamApplications" class="sidebar-link">
                     <i class="fas fa-users"></i>
                     <span>Team Applications</span>
-                    <span class="nav-badge" id="teamPendingBadge">0</span>
+                    <span class="nav-badge" id="teamPendingBadge" style="display:none">0</span>
                 </a>
 
                 <a href="#" data-page="teamOverview" class="sidebar-link">
@@ -11633,54 +11633,50 @@
             window.updatePendingAppsBadge = updatePendingAppsBadge;
 
             // Update team pending applications badge for supervisors/admins
-            function updateTeamPendingBadge() {
+            function updateTeamPendingBadge(explicitCount) {
                 const isSupervisorOrAdmin = AppState.userRole === 'supervisor' || AppState.userRole === 'admin';
 
                 // Count pending: use real app objects if available, else use stored count
                 let teamPendingCount = 0;
-                if (AppState.allTeamApplications && AppState.allTeamApplications.length > 0) {
+                if (typeof explicitCount === 'number') {
+                    teamPendingCount = explicitCount;
+                    AppState.teamPendingCount = explicitCount;
+                } else if (AppState.allTeamApplications && AppState.allTeamApplications.length > 0) {
                     // Real data loaded — count actual pending
-                    teamPendingCount = AppState.allTeamApplications.filter(a => a.Status === 'Pending').length;
+                    teamPendingCount = AppState.allTeamApplications.filter(a => a && a.Status === 'Pending').length;
                 } else if (AppState.teamApplications && AppState.teamApplications.length > 0) {
                     // Sentinel or pending-only array
                     teamPendingCount = AppState.teamApplications.filter(a => a && a.Status === 'Pending').length;
-                } else if (AppState.teamPendingCount !== undefined) {
-                    // Raw count seeded from dashboard
+                } else if (typeof AppState.teamPendingCount === 'number') {
+                    // Raw count seeded from dashboard / bootstrap
                     teamPendingCount = AppState.teamPendingCount;
                 }
 
                 // ── Sidebar badge ─────────────────────────────────────────────
                 const badge = document.getElementById('teamPendingBadge');
                 if (badge) {
-                    if (!isSupervisorOrAdmin) {
+                    if (!isSupervisorOrAdmin || teamPendingCount <= 0) {
                         badge.style.display = 'none';
                     } else {
                         badge.textContent = teamPendingCount;
-                        badge.style.display = 'inline-flex';
-                        badge.style.alignItems = 'center';
-                        badge.style.justifyContent = 'center';
-                        // Amber when there are pending items, muted when zero
-                        if (teamPendingCount > 0) {
-                            badge.style.background = '#f59e0b';
-                            badge.style.color = '#fff';
-                        } else {
-                            badge.style.background = 'rgba(255,255,255,0.18)';
-                            badge.style.color = 'rgba(255,255,255,0.6)';
-                        }
+                        badge.style.display = 'inline-block';
+                        badge.style.background = '#f59e0b';
+                        badge.style.color = '#fff';
                     }
                 }
 
                 // ── Mobile bottom-nav "More" badge ────────────────────────────
                 const mobileBadge = document.getElementById('mobileTeamBadge');
                 if (mobileBadge) {
-                    if (!isSupervisorOrAdmin) {
+                    if (!isSupervisorOrAdmin || teamPendingCount <= 0) {
                         mobileBadge.style.display = 'none';
                     } else {
                         mobileBadge.textContent = teamPendingCount;
-                        mobileBadge.style.display = teamPendingCount > 0 ? 'flex' : 'none';
+                        mobileBadge.style.display = 'flex';
                     }
                 }
             }
+            window.updateTeamPendingBadge = updateTeamPendingBadge;
 
             function updateSystemStatus() {
                 const statusContainer = document.querySelector('.system-status');
