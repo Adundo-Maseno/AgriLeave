@@ -80,6 +80,12 @@ const SYSTEM = {
         }
     },
 
+    CALENDAR: {
+        PROPERTY_KEY: 'LEAVE_CALENDAR_ID',
+        DEFAULT_CALENDAR_ID: '', // Custom Google Calendar ID (e.g. company-leaves@group.calendar.google.com); empty defaults to primary calendar
+        SYNC_ENABLED: true
+    },
+
     CACHE_KEYS: {
         ALL_STAFF: 'all_staff_data',
         ALL_APPLICATIONS: 'all_applications_data',
@@ -5084,23 +5090,71 @@ const NotificationManager = {
 // =============================================
 
 const CalendarSyncManager = {
+    getLeaveCalendarId: function () {
+        try {
+            // 1. Script Properties
+            const scriptProps = PropertiesService.getScriptProperties();
+            const key = (SYSTEM.CALENDAR && SYSTEM.CALENDAR.PROPERTY_KEY) ? SYSTEM.CALENDAR.PROPERTY_KEY : 'LEAVE_CALENDAR_ID';
+            const propId = scriptProps.getProperty(key);
+            if (propId && propId.trim()) return propId.trim();
+
+            // 2. system_settings.json
+            const settingsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.SETTINGS);
+            if (settingsFile && settingsFile.data && settingsFile.data.calendarId && settingsFile.data.calendarId.trim()) {
+                return settingsFile.data.calendarId.trim();
+            }
+
+            // 3. SYSTEM constant default
+            if (SYSTEM.CALENDAR && SYSTEM.CALENDAR.DEFAULT_CALENDAR_ID && SYSTEM.CALENDAR.DEFAULT_CALENDAR_ID.trim()) {
+                return SYSTEM.CALENDAR.DEFAULT_CALENDAR_ID.trim();
+            }
+        } catch (e) {
+            console.warn('Error resolving calendar ID:', e.message);
+        }
+        return '';
+    },
+
     getLeaveCalendar: function () {
         try {
             if (typeof CalendarApp === 'undefined') return null;
-            const scriptProps = PropertiesService.getScriptProperties();
-            const calId = scriptProps.getProperty('LEAVE_CALENDAR_ID');
-            if (calId) {
+            const calId = this.getLeaveCalendarId();
+            if (calId && calId !== 'primary') {
                 try {
                     const cal = CalendarApp.getCalendarById(calId);
                     if (cal) return cal;
+                    console.warn(`Configured leave calendar [${calId}] not accessible, falling back to default calendar`);
                 } catch (e) {
-                    console.warn('Configured leave calendar not accessible, using default calendar');
+                    console.warn(`CalendarApp.getCalendarById failed for [${calId}]:`, e.message);
                 }
             }
             return CalendarApp.getDefaultCalendar();
         } catch (error) {
             console.warn('CalendarApp error in getLeaveCalendar:', error.message);
             return null;
+        }
+    },
+
+    getCalendarStatus: function () {
+        try {
+            if (typeof CalendarApp === 'undefined') {
+                return { configured: false, accessible: false, calendarId: null, calendarName: 'CalendarApp Unavailable', isDefault: false };
+            }
+            const configuredId = this.getLeaveCalendarId();
+            const cal = this.getLeaveCalendar();
+            if (!cal) {
+                return { configured: Boolean(configuredId), accessible: false, calendarId: configuredId || null, calendarName: 'Inaccessible', isDefault: false };
+            }
+            const isDefault = !configuredId || configuredId === 'primary';
+            return {
+                configured: true,
+                accessible: true,
+                calendarId: configuredId || cal.getId(),
+                calendarName: cal.getName(),
+                isDefault: isDefault,
+                timeZone: cal.getTimeZone ? cal.getTimeZone() : 'UTC'
+            };
+        } catch (e) {
+            return { configured: false, accessible: false, calendarId: null, calendarName: 'Error: ' + e.message, isDefault: false };
         }
     },
 
@@ -7554,11 +7608,13 @@ const DiagnosticsManager = {
 
         // 6. Integrations check
         try {
-            const settingsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.SETTINGS);
-            const calId = settingsFile && settingsFile.data ? settingsFile.data.calendarId : null;
-            diagnostics.integrations.calendar.configured = Boolean(calId);
-            diagnostics.integrations.calendar.calendarId = calId;
+            if (typeof CalendarSyncManager !== 'undefined') {
+                diagnostics.integrations.calendar = CalendarSyncManager.getCalendarStatus();
+            } else {
+                diagnostics.integrations.calendar = { configured: false, accessible: false };
+            }
 
+            const settingsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.SETTINGS);
             const webhookUrl = settingsFile && settingsFile.data ? settingsFile.data.chatWebhookUrl : null;
             diagnostics.integrations.chatWebhook.configured = Boolean(webhookUrl);
         } catch (iErr) {}
@@ -11364,6 +11420,121 @@ function apiGetAvailableGeminiModels() {
         });
     } catch (error) {
         return Utils.createErrorResponse('Failed to list models: ' + error.message);
+    }
+}
+
+// 21. Google Calendar Integration Settings APIs
+function apiGetCalendarSettings() {
+    try {
+        const currentUser = Session.getActiveUser().getEmail();
+        const userRole = StaffManager.getUserRole(currentUser);
+        if (userRole !== SYSTEM.ROLES.HR && userRole !== SYSTEM.ROLES.ADMIN) {
+            return Utils.createErrorResponse('Unauthorized. Only HR or Admin can view calendar integration settings.');
+        }
+        const status = CalendarSyncManager.getCalendarStatus();
+        return Utils.createSuccessResponse(status, 'Calendar integration settings retrieved successfully');
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to retrieve calendar settings: ' + error.message);
+    }
+}
+
+function apiSaveCalendarSettings(params) {
+    try {
+        const currentUser = Session.getActiveUser().getEmail();
+        const userRole = StaffManager.getUserRole(currentUser);
+        if (userRole !== SYSTEM.ROLES.HR && userRole !== SYSTEM.ROLES.ADMIN) {
+            return Utils.createErrorResponse('Unauthorized. Only HR or Admin can configure calendar integration.');
+        }
+
+        const rawCalId = (params && typeof params.calendarId === 'string') ? params.calendarId.trim() : '';
+        const propKey = (SYSTEM.CALENDAR && SYSTEM.CALENDAR.PROPERTY_KEY) ? SYSTEM.CALENDAR.PROPERTY_KEY : 'LEAVE_CALENDAR_ID';
+        const scriptProps = PropertiesService.getScriptProperties();
+
+        if (rawCalId && rawCalId !== 'primary') {
+            // Verify access
+            if (typeof CalendarApp !== 'undefined') {
+                try {
+                    const testCal = CalendarApp.getCalendarById(rawCalId);
+                    if (!testCal) {
+                        return Utils.createErrorResponse(`Cannot access calendar with ID "${rawCalId}". Please verify the Calendar ID and ensure your account has edit permissions on it.`);
+                    }
+                } catch (calCheckErr) {
+                    return Utils.createErrorResponse(`Failed to connect to calendar "${rawCalId}": ${calCheckErr.message}. Ensure the calendar is shared with edit access.`);
+                }
+            }
+            scriptProps.setProperty(propKey, rawCalId);
+        } else {
+            // Revert to default
+            scriptProps.deleteProperty(propKey);
+        }
+
+        // Also update system_settings.json for persistent dual-store configuration
+        try {
+            const settingsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.SETTINGS);
+            settingsFile.data = settingsFile.data || {};
+            settingsFile.data.calendarId = rawCalId || null;
+            settingsFile.metadata = settingsFile.metadata || {};
+            settingsFile.metadata.lastUpdated = new Date().toISOString();
+            DataManager.writeDataFile(SYSTEM.DATA_FILES.SETTINGS, settingsFile);
+        } catch (sErr) {
+            console.warn('Failed to update system_settings.json for calendarId:', sErr.message);
+        }
+
+        Utils.logAction('CONFIG_CALENDAR', `Calendar integration updated to: ${rawCalId || 'Default Primary Calendar'}`, currentUser);
+        const newStatus = CalendarSyncManager.getCalendarStatus();
+        return Utils.createSuccessResponse(newStatus, rawCalId ? `Connected to calendar "${newStatus.calendarName}" (${rawCalId})` : 'Reverted to default primary calendar');
+    } catch (error) {
+        return Utils.createErrorResponse('Failed to save calendar settings: ' + error.message);
+    }
+}
+
+function apiTestCalendarConnection(params) {
+    try {
+        const currentUser = Session.getActiveUser().getEmail();
+        const userRole = StaffManager.getUserRole(currentUser);
+        if (userRole !== SYSTEM.ROLES.HR && userRole !== SYSTEM.ROLES.ADMIN) {
+            return Utils.createErrorResponse('Unauthorized.');
+        }
+
+        const testId = (params && params.calendarId) ? params.calendarId.trim() : CalendarSyncManager.getLeaveCalendarId();
+        if (typeof CalendarApp === 'undefined') {
+            return Utils.createErrorResponse('CalendarApp service is not available in this environment.');
+        }
+
+        let cal = null;
+        if (testId && testId !== 'primary') {
+            cal = CalendarApp.getCalendarById(testId);
+            if (!cal) {
+                return Utils.createErrorResponse(`Could not find calendar "${testId}". Check that the ID is correct and shared with this Apps Script.`);
+            }
+        } else {
+            cal = CalendarApp.getDefaultCalendar();
+        }
+
+        if (!cal) {
+            return Utils.createErrorResponse('Default calendar is inaccessible.');
+        }
+
+        // Test event creation and deletion
+        const testTitle = '🔍 [AgriLeave Connection Test]';
+        const now = new Date();
+        const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        const testEvent = cal.createAllDayEvent(testTitle, now, tomorrow, {
+            description: 'Automated permission test by AgriLeave Leave Management System. Deleting immediately.'
+        });
+
+        if (testEvent) {
+            testEvent.deleteEvent();
+        }
+
+        return Utils.createSuccessResponse({
+            calendarId: cal.getId(),
+            calendarName: cal.getName(),
+            timeZone: cal.getTimeZone ? cal.getTimeZone() : 'UTC',
+            isDefault: !testId || testId === 'primary'
+        }, `Read & write permissions verified on calendar: "${cal.getName()}"`);
+    } catch (error) {
+        return Utils.createErrorResponse('Calendar test failed: ' + error.message);
     }
 }
 

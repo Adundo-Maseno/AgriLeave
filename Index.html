@@ -3518,6 +3518,50 @@
                             <!-- Loaded dynamically -->
                         </div>
 
+                        <!-- Google Calendar Integration Settings Card -->
+                        <div class="p-4 bg-white border border-slate-200/90 rounded-xl space-y-3.5 shadow-xs">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                                <div>
+                                    <h4 class="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                                        <i class="far fa-calendar-alt text-emerald-600"></i> Google Calendar Synchronization
+                                    </h4>
+                                    <p class="text-[11px] text-gray-500">Auto-publishes all approved leaves and deletes cancelled leaves</p>
+                                </div>
+                                <span id="calendarStatusBadge" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">Checking...</span>
+                            </div>
+
+                            <div class="p-3 bg-slate-50 border border-slate-200/80 rounded-lg text-xs space-y-2">
+                                <div class="flex items-center justify-between flex-wrap gap-1">
+                                    <span class="text-gray-600">Active Calendar:</span>
+                                    <span id="calendarActiveName" class="font-bold text-gray-900 tabular-nums">—</span>
+                                </div>
+                                <div class="flex items-center justify-between flex-wrap gap-1">
+                                    <span class="text-gray-600">Calendar ID:</span>
+                                    <code id="calendarActiveId" class="text-[11px] font-mono text-slate-700 bg-white px-1.5 py-0.5 rounded border border-slate-200">—</code>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label for="calendarIdInput" class="block text-xs font-semibold text-gray-700 mb-1">Company / Shared Leave Calendar ID (Optional)</label>
+                                <div class="flex flex-col sm:flex-row items-stretch gap-2">
+                                    <div class="relative flex-1">
+                                        <i class="fas fa-calendar absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                                        <input type="text" id="calendarIdInput" placeholder="leave-calendar@group.calendar.google.com (or blank for Primary)" class="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors">
+                                    </div>
+                                    <button type="button" onclick="handleSaveCalendarSettings()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-lg text-xs font-semibold shadow-xs transition-all flex items-center justify-center gap-1.5 whitespace-nowrap">
+                                        <i class="fas fa-save text-[10px]"></i> Save ID
+                                    </button>
+                                    <button type="button" onclick="handleTestCalendarConnection()" class="px-3 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 active:scale-95 text-gray-700 rounded-lg text-xs font-semibold shadow-xs transition-all flex items-center justify-center gap-1.5 whitespace-nowrap">
+                                        <i class="fas fa-vial text-emerald-600 text-[10px]"></i> Test Access
+                                    </button>
+                                    <button type="button" onclick="handleResetCalendarToDefault()" class="px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 rounded-lg text-xs font-medium transition-all whitespace-nowrap" title="Reset to Primary Default Calendar">
+                                        Reset
+                                    </button>
+                                </div>
+                                <p class="text-[10px] text-gray-400 mt-1">Leave blank to use the primary calendar of the administrator. To route leaves to a shared company calendar, paste its Google Calendar ID.</p>
+                            </div>
+                        </div>
+
                         <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
                             <div class="flex items-center justify-between">
                                 <div>
@@ -3627,10 +3671,19 @@
 
                         <!-- Detailed Staff Table -->
                         <div>
-                            <h4 class="text-xs font-bold text-gray-900 mb-2 flex items-center gap-1.5">
-                                <i class="fas fa-user-friends text-emerald-600"></i> Individual Staff Balances &
-                                Provision
-                            </h4>
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-2.5">
+                                <h4 class="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                                    <i class="fas fa-user-friends text-emerald-600"></i> Individual Staff Balances & Provision
+                                </h4>
+                                <div class="flex items-center gap-2">
+                                    <div class="relative">
+                                        <i class="fas fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-[11px]"></i>
+                                        <input type="text" id="liabilityStaffSearchInput" placeholder="Filter staff or department..." class="pl-7 pr-6 py-1 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 w-44 sm:w-56 transition-colors">
+                                        <button id="liabilityStaffClearSearch" class="hidden absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs p-0.5" title="Clear"><i class="fas fa-times"></i></button>
+                                    </div>
+                                    <span id="liabilityStaffCountBadge" class="text-[11px] font-medium text-gray-500 tabular-nums"></span>
+                                </div>
+                            </div>
                             <div class="overflow-x-auto border border-gray-200 rounded-xl max-h-72">
                                 <table class="w-full text-xs" id="liabilityStaffTable">
                                     <thead class="bg-gray-50 border-b border-gray-200 text-gray-600 sticky top-0 z-10">
@@ -5270,6 +5323,16 @@
           </div>
 
           <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-gray-200/80 overflow-hidden">
+            <div class="p-4 border-b border-gray-200/80 bg-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div class="relative flex-1 max-w-md">
+                <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                <input type="text" id="myAppsSearchInput" placeholder="Search applications (leave type, dates, status, period)..." class="w-full pl-9 pr-8 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors">
+                <button id="myAppsClearSearch" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs p-1" title="Clear filter"><i class="fas fa-times"></i></button>
+              </div>
+              <div class="text-xs text-gray-500 font-medium flex items-center gap-1.5">
+                Showing <span id="myAppsCount" class="font-semibold text-gray-800 tabular-nums">${applications.length}</span> of ${applications.length} applications
+              </div>
+            </div>
             <div class="overflow-x-auto">
               <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-slate-50 border-b border-gray-200">
@@ -5284,7 +5347,7 @@
                 </thead>
                 <tbody class="divide-y divide-gray-200">
                   ${applications.map(app => `
-                  <tr class="hover:bg-gray-50/80 transition-colors my-app-row" data-status="${(app.Status || 'pending').toLowerCase()}">
+                  <tr class="hover:bg-gray-50/80 transition-colors my-app-row" data-status="${(app.Status || 'pending').toLowerCase()}" data-search="${escapeHtml(((app.LeaveType || '') + ' ' + (app.Status || '') + ' ' + (app.StartDate || '') + ' ' + (app.EndDate || '') + ' ' + (app.Duration || '') + ' ' + (app.LeaveMode || '') + ' ' + (app.Reason || '')).toLowerCase())}">
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${formatDate(app.DateApplied)}</td>
                     <td class="px-6 py-4 whitespace-nowrap">
                       <span class="leave-type-badge ${(app.LeaveType || '').replace(/\s+/g, '-').toLowerCase()} px-3 py-1 rounded-full text-xs font-medium">
@@ -5339,10 +5402,60 @@
 
                         pageElement.innerHTML = pageHTML;
 
-                        // Wire up click-to-filter on My Applications stat cards
+                        // Wire up click-to-filter on My Applications stat cards and real-time search
                         const statCards = pageElement.querySelectorAll('.my-app-stat-card');
                         const appRows = pageElement.querySelectorAll('.my-app-row');
+                        const searchInput = pageElement.querySelector('#myAppsSearchInput');
+                        const clearSearchBtn = pageElement.querySelector('#myAppsClearSearch');
+                        const countBadge = pageElement.querySelector('#myAppsCount');
                         let currentStatusFilter = 'all';
+
+                        function applyMyAppsFilters() {
+                            const query = (searchInput ? searchInput.value : '').trim().toLowerCase();
+                            if (clearSearchBtn) {
+                                clearSearchBtn.classList.toggle('hidden', !query);
+                            }
+                            let visibleCount = 0;
+                            appRows.forEach(row => {
+                                const rowStatus = row.getAttribute('data-status') || '';
+                                const rowSearch = (row.getAttribute('data-search') || row.textContent).toLowerCase();
+                                const matchesStatus = (currentStatusFilter === 'all' || rowStatus === currentStatusFilter);
+                                const matchesQuery = (!query || rowSearch.includes(query));
+
+                                if (matchesStatus && matchesQuery) {
+                                    row.style.display = '';
+                                    visibleCount++;
+                                } else {
+                                    row.style.display = 'none';
+                                }
+                            });
+
+                            if (countBadge) {
+                                countBadge.textContent = visibleCount;
+                            }
+
+                            const emptyFilterRow = pageElement.querySelector('#myAppsEmptyFilterRow');
+                            if (visibleCount === 0) {
+                                const filterMsg = query 
+                                    ? `No applications match "${escapeHtml(query)}"${currentStatusFilter !== 'all' ? ` in ${currentStatusFilter}` : ''}`
+                                    : `No ${currentStatusFilter} applications found`;
+                                if (!emptyFilterRow) {
+                                    const tbody = pageElement.querySelector('tbody');
+                                    if (tbody) {
+                                        const tr = document.createElement('tr');
+                                        tr.id = 'myAppsEmptyFilterRow';
+                                        tr.innerHTML = `<td colspan="6" class="px-6 py-8 text-center text-sm text-gray-500"><i class="fas fa-filter mr-2 text-gray-400"></i>${filterMsg}</td>`;
+                                        tbody.appendChild(tr);
+                                    }
+                                } else {
+                                    emptyFilterRow.style.display = '';
+                                    const td = emptyFilterRow.querySelector('td');
+                                    if (td) td.innerHTML = `<i class="fas fa-filter mr-2 text-gray-400"></i>${filterMsg}`;
+                                }
+                            } else if (emptyFilterRow) {
+                                emptyFilterRow.style.display = 'none';
+                            }
+                        }
 
                         statCards.forEach(card => {
                             card.addEventListener('click', function () {
@@ -5357,38 +5470,22 @@
                                         c.classList.remove('ring-2', 'ring-emerald-500', 'shadow-md');
                                     }
                                 });
-
-                                let visibleCount = 0;
-                                appRows.forEach(row => {
-                                    const rowStatus = row.getAttribute('data-status');
-                                    if (currentStatusFilter === 'all' || rowStatus === currentStatusFilter) {
-                                        row.style.display = '';
-                                        visibleCount++;
-                                    } else {
-                                        row.style.display = 'none';
-                                    }
-                                });
-
-                                const emptyFilterRow = pageElement.querySelector('#myAppsEmptyFilterRow');
-                                if (visibleCount === 0) {
-                                    if (!emptyFilterRow) {
-                                        const tbody = pageElement.querySelector('tbody');
-                                        if (tbody) {
-                                            const tr = document.createElement('tr');
-                                            tr.id = 'myAppsEmptyFilterRow';
-                                            tr.innerHTML = `<td colspan="6" class="px-6 py-8 text-center text-sm text-gray-500"><i class="fas fa-filter mr-2 text-gray-400"></i>No ${currentStatusFilter} applications found</td>`;
-                                            tbody.appendChild(tr);
-                                        }
-                                    } else {
-                                        emptyFilterRow.style.display = '';
-                                        const td = emptyFilterRow.querySelector('td');
-                                        if (td) td.innerHTML = `<i class="fas fa-filter mr-2 text-gray-400"></i>No ${currentStatusFilter} applications found`;
-                                    }
-                                } else if (emptyFilterRow) {
-                                    emptyFilterRow.style.display = 'none';
-                                }
+                                applyMyAppsFilters();
                             });
                         });
+
+                        if (searchInput) {
+                            searchInput.addEventListener('input', applyMyAppsFilters);
+                        }
+                        if (clearSearchBtn) {
+                            clearSearchBtn.addEventListener('click', function() {
+                                if (searchInput) {
+                                    searchInput.value = '';
+                                    searchInput.focus();
+                                }
+                                applyMyAppsFilters();
+                            });
+                        }
                     }
                 } catch (error) {
                     console.error('Failed to load applications page:', error);
@@ -6697,12 +6794,28 @@
 
     <!-- Team Balances Table -->
     <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-emerald-100/80 overflow-hidden">
-      <div class="px-6 py-4 border-b border-slate-200/80 flex items-center justify-between">
-        <h3 class="text-base font-semibold text-slate-900 flex items-center gap-2">
-          <i class="fas fa-users text-emerald-600"></i>
-          Team Leave Balances
-        </h3>
-        <span class="text-slate-500 text-xs font-normal">Real-time team accrual view</span>
+      <div class="px-6 py-4 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h3 class="text-base font-semibold text-slate-900 flex items-center gap-2">
+            <i class="fas fa-users text-emerald-600"></i>
+            Team Leave Balances
+          </h3>
+          <span class="text-slate-500 text-xs font-normal">Real-time team accrual view</span>
+        </div>
+        <div class="flex flex-wrap items-center gap-2.5">
+          <div class="relative">
+            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+            <input type="text" id="teamOverviewSearchInput" placeholder="Filter team by name or role..." class="pl-8 pr-7 py-1.5 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors w-48 sm:w-56">
+            <button id="teamOverviewClearSearch" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs p-0.5" title="Clear filter"><i class="fas fa-times"></i></button>
+          </div>
+          <select id="teamOverviewQuickFilter" class="text-xs bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <option value="all">All Members</option>
+            <option value="deficit">In Deficit</option>
+            <option value="comp">Has Comp Balance</option>
+            <option value="bf">Has Brought Forward</option>
+          </select>
+          <span id="teamOverviewCountBadge" class="text-xs font-medium text-gray-500 bg-gray-50 px-2.5 py-1 rounded-md border border-gray-200 tabular-nums"></span>
+        </div>
       </div>
       
       <div class="p-6">
@@ -6739,6 +6852,76 @@
                 // Add export button listener
                 document.getElementById('exportTeamOverviewBtn')?.addEventListener('click', exportTeamOverviewToCSV);
             }
+            function setupTeamOverviewFilters() {
+                const searchInput = document.getElementById('teamOverviewSearchInput');
+                const clearBtn = document.getElementById('teamOverviewClearSearch');
+                const filterSelect = document.getElementById('teamOverviewQuickFilter');
+                const countBadge = document.getElementById('teamOverviewCountBadge');
+                const tbody = document.getElementById('teamBalanceTableBody');
+                if (!tbody) return;
+
+                function runFilter() {
+                    const query = (searchInput ? searchInput.value : '').trim().toLowerCase();
+                    const mode = filterSelect ? filterSelect.value : 'all';
+                    if (clearBtn) clearBtn.classList.toggle('hidden', !query);
+
+                    const rows = tbody.querySelectorAll('.team-balance-row');
+                    let visibleCount = 0;
+
+                    rows.forEach(r => {
+                        const name = r.getAttribute('data-name') || '';
+                        const role = r.getAttribute('data-role') || '';
+                        const hasDeficit = r.getAttribute('data-deficit') === '1';
+                        const hasComp = r.getAttribute('data-comp') === '1';
+                        const hasBf = r.getAttribute('data-bf') === '1';
+
+                        const matchesText = !query || name.includes(query) || role.includes(query);
+                        let matchesCategory = true;
+                        if (mode === 'deficit') matchesCategory = hasDeficit;
+                        else if (mode === 'comp') matchesCategory = hasComp;
+                        else if (mode === 'bf') matchesCategory = hasBf;
+
+                        if (matchesText && matchesCategory) {
+                            r.style.display = '';
+                            visibleCount++;
+                        } else {
+                            r.style.display = 'none';
+                        }
+                    });
+
+                    if (countBadge) {
+                        countBadge.textContent = `${visibleCount} of ${rows.length} staff`;
+                    }
+
+                    const existingEmpty = tbody.querySelector('#teamBalanceEmptyRow');
+                    if (visibleCount === 0 && rows.length > 0) {
+                        if (!existingEmpty) {
+                            const tr = document.createElement('tr');
+                            tr.id = 'teamBalanceEmptyRow';
+                            tr.innerHTML = `<td colspan="7" class="py-8 text-center text-sm text-gray-500"><i class="fas fa-search text-gray-400 mr-2"></i>No team members match the filter criteria</td>`;
+                            tbody.appendChild(tr);
+                        }
+                    } else if (existingEmpty) {
+                        existingEmpty.remove();
+                    }
+                }
+
+                if (searchInput) {
+                    searchInput.value = '';
+                    const newInp = searchInput.cloneNode(true);
+                    searchInput.parentNode.replaceChild(newInp, searchInput);
+                    newInp.addEventListener('input', runFilter);
+                    const newClr = document.getElementById('teamOverviewClearSearch');
+                    if (newClr) newClr.addEventListener('click', () => { newInp.value = ''; newInp.focus(); runFilter(); });
+                }
+                if (filterSelect) {
+                    const newSel = filterSelect.cloneNode(true);
+                    filterSelect.parentNode.replaceChild(newSel, filterSelect);
+                    newSel.addEventListener('change', runFilter);
+                }
+                runFilter();
+            }
+
             // Export Team Overview to CSV - FIXED
             function exportTeamOverviewToCSV() {
                 const tbody = document.getElementById('teamBalanceTableBody');
@@ -7009,7 +7192,7 @@
                                 const bfPercentage = staff.balance.broughtForward?.percentage || 0;
 
                                 return `
-            <tr class="hover:bg-gray-50 transition-colors duration-150">
+            <tr class="hover:bg-gray-50 transition-colors duration-150 team-balance-row" data-name="${escapeHtml((staff.name || '').toLowerCase())}" data-role="${escapeHtml((staff.role || '').toLowerCase())}" data-deficit="${hasDeficit ? '1' : '0'}" data-comp="${compBalance > 0 ? '1' : '0'}" data-bf="${bfRemaining > 0 ? '1' : '0'}">
               <td class="px-4 py-4">
                 <div class="flex items-center">
                   <div class="h-8 w-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 font-semibold text-xs mr-3">
@@ -7082,6 +7265,7 @@
             </tr>
           `;
                             }).join('');
+                            setupTeamOverviewFilters();
                         }
                     })
                     .catch(error => {
@@ -7340,9 +7524,25 @@
 
     <!-- Staff Details - WITH DEFICIT & COMPENSATION COLUMNS -->
     <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-xs border border-gray-200/90 p-6">
-      <h3 class="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
-        <i class="fas fa-users-cog text-emerald-600 text-sm"></i> Staff Leave Details
-      </h3>
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+        <div>
+          <h3 class="text-base font-bold text-gray-900 flex items-center gap-2">
+            <i class="fas fa-users-cog text-emerald-600 text-sm"></i> Staff Leave Details
+          </h3>
+          <p class="text-xs text-gray-500 mt-0.5">Comprehensive audit and balance records for all employees</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="relative">
+            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+            <input type="text" id="staffReportSearchInput" placeholder="Filter staff name, email, dept..." class="pl-8 pr-7 py-1.5 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors w-52 sm:w-64">
+            <button id="staffReportClearSearch" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs p-0.5" title="Clear filter"><i class="fas fa-times"></i></button>
+          </div>
+          <select id="staffReportDeptFilter" class="text-xs bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <option value="all">All Departments</option>
+          </select>
+          <span id="staffReportCountBadge" class="text-xs font-medium text-gray-500 bg-gray-50 px-2.5 py-1 rounded-md border border-gray-200 tabular-nums"></span>
+        </div>
+      </div>
       <div class="overflow-x-auto rounded-xl border border-gray-200 shadow-2xs">
         <table class="w-full text-xs" id="staffReportTable">
           <thead>
@@ -7906,7 +8106,7 @@
                     const totalAvailable = (annualRemaining + bfEffectiveRemaining + compBalance + deficit).toFixed(3);
 
                     return `
-      <tr class="hover:bg-slate-50/70 transition-colors">
+      <tr class="hover:bg-slate-50/70 transition-colors staff-report-row" data-name="${escapeHtml(name.toLowerCase())}" data-email="${escapeHtml(email.toLowerCase())}" data-dept="${escapeHtml(department.toLowerCase())}">
         <td class="px-4 py-3">
           <div class="font-medium text-gray-900">${escapeHtml(name)}</div>
           <div class="text-xs text-gray-500">${escapeHtml(email)}</div>
@@ -7955,7 +8155,81 @@
       </tr>
     `;
                 }).join('');
+                setupStaffReportFilters(sortedStaff);
             }
+
+            function setupStaffReportFilters(staffList) {
+                const searchInput = document.getElementById('staffReportSearchInput');
+                const clearBtn = document.getElementById('staffReportClearSearch');
+                const deptSelect = document.getElementById('staffReportDeptFilter');
+                const countBadge = document.getElementById('staffReportCountBadge');
+                const tbody = document.getElementById('staffReportTableBody');
+                if (!tbody) return;
+
+                if (deptSelect && staffList && staffList.length > 0) {
+                    const depts = Array.from(new Set(staffList.map(s => s.Department || s.department).filter(Boolean))).sort();
+                    const currentVal = deptSelect.value;
+                    deptSelect.innerHTML = '<option value="all">All Departments</option>' + depts.map(d => `<option value="${escapeHtml(d.toLowerCase())}">${escapeHtml(d)}</option>`).join('');
+                    if (currentVal) deptSelect.value = currentVal;
+                }
+
+                function runFilter() {
+                    const query = (searchInput ? searchInput.value : '').trim().toLowerCase();
+                    const dept = deptSelect ? deptSelect.value : 'all';
+                    if (clearBtn) clearBtn.classList.toggle('hidden', !query);
+
+                    const rows = tbody.querySelectorAll('.staff-report-row');
+                    let visibleCount = 0;
+
+                    rows.forEach(r => {
+                        const name = r.getAttribute('data-name') || '';
+                        const email = r.getAttribute('data-email') || '';
+                        const rDept = r.getAttribute('data-dept') || '';
+
+                        const matchesText = !query || name.includes(query) || email.includes(query) || rDept.includes(query);
+                        const matchesDept = (dept === 'all' || rDept === dept);
+
+                        if (matchesText && matchesDept) {
+                            r.style.display = '';
+                            visibleCount++;
+                        } else {
+                            r.style.display = 'none';
+                        }
+                    });
+
+                    if (countBadge) {
+                        countBadge.textContent = `${visibleCount} of ${rows.length} staff`;
+                    }
+
+                    const existingEmpty = tbody.querySelector('#staffReportEmptyRow');
+                    if (visibleCount === 0 && rows.length > 0) {
+                        if (!existingEmpty) {
+                            const tr = document.createElement('tr');
+                            tr.id = 'staffReportEmptyRow';
+                            tr.innerHTML = `<td colspan="15" class="py-8 text-center text-xs text-gray-500"><i class="fas fa-search text-gray-400 mr-2"></i>No staff records match filter criteria</td>`;
+                            tbody.appendChild(tr);
+                        }
+                    } else if (existingEmpty) {
+                        existingEmpty.remove();
+                    }
+                }
+
+                if (searchInput) {
+                    searchInput.value = '';
+                    const newInp = searchInput.cloneNode(true);
+                    searchInput.parentNode.replaceChild(newInp, searchInput);
+                    newInp.addEventListener('input', runFilter);
+                    const newClr = document.getElementById('staffReportClearSearch');
+                    if (newClr) newClr.addEventListener('click', () => { newInp.value = ''; newInp.focus(); runFilter(); });
+                }
+                if (deptSelect) {
+                    const newSel = deptSelect.cloneNode(true);
+                    deptSelect.parentNode.replaceChild(newSel, deptSelect);
+                    newSel.addEventListener('change', runFilter);
+                }
+                runFilter();
+            }
+
             // Update charts based on report type
             function updateReportCharts(reportType, staff, applications, year) {
                 const distributionChart = document.getElementById('leaveDistributionChart');
@@ -11598,8 +11872,12 @@
                     html += '<div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-amber-200 p-6 mb-8">';
                     html += '<div class="flex flex-wrap items-center justify-between gap-3 mb-4">';
                     html += '<div><h3 class="text-lg font-bold text-gray-900 flex items-center gap-2"><i class="fas fa-user-check text-amber-600"></i> HR Endorsement Queue (Tier-2 Sign-Off)</h3><p class="text-xs text-gray-500 mt-0.5">Extended leaves (> 5 days) and specialized leaves (Study, Maternity, Paternity) endorsed by supervisors awaiting final HR approval</p></div>';
-                    html += '<span class="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-bold">' + hrEndorsements.length + ' Pending Sign-Off</span>';
-                    html += '</div>';
+                    html += '<div class="flex items-center gap-2.5">';
+                    if (hrEndorsements.length > 0) {
+                        html += '<div class="relative"><i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i><input type="text" id="hrEndorsementSearchInput" placeholder="Filter endorsements..." class="pl-8 pr-7 py-1 text-xs bg-white border border-amber-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 w-44 sm:w-52"><button id="hrEndorsementClearSearch" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"><i class="fas fa-times"></i></button></div>';
+                    }
+                    html += '<span id="hrEndorsementBadge" class="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-bold">' + hrEndorsements.length + ' Pending Sign-Off</span>';
+                    html += '</div></div>';
 
                     if (hrEndorsements.length === 0) {
                         html += '<div class="p-5 bg-amber-50/40 border border-amber-100 rounded-xl text-center text-xs text-amber-800 flex items-center justify-center gap-2"><i class="fas fa-check-circle text-emerald-600 text-base"></i> All extended & specialized leaves are signed off. No pending HR endorsements.</div>';
@@ -11623,7 +11901,8 @@
                                     ? '<span class="text-red-500 font-semibold"><i class="fas fa-times"></i> Declined</span>'
                                     : '<span class="text-amber-600">Pending</span>');
 
-                            html += '<tr class="hover:bg-amber-50/30 transition-colors">';
+                            var endorsementSearchText = ((app.Name || '') + ' ' + (app.Department || '') + ' ' + (app.Email || '') + ' ' + (app.LeaveType || '') + ' ' + (app.HandoverName || '') + ' ' + supName).toLowerCase();
+                            html += '<tr class="hover:bg-amber-50/30 transition-colors hr-endorsement-row" data-search="' + escapeHtml(endorsementSearchText) + '">';
                             html += '<td class="py-3 px-4"><div class="font-bold text-gray-900">' + escapeHtml(app.Name || '') + '</div><div class="text-xs text-gray-500">' + escapeHtml(app.Department || '') + ' &bull; ' + escapeHtml(app.Email || '') + '</div></td>';
                             html += '<td class="py-3 px-4"><span class="leave-type-badge ' + badgeClass + ' px-2.5 py-0.5 rounded-full text-xs font-semibold">' + escapeHtml(app.LeaveType || '') + '</span></td>';
                             html += '<td class="py-3 px-4 text-center text-xs"><div class="font-semibold text-gray-900">' + (app.Duration || 0) + ' business days</div><div class="text-gray-500">' + formatDate(app.StartDate) + ' &ndash; ' + formatDate(app.EndDate) + '</div></td>';
@@ -11639,8 +11918,15 @@
                     html += '</div>';
 
                     // ── Staff Balances Table ────────────────────────────────────────
+                    var eligibleStaff = staffList.filter(function (s) { return s.eligibleForLeave; });
                     html += '<div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-emerald-100/80 p-6 mb-8">';
-                    html += '<div class="flex items-center justify-between mb-4"><div><h3 class="text-lg font-bold text-gray-900 flex items-center gap-2"><i class="fas fa-wallet text-emerald-600"></i> Staff Leave Balances</h3><p class="text-xs text-gray-500 mt-0.5">Real-time balances across annual, brought forward, comp, and sick leave</p></div></div>';
+                    html += '<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">';
+                    html += '<div><h3 class="text-lg font-bold text-gray-900 flex items-center gap-2"><i class="fas fa-wallet text-emerald-600"></i> Staff Leave Balances</h3><p class="text-xs text-gray-500 mt-0.5">Real-time balances across annual, brought forward, comp, and sick leave</p></div>';
+                    html += '<div class="flex flex-wrap items-center gap-2.5">';
+                    html += '<div class="relative"><i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i><input type="text" id="hrBalancesSearchInput" placeholder="Filter staff name or dept..." class="pl-8 pr-7 py-1.5 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 w-48 sm:w-56"><button id="hrBalancesClearSearch" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"><i class="fas fa-times"></i></button></div>';
+                    html += '<select id="hrBalancesDeptFilter" class="text-xs bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"><option value="all">All Depts</option></select>';
+                    html += '<span id="hrBalancesCountBadge" class="text-xs font-medium text-gray-500 bg-gray-50 px-2.5 py-1 rounded-md border border-gray-200 tabular-nums">' + eligibleStaff.length + ' staff</span>';
+                    html += '</div></div>';
                     html += '<div class="overflow-x-auto rounded-xl border border-gray-200/80"><table class="w-full text-sm">';
                     html += '<thead class="bg-slate-50/80 border-b border-gray-200"><tr class="text-xs font-medium text-slate-500">';
                     html += '<th class="text-left py-3.5 px-4 font-medium">Staff</th>';
@@ -11657,7 +11943,8 @@
                         var bf = s.balance && s.balance.broughtForward ? s.balance.broughtForward : null;
                         var sick = s.balance && s.balance.sick ? s.balance.sick : {};
                         var hasDeficit = ann.hasDeficit;
-                        html += '<tr class="hover:bg-gray-50/80 transition-colors">';
+                        var balSearchText = ((s.name || '') + ' ' + (s.email || '') + ' ' + (s.department || '')).toLowerCase();
+                        html += '<tr class="hover:bg-gray-50/80 transition-colors hr-balance-row" data-search="' + escapeHtml(balSearchText) + '" data-dept="' + escapeHtml((s.department || '').toLowerCase()) + '">';
                         html += '<td class="px-4 py-3"><div class="font-medium text-gray-900">' + escapeHtml(s.name || '') + '</div><div class="text-xs text-gray-500">' + escapeHtml(s.email || '') + '</div></td>';
                         html += '<td class="px-4 py-3 text-gray-600 text-xs">' + escapeHtml(s.department || '—') + '</td>';
                         html += '<td class="px-4 py-3 text-center bg-blue-50/30 font-semibold text-blue-700">' + ((ann.available || 0).toFixed(2)) + '</td>';
@@ -11672,7 +11959,14 @@
 
                     // ── All Applications Table ──────────────────────────────────────
                     html += '<div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-gray-200/80 p-6">';
-                    html += '<div class="flex items-center justify-between mb-4"><div><h3 class="text-lg font-bold text-gray-900 flex items-center gap-2"><i class="fas fa-list-check text-blue-600"></i> All Leave Applications</h3><p class="text-xs text-gray-500 mt-0.5">Recent organizational leave filings and audit trail</p></div></div>';
+                    html += '<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">';
+                    html += '<div><h3 class="text-lg font-bold text-gray-900 flex items-center gap-2"><i class="fas fa-list-check text-blue-600"></i> All Leave Applications</h3><p class="text-xs text-gray-500 mt-0.5">Recent organizational leave filings and audit trail</p></div>';
+                    html += '<div class="flex flex-wrap items-center gap-2.5">';
+                    html += '<div class="relative"><i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i><input type="text" id="hrAppsSearchInput" placeholder="Filter applications..." class="pl-8 pr-7 py-1.5 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-48 sm:w-56"><button id="hrAppsClearSearch" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"><i class="fas fa-times"></i></button></div>';
+                    html += '<select id="hrAppsStatusFilter" class="text-xs bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">';
+                    html += '<option value="all">All Statuses</option><option value="approved">Approved</option><option value="pending">Pending</option><option value="declined">Declined</option><option value="cancelled">Cancelled</option></select>';
+                    html += '<span id="hrAppsCountBadge" class="text-xs font-medium text-gray-500 bg-gray-50 px-2.5 py-1 rounded-md border border-gray-200 tabular-nums"></span>';
+                    html += '</div></div>';
                     html += '<div class="overflow-x-auto rounded-xl border border-gray-200/80"><table class="w-full text-sm">';
                     html += '<thead class="bg-slate-50 border-b border-gray-200"><tr class="text-xs font-semibold text-slate-600 uppercase tracking-wider">';
                     html += '<th class="text-left py-3.5 px-4">Date</th>';
@@ -11690,7 +11984,8 @@
                         var statusClass = (app.Status || '').toLowerCase();
                         var period = formatDate(app.StartDate);
                         if (app.EndDate && app.StartDate !== app.EndDate) { period += ' \u2013 ' + formatDate(app.EndDate); }
-                        html += '<tr class="hover:bg-gray-50/80 transition-colors">';
+                        var appSearchText = ((app.Name || '') + ' ' + (app.Department || '') + ' ' + (app.LeaveType || '') + ' ' + (app.Status || '') + ' ' + (app.ProcessedBy || '')).toLowerCase();
+                        html += '<tr class="hover:bg-gray-50/80 transition-colors hr-app-row" data-search="' + escapeHtml(appSearchText) + '" data-status="' + escapeHtml((app.Status || '').toLowerCase()) + '">';
                         html += '<td class="px-4 py-3 whitespace-nowrap text-gray-600 text-xs">' + formatDate(app.DateApplied) + '</td>';
                         html += '<td class="px-4 py-3"><div class="font-medium text-gray-900">' + escapeHtml(app.Name || '') + '</div><div class="text-xs text-gray-500">' + escapeHtml(app.Department || '') + '</div></td>';
                         html += '<td class="px-4 py-3"><span class="leave-type-badge ' + badgeClass + ' px-2.5 py-1 rounded-full text-xs font-medium">' + (app.LeaveType || '—') + '</span></td>';
@@ -11760,12 +12055,113 @@
                     renderTeamAvailabilityWallchart('hrWallchartContainer');
                     renderBlackoutPeriodsList('blackoutPeriodsList');
                     renderGazettedHolidaysList('gazettedHolidaysListContainer');
+                    setupHRDashboardTableFilters(staffList);
 
                 } catch (error) {
                     hideLoading();
                     console.error('HR dashboard error:', error);
                     showToast('error', 'HR Dashboard Failed', error.message);
                 }
+            }
+
+            function setupHRDashboardTableFilters(staffList) {
+                // 1. Endorsement Queue filter
+                const endSearch = document.getElementById('hrEndorsementSearchInput');
+                const endClear = document.getElementById('hrEndorsementClearSearch');
+                const endBadge = document.getElementById('hrEndorsementBadge');
+                if (endSearch) {
+                    endSearch.addEventListener('input', function() {
+                        const q = endSearch.value.trim().toLowerCase();
+                        if (endClear) endClear.classList.toggle('hidden', !q);
+                        const rows = document.querySelectorAll('.hr-endorsement-row');
+                        let visible = 0;
+                        rows.forEach(r => {
+                            const txt = r.getAttribute('data-search') || '';
+                            if (!q || txt.includes(q)) {
+                                r.style.display = '';
+                                visible++;
+                            } else {
+                                r.style.display = 'none';
+                            }
+                        });
+                        if (endBadge) endBadge.textContent = `${visible} of ${rows.length} Pending Sign-Off`;
+                    });
+                    if (endClear) {
+                        endClear.addEventListener('click', () => {
+                            endSearch.value = '';
+                            endSearch.focus();
+                            endSearch.dispatchEvent(new Event('input'));
+                        });
+                    }
+                }
+
+                // 2. Staff Balances filter
+                const balSearch = document.getElementById('hrBalancesSearchInput');
+                const balClear = document.getElementById('hrBalancesClearSearch');
+                const balDept = document.getElementById('hrBalancesDeptFilter');
+                const balBadge = document.getElementById('hrBalancesCountBadge');
+
+                if (balDept && staffList && staffList.length > 0) {
+                    const depts = Array.from(new Set(staffList.map(s => s.department).filter(Boolean))).sort();
+                    balDept.innerHTML = '<option value="all">All Depts</option>' + depts.map(d => `<option value="${escapeHtml(d.toLowerCase())}">${escapeHtml(d)}</option>`).join('');
+                }
+
+                function filterHRBalances() {
+                    const q = (balSearch ? balSearch.value : '').trim().toLowerCase();
+                    const d = (balDept ? balDept.value : 'all');
+                    if (balClear) balClear.classList.toggle('hidden', !q);
+                    const rows = document.querySelectorAll('.hr-balance-row');
+                    let visible = 0;
+                    rows.forEach(r => {
+                        const txt = r.getAttribute('data-search') || '';
+                        const dept = r.getAttribute('data-dept') || '';
+                        const matchesText = !q || txt.includes(q);
+                        const matchesDept = (d === 'all' || dept === d);
+                        if (matchesText && matchesDept) {
+                            r.style.display = '';
+                            visible++;
+                        } else {
+                            r.style.display = 'none';
+                        }
+                    });
+                    if (balBadge) balBadge.textContent = `${visible} of ${rows.length} staff`;
+                }
+
+                if (balSearch) balSearch.addEventListener('input', filterHRBalances);
+                if (balClear) balClear.addEventListener('click', () => { balSearch.value = ''; balSearch.focus(); filterHRBalances(); });
+                if (balDept) balDept.addEventListener('change', filterHRBalances);
+
+                // 3. All Applications filter
+                const appSearch = document.getElementById('hrAppsSearchInput');
+                const appClear = document.getElementById('hrAppsClearSearch');
+                const appStatus = document.getElementById('hrAppsStatusFilter');
+                const appBadge = document.getElementById('hrAppsCountBadge');
+
+                function filterHRApps() {
+                    const q = (appSearch ? appSearch.value : '').trim().toLowerCase();
+                    const s = (appStatus ? appStatus.value : 'all');
+                    if (appClear) appClear.classList.toggle('hidden', !q);
+                    const rows = document.querySelectorAll('.hr-app-row');
+                    let visible = 0;
+                    rows.forEach(r => {
+                        const txt = r.getAttribute('data-search') || '';
+                        const status = r.getAttribute('data-status') || '';
+                        const matchesText = !q || txt.includes(q);
+                        const matchesStatus = (s === 'all' || status === s);
+                        if (matchesText && matchesStatus) {
+                            r.style.display = '';
+                            visible++;
+                        } else {
+                            r.style.display = 'none';
+                        }
+                    });
+                    if (appBadge) appBadge.textContent = `${visible} of ${rows.length} applications`;
+                }
+
+                if (appSearch) appSearch.addEventListener('input', filterHRApps);
+                if (appClear) appClear.addEventListener('click', () => { appSearch.value = ''; appSearch.focus(); filterHRApps(); });
+                if (appStatus) appStatus.addEventListener('change', filterHRApps);
+                filterHRApps();
             }
 
             async function openMasterSpreadsheet() {
@@ -12086,7 +12482,7 @@
                                 <div class="text-[11px] text-gray-600 space-y-1">
                                     <div class="flex items-center justify-between">
                                         <span>Google Calendar:</span>
-                                        <span class="${d.integrations.calendar.configured ? 'text-emerald-600' : 'text-gray-400'} font-semibold">${d.integrations.calendar.configured ? '✓ Configured' : 'Optional / Default'}</span>
+                                        <span class="${d.integrations.calendar.accessible ? 'text-emerald-600' : 'text-amber-600'} font-semibold">${d.integrations.calendar.accessible ? (d.integrations.calendar.isDefault ? '✓ Primary (Default)' : '✓ Connected') : 'Inaccessible'}</span>
                                     </div>
                                     <div class="flex items-center justify-between">
                                         <span>Google Chat Webhook:</span>
@@ -12095,6 +12491,30 @@
                                 </div>
                             </div>
                         `;
+                        }
+
+                        // Update Google Calendar Settings Card
+                        const calBadge = document.getElementById('calendarStatusBadge');
+                        const calName = document.getElementById('calendarActiveName');
+                        const calId = document.getElementById('calendarActiveId');
+                        const calInput = document.getElementById('calendarIdInput');
+
+                        if (d.integrations && d.integrations.calendar) {
+                            const cal = d.integrations.calendar;
+                            if (calBadge) {
+                                if (cal.accessible) {
+                                    calBadge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800';
+                                    calBadge.innerHTML = cal.isDefault ? '<i class="fas fa-check mr-1"></i> Default Primary' : '<i class="fas fa-check-circle mr-1"></i> Custom Calendar';
+                                } else {
+                                    calBadge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800';
+                                    calBadge.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i> Needs Review';
+                                }
+                            }
+                            if (calName) calName.textContent = cal.calendarName || (cal.isDefault ? 'Primary Calendar' : 'Custom');
+                            if (calId) calId.textContent = cal.calendarId || 'primary';
+                            if (calInput && !calInput.value) {
+                                calInput.value = (cal.isDefault || !cal.calendarId) ? '' : cal.calendarId;
+                            }
                         }
 
                         if (triggersList) {
@@ -12130,6 +12550,52 @@
                 } catch (err) {
                     if (statusText) statusText.textContent = 'Telemetry error: ' + err.message;
                 }
+            }
+
+            async function handleSaveCalendarSettings() {
+                const input = document.getElementById('calendarIdInput');
+                const calendarId = input ? input.value.trim() : '';
+
+                showLoading(calendarId ? 'Verifying & connecting Google Calendar...' : 'Resetting to primary default calendar...');
+                try {
+                    const res = await callGoogleScriptFunction('apiSaveCalendarSettings', { calendarId: calendarId });
+                    hideLoading();
+                    if (res.success) {
+                        showToast('success', 'Calendar Configured', res.message || 'Calendar integration updated successfully');
+                        loadSystemDiagnostics();
+                    } else {
+                        showToast('error', 'Calendar Setup Failed', res.error || 'Failed to update calendar integration');
+                    }
+                } catch (err) {
+                    hideLoading();
+                    showToast('error', 'Error', err.message);
+                }
+            }
+
+            async function handleTestCalendarConnection() {
+                const input = document.getElementById('calendarIdInput');
+                const calendarId = input ? input.value.trim() : '';
+
+                showLoading('Testing Google Calendar permissions...');
+                try {
+                    const res = await callGoogleScriptFunction('apiTestCalendarConnection', { calendarId: calendarId });
+                    hideLoading();
+                    if (res.success) {
+                        const data = res.data || {};
+                        showToast('success', 'Connection Verified', `Verified read/write access to "${data.calendarName}" (${data.timeZone})`);
+                    } else {
+                        showToast('error', 'Test Failed', res.error || 'Could not verify calendar permissions');
+                    }
+                } catch (err) {
+                    hideLoading();
+                    showToast('error', 'Error', err.message);
+                }
+            }
+
+            async function handleResetCalendarToDefault() {
+                const input = document.getElementById('calendarIdInput');
+                if (input) input.value = '';
+                handleSaveCalendarSettings();
             }
 
             async function handleInstallSystemTriggers() {
@@ -12241,7 +12707,7 @@
 
                 if (staffTableBody) {
                     staffTableBody.innerHTML = (report.staffRecords || []).map(s => `
-                    <tr class="hover:bg-gray-50/60 transition-colors">
+                    <tr class="hover:bg-gray-50/60 transition-colors liability-staff-row" data-search="${escapeHtml(((s.name || '') + ' ' + (s.email || '') + ' ' + (s.department || '')).toLowerCase())}">
                         <td class="py-2 px-3">
                             <div class="font-bold text-gray-900">${escapeHtml(s.name)}</div>
                             <div class="text-[10px] text-gray-500">${escapeHtml(s.email)}</div>
@@ -12255,7 +12721,55 @@
                         <td class="py-2 px-3 text-right font-bold text-purple-900">${report.currency} ${s.estimatedLiabilityValue.toLocaleString()}</td>
                     </tr>
                 `).join('');
+                    setupLiabilityStaffFilter();
                 }
+            }
+
+            function setupLiabilityStaffFilter() {
+                const searchInput = document.getElementById('liabilityStaffSearchInput');
+                const clearBtn = document.getElementById('liabilityStaffClearSearch');
+                const countBadge = document.getElementById('liabilityStaffCountBadge');
+                const tbody = document.getElementById('liabilityStaffTableBody');
+                if (!tbody) return;
+
+                function applyFilter() {
+                    const q = (searchInput ? searchInput.value : '').trim().toLowerCase();
+                    if (clearBtn) clearBtn.classList.toggle('hidden', !q);
+                    const rows = tbody.querySelectorAll('.liability-staff-row');
+                    let visible = 0;
+                    rows.forEach(r => {
+                        const txt = r.getAttribute('data-search') || '';
+                        if (!q || txt.includes(q)) {
+                            r.style.display = '';
+                            visible++;
+                        } else {
+                            r.style.display = 'none';
+                        }
+                    });
+                    if (countBadge) countBadge.textContent = `${visible} of ${rows.length}`;
+
+                    const existingEmpty = tbody.querySelector('#liabilityStaffEmptyRow');
+                    if (visible === 0 && rows.length > 0) {
+                        if (!existingEmpty) {
+                            const tr = document.createElement('tr');
+                            tr.id = 'liabilityStaffEmptyRow';
+                            tr.innerHTML = `<td colspan="8" class="py-6 text-center text-xs text-gray-500"><i class="fas fa-search mr-1.5 text-gray-400"></i>No staff records match "${escapeHtml(q)}"</td>`;
+                            tbody.appendChild(tr);
+                        }
+                    } else if (existingEmpty) {
+                        existingEmpty.remove();
+                    }
+                }
+
+                if (searchInput) {
+                    searchInput.value = '';
+                    const newInp = searchInput.cloneNode(true);
+                    searchInput.parentNode.replaceChild(newInp, searchInput);
+                    newInp.addEventListener('input', applyFilter);
+                    const newClr = document.getElementById('liabilityStaffClearSearch');
+                    if (newClr) newClr.addEventListener('click', () => { newInp.value = ''; newInp.focus(); applyFilter(); });
+                }
+                applyFilter();
             }
 
             function exportLeaveLiabilityCSV() {
@@ -12620,8 +13134,16 @@
                     `;
                     } else {
                         html += `
+                        <div class="flex items-center justify-between gap-3 mb-3">
+                            <div class="relative flex-1 max-w-xs">
+                                <i class="fas fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-[11px]"></i>
+                                <input type="text" id="compAwardsSearchInput" placeholder="Filter awards by date, reason..." class="w-full pl-7 pr-6 py-1 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                <button id="compAwardsClearSearch" class="hidden absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs p-0.5"><i class="fas fa-times"></i></button>
+                            </div>
+                            <span id="compAwardsCountBadge" class="text-[11px] font-medium text-gray-500 tabular-nums">${awards.length} awards</span>
+                        </div>
                         <div class="overflow-x-auto border border-gray-200 rounded-lg">
-                            <table class="w-full text-xs text-left">
+                            <table class="w-full text-xs text-left" id="compAwardsTable">
                                 <thead class="bg-gray-50 text-gray-600 uppercase border-b border-gray-200 font-semibold">
                                     <tr>
                                         <th class="py-2.5 px-3">Date Worked</th>
@@ -12642,8 +13164,9 @@
                             const reason = award.reason || '-';
                             const awardedBy = award.awardedBy || '-';
 
+                            const awardSearchText = ((dateWorked || '') + ' ' + (reason || '') + ' ' + (awardedBy || '')).toLowerCase();
                             html += `
-                            <tr class="hover:bg-gray-50 ${isRevoked ? 'opacity-50 bg-gray-50/50' : ''}">
+                            <tr class="hover:bg-gray-50 comp-award-row ${isRevoked ? 'opacity-50 bg-gray-50/50' : ''}" data-search="${escapeHtml(awardSearchText)}">
                                 <td class="py-2.5 px-3 whitespace-nowrap font-medium text-gray-800">${escapeHtml(dateWorked)}</td>
                                 <td class="py-2.5 px-3 text-center font-bold ${isRevoked ? 'line-through text-gray-400' : 'text-indigo-600'}">+${days}</td>
                                 <td class="py-2.5 px-3 max-w-xs truncate" title="${escapeHtml(reason)}">${escapeHtml(reason)}</td>
@@ -12672,9 +13195,37 @@
                     }
 
                     container.innerHTML = html;
+                    setupCompAwardsFilter();
                 } catch (err) {
                     container.innerHTML = `<p class="text-center py-6 text-red-500 text-sm">${escapeHtml(err.message)}</p>`;
                 }
+            }
+
+            function setupCompAwardsFilter() {
+                const searchInp = document.getElementById('compAwardsSearchInput');
+                const clearBtn = document.getElementById('compAwardsClearSearch');
+                const countBadge = document.getElementById('compAwardsCountBadge');
+                if (!searchInp) return;
+
+                function filterAwards() {
+                    const q = searchInp.value.trim().toLowerCase();
+                    if (clearBtn) clearBtn.classList.toggle('hidden', !q);
+                    const rows = document.querySelectorAll('.comp-award-row');
+                    let visible = 0;
+                    rows.forEach(r => {
+                        const txt = r.getAttribute('data-search') || '';
+                        if (!q || txt.includes(q)) {
+                            r.style.display = '';
+                            visible++;
+                        } else {
+                            r.style.display = 'none';
+                        }
+                    });
+                    if (countBadge) countBadge.textContent = `${visible} of ${rows.length} awards`;
+                }
+
+                searchInp.addEventListener('input', filterAwards);
+                if (clearBtn) clearBtn.addEventListener('click', () => { searchInp.value = ''; searchInp.focus(); filterAwards(); });
             }
 
             async function handleRevokeCompensationAward(email, awardIndex) {
@@ -14162,6 +14713,9 @@
             window.openSystemDiagnosticsModal = openSystemDiagnosticsModal;
             window.closeSystemDiagnosticsModal = closeSystemDiagnosticsModal;
             window.loadSystemDiagnostics = loadSystemDiagnostics;
+            window.handleSaveCalendarSettings = handleSaveCalendarSettings;
+            window.handleTestCalendarConnection = handleTestCalendarConnection;
+            window.handleResetCalendarToDefault = handleResetCalendarToDefault;
             window.handleInstallSystemTriggers = handleInstallSystemTriggers;
             window.openLeaveLiabilityModal = openLeaveLiabilityModal;
             window.closeLeaveLiabilityModal = closeLeaveLiabilityModal;
