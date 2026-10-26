@@ -2235,34 +2235,41 @@
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="fixed inset-0 modal-overlay" id="applicationDetailsModalBackdrop"></div>
             <div
-                class="relative bg-white rounded-2xl text-left shadow-2xl w-full max-w-2xl flex flex-col max-h-[92vh] border border-gray-100 overflow-hidden">
+                class="relative bg-white rounded-2xl text-left shadow-2xl w-full max-w-2xl sm:max-w-3xl flex flex-col max-h-[92vh] border border-gray-100 overflow-hidden">
                 <!-- Modal Header -->
                 <div
-                    class="bg-slate-900 border-b border-slate-800 px-6 py-4.5 rounded-t-2xl text-white flex justify-between items-center flex-none">
+                    class="bg-slate-900 border-b border-slate-800 px-6 py-4 rounded-t-2xl text-white flex justify-between items-center flex-none">
                     <div class="flex items-center space-x-3">
                         <div
-                            class="h-10 w-10 rounded-lg bg-slate-800 flex items-center justify-center border border-slate-700/60">
-                            <i class="fas fa-file-invoice text-white text-base"></i>
+                            class="h-10 w-10 rounded-xl bg-slate-800 flex items-center justify-center border border-slate-700/60 shadow-xs">
+                            <i class="fas fa-file-invoice text-emerald-400 text-base"></i>
                         </div>
                         <div>
-                            <h3 class="text-base font-semibold tracking-tight text-white">Application Details</h3>
-                            <p class="text-xs text-slate-300 font-normal" id="applicationIdTitle">Loading
-                                details...</p>
+                            <div class="flex items-center gap-2">
+                                <h3 class="text-base font-bold tracking-tight text-white">Application Details</h3>
+                                <span id="applicationModalHeaderBadge"></span>
+                            </div>
+                            <p class="text-xs text-slate-400 font-mono mt-0.5" id="applicationIdTitle">Loading details...</p>
                         </div>
                     </div>
                     <button id="closeApplicationDetailsModal" type="button"
-                        class="text-white/80 hover:text-white hover:bg-white/10 active:scale-90 rounded-lg p-1.5 transition-all outline-none focus-visible:ring-2 focus-visible:ring-white/40 cursor-pointer">
-                        <i class="fas fa-times text-lg"></i>
+                        class="text-white/80 hover:text-white hover:bg-white/10 active:scale-90 rounded-lg p-2 transition-all outline-none focus-visible:ring-2 focus-visible:ring-white/40 cursor-pointer" aria-label="Close modal">
+                        <i class="fas fa-times text-base"></i>
                     </button>
                 </div>
 
-                <div class="px-6 py-5 overflow-y-auto flex-1 min-h-0" id="applicationDetailsContent"></div>
+                <div class="p-5 sm:p-6 overflow-y-auto flex-1 min-h-0 bg-slate-50/40" id="applicationDetailsContent"></div>
 
                 <div
-                    class="bg-gray-50/80 px-6 py-4 border-t border-gray-100 flex justify-end space-x-3 flex-none rounded-b-2xl">
-                    <button id="closeDetailsModal"
-                        class="px-4 py-2.5 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 hover:border-gray-400 active:scale-97 transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-gray-400">Close</button>
-                    <div id="applicationActionButtons" class="hidden space-x-3"></div>
+                    class="bg-slate-50 border-t border-slate-200/80 px-6 py-3.5 flex flex-wrap items-center justify-between gap-3 flex-none rounded-b-2xl">
+                    <div id="applicationModalFooterInfo" class="text-xs text-slate-500 font-medium flex items-center gap-1.5"></div>
+                    <div class="flex flex-wrap items-center gap-2.5 ml-auto">
+                        <button id="closeDetailsModal" type="button"
+                            class="px-4 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 active:scale-97 transition-all cursor-pointer">
+                            Close
+                        </button>
+                        <div id="applicationActionButtons" class="flex flex-wrap items-center gap-2.5"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -11263,37 +11270,34 @@
                 if (!hasDeductions) return '';
 
                 let cards = '';
-                if (application.DeductFromCompensation > 0) {
-                    cards += '<div class="p-3.5 bg-indigo-50 border border-indigo-100 rounded-xl">' +
-                        '<div class="flex items-center justify-between">' +
-                        '<p class="text-xs text-indigo-700 font-semibold uppercase tracking-wider">Compensation</p>' +
-                        '<i class="fas fa-star text-indigo-400 text-xs"></i>' +
-                        '</div>' +
-                        '<p class="text-xl font-bold text-indigo-900 mt-1">' + application.DeductFromCompensation + ' days</p>' +
+                if (application.DeductFromAnnual > 0) {
+                    cards += '<div class="flex-1 min-w-[140px] p-3.5 bg-emerald-50/80 border border-emerald-200/80 rounded-xl">' +
+                        '<div class="flex items-center justify-between text-emerald-800 text-xs font-semibold"><span>Annual Leave</span><i class="fas fa-calendar-check text-emerald-600"></i></div>' +
+                        '<p class="text-lg font-bold text-emerald-950 mt-1">' + application.DeductFromAnnual + ' days</p>' +
                         '</div>';
                 }
                 if (application.DeductFromBroughtForward > 0) {
-                    cards += '<div class="p-3.5 bg-amber-50 border border-amber-100 rounded-xl">' +
-                        '<p class="text-xs text-amber-700 font-semibold uppercase tracking-wider">Brought Fwd</p>' +
-                        '<p class="text-xl font-bold text-amber-900 mt-1">' + application.DeductFromBroughtForward + ' days</p>' +
+                    cards += '<div class="flex-1 min-w-[140px] p-3.5 bg-amber-50/80 border border-amber-200/80 rounded-xl">' +
+                        '<div class="flex items-center justify-between text-amber-800 text-xs font-semibold"><span>Brought Forward</span><i class="fas fa-history text-amber-600"></i></div>' +
+                        '<p class="text-lg font-bold text-amber-950 mt-1">' + application.DeductFromBroughtForward + ' days</p>' +
                         '</div>';
                 }
-                if (application.DeductFromAnnual > 0) {
-                    cards += '<div class="p-3.5 bg-emerald-50 border border-emerald-100 rounded-xl">' +
-                        '<p class="text-xs text-emerald-700 font-semibold uppercase tracking-wider">Annual Leave</p>' +
-                        '<p class="text-xl font-bold text-emerald-900 mt-1">' + application.DeductFromAnnual + ' days</p>' +
+                if (application.DeductFromCompensation > 0) {
+                    cards += '<div class="flex-1 min-w-[140px] p-3.5 bg-indigo-50/80 border border-indigo-200/80 rounded-xl">' +
+                        '<div class="flex items-center justify-between text-indigo-800 text-xs font-semibold"><span>Compensation (TOIL)</span><i class="fas fa-star text-indigo-500"></i></div>' +
+                        '<p class="text-lg font-bold text-indigo-950 mt-1">' + application.DeductFromCompensation + ' days</p>' +
                         '</div>';
                 }
                 if (application.DeductFromSick > 0) {
-                    cards += '<div class="p-3.5 bg-blue-50 border border-blue-100 rounded-xl">' +
-                        '<p class="text-xs text-blue-700 font-semibold uppercase tracking-wider">Sick Leave</p>' +
-                        '<p class="text-xl font-bold text-blue-900 mt-1">' + application.DeductFromSick + ' days</p>' +
+                    cards += '<div class="flex-1 min-w-[140px] p-3.5 bg-rose-50/80 border border-rose-200/80 rounded-xl">' +
+                        '<div class="flex items-center justify-between text-rose-800 text-xs font-semibold"><span>Sick Leave</span><i class="fas fa-heart-pulse text-rose-500"></i></div>' +
+                        '<p class="text-lg font-bold text-rose-950 mt-1">' + application.DeductFromSick + ' days</p>' +
                         '</div>';
                 }
 
-                return '<div>' +
-                    '<p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Leave Deductions Breakdown</p>' +
-                    '<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">' + cards + '</div>' +
+                return '<div class="bg-white border border-slate-200/90 rounded-xl p-4 shadow-2xs">' +
+                    '<p class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5"><i class="fas fa-calculator text-indigo-600"></i> Leave Deductions Breakdown</p>' +
+                    '<div class="flex flex-wrap gap-3">' + cards + '</div>' +
                     '</div>';
             }
 
@@ -11301,49 +11305,131 @@
                 if (!application) return '';
                 const isSpecialized = ['Study Leave', 'Maternity Leave', 'Paternity Leave'].includes(application.LeaveType);
                 const isDual = Boolean(application.RequiresDualApproval || (application.Duration > 5) || isSpecialized);
+                const dateAppliedText = formatDate(application.DateApplied);
+
+                // Step 1: Submission
+                let html = '<div class="relative pl-8 pb-5 border-l-2 border-emerald-500">' +
+                    '<div class="absolute -left-[17px] top-0 h-8 w-8 rounded-full bg-emerald-100 text-emerald-700 border-2 border-white shadow-xs flex items-center justify-center text-xs font-bold">' +
+                    '<i class="fas fa-paper-plane"></i>' +
+                    '</div>' +
+                    '<div>' +
+                    '<div class="flex items-center justify-between">' +
+                    '<h5 class="text-xs font-bold text-slate-900">Application Submitted</h5>' +
+                    '<span class="text-[11px] text-slate-400 font-medium">' + dateAppliedText + '</span>' +
+                    '</div>' +
+                    '<p class="text-xs text-slate-500 mt-0.5">Submitted by <span class="font-semibold text-slate-700">' + escapeHtml(application.Name || 'Staff') + '</span></p>' +
+                    '</div>' +
+                    '</div>';
 
                 if (!isDual) {
-                    const nodeClass = application.Status === 'Pending' ? 'current' : application.Status === 'Approved' ? 'completed' : application.Status === 'Declined' ? 'declined' : 'completed';
-                    const reviewerText = application.ProcessedBy
-                        ? 'Processed by ' + escapeHtml(application.ProcessedBy) + (application.ProcessedDate ? ' on ' + formatDate(application.ProcessedDate) : '')
-                        : 'Supervisor: ' + escapeHtml(application.Supervisor || 'Pending Assignment');
+                    const isApproved = application.Status === 'Approved';
+                    const isDeclined = application.Status === 'Declined';
+                    const isCancelled = application.Status === 'Cancelled';
 
-                    return '<div class="timeline-node ' + nodeClass + '">' +
-                        '<p class="font-semibold text-gray-900">' + (application.Status === 'Pending' ? 'Awaiting Review' : 'Status: ' + escapeHtml(application.Status)) + '</p>' +
-                        '<p class="text-gray-500">' + reviewerText + '</p>' +
+                    let iconClass = 'fas fa-hourglass-half';
+                    let circleBg = 'bg-amber-100 text-amber-700 border-amber-300 animate-pulse';
+                    let title = 'Pending Supervisor Review';
+                    let subText = 'Awaiting review by ' + (escapeHtml(application.Supervisor || 'Assigned Supervisor'));
+
+                    if (isApproved) {
+                        iconClass = 'fas fa-check';
+                        circleBg = 'bg-emerald-600 text-white border-white';
+                        title = 'Approved by Supervisor';
+                        subText = 'Processed by <span class="font-semibold text-slate-700">' + escapeHtml(application.ProcessedBy || application.Supervisor || 'Supervisor') + '</span>' +
+                            (application.ProcessedDate ? ' on ' + formatDate(application.ProcessedDate) : '');
+                    } else if (isDeclined) {
+                        iconClass = 'fas fa-times';
+                        circleBg = 'bg-rose-600 text-white border-white';
+                        title = 'Declined by Supervisor';
+                        subText = 'Declined by <span class="font-semibold text-slate-700">' + escapeHtml(application.ProcessedBy || application.Supervisor || 'Supervisor') + '</span>' +
+                            (application.ProcessedDate ? ' on ' + formatDate(application.ProcessedDate) : '');
+                    } else if (isCancelled) {
+                        iconClass = 'fas fa-ban';
+                        circleBg = 'bg-slate-400 text-white border-white';
+                        title = 'Application Cancelled';
+                        subText = 'Cancelled on ' + formatDate(application.CancelledDate || application.ProcessedDate || new Date());
+                    }
+
+                    html += '<div class="relative pl-8 pt-1">' +
+                        '<div class="absolute -left-[17px] top-1 h-8 w-8 rounded-full ' + circleBg + ' border-2 shadow-xs flex items-center justify-center text-xs font-bold">' +
+                        '<i class="' + iconClass + '"></i>' +
+                        '</div>' +
+                        '<div>' +
+                        '<div class="flex items-center justify-between">' +
+                        '<h5 class="text-xs font-bold text-slate-900">' + title + '</h5>' +
+                        (application.ProcessedDate ? '<span class="text-[11px] text-slate-400 font-medium">' + formatDate(application.ProcessedDate) + '</span>' : '') +
+                        '</div>' +
+                        '<p class="text-xs text-slate-500 mt-0.5">' + subText + '</p>' +
+                        '</div>' +
                         '</div>';
+
                 } else {
+                    // Dual approval flow: Tier 1 (Supervisor) & Tier 2 (HR)
                     const supCompleted = Boolean(application.SupervisorApproval || application.ApprovalStage === 'pending_hr' || application.Status === 'Approved');
                     const supDeclined = application.Status === 'Declined' && !application.SupervisorApproval;
-                    const supClass = supCompleted ? 'completed' : supDeclined ? 'declined' : 'current';
+                    const supBorder = supCompleted ? 'border-emerald-500' : 'border-amber-300';
+
+                    html += '<div class="relative pl-8 pb-5 border-l-2 ' + supBorder + '">' +
+                        '<div class="absolute -left-[17px] top-0 h-8 w-8 rounded-full ' + (supCompleted ? 'bg-emerald-600 text-white' : supDeclined ? 'bg-rose-600 text-white' : 'bg-amber-100 text-amber-700 border-amber-300 animate-pulse') + ' border-2 border-white shadow-xs flex items-center justify-center text-xs font-bold">' +
+                        '<i class="' + (supCompleted ? 'fas fa-check' : supDeclined ? 'fas fa-times' : 'fas fa-hourglass-half') + '"></i>' +
+                        '</div>' +
+                        '<div>' +
+                        '<div class="flex items-center justify-between">' +
+                        '<h5 class="text-xs font-bold text-slate-900">Tier 1: Supervisor Review</h5>' +
+                        '<span class="text-[10px] font-semibold px-2 py-0.5 rounded-full ' + (supCompleted ? 'bg-emerald-100 text-emerald-800' : supDeclined ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800') + '">' + (supCompleted ? 'Endorsed' : supDeclined ? 'Declined' : 'Pending') + '</span>' +
+                        '</div>' +
+                        '<p class="text-xs text-slate-500 mt-0.5">' + (application.SupervisorApproval ? 'Endorsed by ' + escapeHtml(application.SupervisorApproval.approvedBy || '') : 'Supervisor: ' + escapeHtml(application.Supervisor || 'Pending')) + '</p>' +
+                        '</div>' +
+                        '</div>';
 
                     const hrCompleted = application.Status === 'Approved';
-                    const hrCurrent = application.ApprovalStage === 'pending_hr';
                     const hrDeclined = application.Status === 'Declined' && application.SupervisorApproval;
-                    const hrClass = hrCompleted ? 'completed' : hrCurrent ? 'current' : hrDeclined ? 'declined' : '';
+                    const hrPending = application.ApprovalStage === 'pending_hr';
 
-                    const supText = application.SupervisorApproval
-                        ? 'Endorsed by ' + escapeHtml(application.SupervisorApproval.approvedBy || '')
-                        : (application.Supervisor ? 'Supervisor: ' + escapeHtml(application.Supervisor) : 'Pending Review');
-
-                    const hrText = hrCompleted
-                        ? (application.HRApproval ? 'Endorsed by ' + escapeHtml(application.HRApproval.approvedBy || '') : 'Final approval granted')
-                        : (hrCurrent ? 'Pending final HR sign-off (> 5 days / specialized leave)' : 'Required for extended leaves');
-
-                    return '<div class="timeline-node ' + supClass + '">' +
-                        '<p class="font-semibold text-gray-900">' + (supCompleted ? 'Tier 1: Supervisor Endorsed' : supDeclined ? 'Tier 1: Supervisor Declined' : 'Tier 1: Supervisor Review') + '</p>' +
-                        '<p class="text-gray-500">' + supText + '</p>' +
+                    html += '<div class="relative pl-8 pt-1">' +
+                        '<div class="absolute -left-[17px] top-1 h-8 w-8 rounded-full ' + (hrCompleted ? 'bg-emerald-600 text-white' : hrDeclined ? 'bg-rose-600 text-white' : hrPending ? 'bg-blue-100 text-blue-700 border-blue-300 animate-pulse' : 'bg-slate-100 text-slate-400') + ' border-2 border-white shadow-xs flex items-center justify-center text-xs font-bold">' +
+                        '<i class="' + (hrCompleted ? 'fas fa-check-double' : hrDeclined ? 'fas fa-times' : hrPending ? 'fas fa-signature' : 'fas fa-shield-alt') + '"></i>' +
                         '</div>' +
-                        '<div class="timeline-node ' + hrClass + '">' +
-                        '<p class="font-semibold text-gray-900">' + (hrCompleted ? 'Tier 2: HR Approved' : hrCurrent ? 'Tier 2: Awaiting HR Sign-Off' : hrDeclined ? 'Tier 2: Declined by HR' : 'Tier 2: HR Endorsement') + '</p>' +
-                        '<p class="text-gray-500">' + hrText + '</p>' +
+                        '<div>' +
+                        '<div class="flex items-center justify-between">' +
+                        '<h5 class="text-xs font-bold text-slate-900">Tier 2: HR Endorsement & Executive Sign-Off</h5>' +
+                        '<span class="text-[10px] font-semibold px-2 py-0.5 rounded-full ' + (hrCompleted ? 'bg-emerald-100 text-emerald-800' : hrDeclined ? 'bg-rose-100 text-rose-800' : hrPending ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-500') + '">' + (hrCompleted ? 'Approved' : hrDeclined ? 'Declined' : hrPending ? 'Awaiting HR' : 'Queued') + '</span>' +
+                        '</div>' +
+                        '<p class="text-xs text-slate-500 mt-0.5">' + (hrCompleted ? (application.HRApproval ? 'Signed off by ' + escapeHtml(application.HRApproval.approvedBy || '') : 'Final approval verified') : hrPending ? 'Required for > 5 days or specialized leave categories' : 'Scheduled upon supervisor endorsement') + '</p>' +
+                        '</div>' +
                         '</div>';
+                }
+
+                return '<div class="bg-white border border-slate-200/90 rounded-xl p-5 shadow-2xs">' +
+                    '<p class="text-xs font-bold uppercase tracking-wider text-slate-600 mb-4 flex items-center gap-2"><i class="fas fa-stream text-emerald-600"></i> Approval & Workflow Progression</p>' +
+                    '<div class="space-y-1">' + html + '</div>' +
+                    '</div>';
+            }
+
+            function getExpectedReturnDate(endDateStr) {
+                if (!endDateStr) return '';
+                try {
+                    const end = parseLocalDate(endDateStr);
+                    if (!end || isNaN(end.getTime())) return '';
+                    const next = new Date(end.getTime());
+                    let safety = 0;
+                    while (safety < 14) {
+                        next.setDate(next.getDate() + 1);
+                        safety++;
+                        const day = next.getDay();
+                        if (day === 0 || day === 6) continue;
+                        if (typeof getPublicHolidayDetails === 'function' && getPublicHolidayDetails(next)) continue;
+                        break;
+                    }
+                    return formatDate(next);
+                } catch (e) {
+                    return '';
                 }
             }
 
             function renderApplicationDetailsContent(application) {
                 const initials = application.Name
-                    ? application.Name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)
+                    ? application.Name.trim().split(/\s+/).map(n => n[0]).join('').toUpperCase().substring(0, 3)
                     : 'AP';
                 const statusLower = (application.Status || 'pending').toLowerCase();
                 const statusText = escapeHtml(application.Status || 'Pending');
@@ -11351,94 +11437,118 @@
                 const leaveTypeText = escapeHtml(application.LeaveType || 'Not specified');
                 const reasonText = escapeHtml(application.Reason || 'No reason provided');
 
-                const durationText = application.LeaveMode === 'Hourly'
-                    ? (application.Hours || 0) + ' hours'
-                    : ((application.Status === 'Pending' && application.StartDate && application.EndDate)
-                        ? calculateBusinessDays(application.StartDate, application.EndDate)
-                        : (application.Duration || 0)) + ' business days';
+                const isHourly = application.LeaveMode === 'Hourly';
+                const durationDays = (application.Status === 'Pending' && application.StartDate && application.EndDate)
+                    ? calculateBusinessDays(application.StartDate, application.EndDate)
+                    : (application.Duration || 0);
 
-                const durationExtra = (application.LeaveMode === 'Hourly' && application.Duration)
+                const durationText = isHourly
+                    ? (application.Hours || 0) + ' hours'
+                    : durationDays + ' business day' + (durationDays === 1 ? '' : 's');
+
+                const durationExtra = (isHourly && application.Duration)
                     ? ' (' + application.Duration.toFixed(3) + ' days)'
                     : (application.CalendarDays && application.CalendarDays !== application.Duration
-                        ? ' (' + application.CalendarDays + ' calendar days)'
+                        ? ' (' + application.CalendarDays + ' cal days)'
                         : '');
 
-                const periodText = formatDate(application.StartDate) +
+                const periodText = formatDate(application.StartDate || application.HourlyDate) +
                     (application.EndDate && application.StartDate !== application.EndDate
-                        ? ' to ' + formatDate(application.EndDate)
+                        ? ' &mdash; ' + formatDate(application.EndDate)
                         : '');
 
-                const supervisorBlock = application.Supervisor
-                    ? '      <div><p class="text-sm text-gray-600">Supervisor</p><p class="font-medium text-gray-900">' + escapeHtml(application.Supervisor) + '</p></div>'
+                const returnDateStr = getExpectedReturnDate(application.EndDate || application.StartDate || application.HourlyDate);
+                const resumptionHtml = returnDateStr
+                    ? '<p class="text-[11px] text-emerald-700 font-semibold flex items-center gap-1 mt-1"><i class="fas fa-briefcase text-[10px]"></i> Resumes: ' + returnDateStr + '</p>'
                     : '';
 
-                const processedByBlock = application.ProcessedBy
-                    ? '      <div><p class="text-sm text-gray-600">Processed By</p><p class="font-medium text-gray-900">' + escapeHtml(application.ProcessedBy) + '</p></div>'
-                    : '';
+                const holidaysBadgeHtml = renderApplicationHolidaysBadge(application);
 
-                const commentsBlock = application.Comment
-                    ? '  <div><p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Reviewer Remarks</p><div class="p-4 bg-blue-50 border border-blue-100 rounded-xl"><p class="text-gray-900 text-sm">' + escapeHtml(application.Comment) + '</p>' + (application.ProcessedDate ? '<p class="text-xs text-gray-500 mt-2">' + formatDate(application.ProcessedDate) + '</p>' : '') + '</div></div>'
-                    : '';
+                let commentsBlock = '';
+                if (application.Comment && application.Comment.trim()) {
+                    commentsBlock = '<div class="bg-gradient-to-r from-blue-50/80 to-indigo-50/60 border border-blue-200/80 rounded-xl p-4 shadow-2xs space-y-2">' +
+                        '<div class="flex items-center justify-between">' +
+                        '<p class="text-xs font-bold uppercase tracking-wider text-blue-900 flex items-center gap-1.5"><i class="fas fa-comment-dots text-blue-600"></i> Reviewer Remarks & Comments</p>' +
+                        (application.ProcessedDate ? '<span class="text-[11px] font-semibold text-blue-700 bg-blue-100/70 px-2 py-0.5 rounded-full">' + formatDate(application.ProcessedDate) + '</span>' : '') +
+                        '</div>' +
+                        '<div class="p-3.5 bg-white/95 border border-blue-100 rounded-lg shadow-2xs">' +
+                        '<p class="text-sm font-medium text-slate-800 leading-relaxed italic">“' + escapeHtml(application.Comment) + '”</p>' +
+                        '</div>' +
+                        '<p class="text-[11px] text-blue-800 font-medium flex items-center gap-1.5">' +
+                        '<i class="fas fa-user-check text-[10px]"></i> Processed by: <span class="font-bold">' + escapeHtml(application.ProcessedBy || application.Supervisor || 'Supervisor') + '</span>' +
+                        '</p>' +
+                        '</div>';
+                }
 
                 const parts = [
-                    '<div class="space-y-6">',
-                    '  <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">',
-                    '    <div class="flex items-center">',
-                    '      <div class="h-12 w-12 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 font-semibold text-base mr-4">',
+                    '<div class="space-y-4 sm:space-y-5">',
+
+                    // 1. Hero Staff & Status Header Card
+                    '  <div class="bg-gradient-to-r from-slate-900 to-slate-800 rounded-2xl p-4 sm:p-5 text-white shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">',
+                    '    <div class="flex items-center gap-3.5">',
+                    '      <div class="h-12 w-12 sm:h-14 sm:w-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 text-white font-bold text-base sm:text-lg flex items-center justify-center shadow-md flex-shrink-0 border border-white/20">',
                     '        ' + initials,
                     '      </div>',
                     '      <div>',
-                    '        <h4 class="font-bold text-gray-900">' + escapeHtml(application.Name || 'Unknown') + '</h4>',
-                    '        <p class="text-sm text-gray-600">' + escapeHtml(application.Department || 'No Department') + '</p>',
+                    '        <div class="flex items-center gap-2 flex-wrap">',
+                    '          <h4 class="font-bold text-base sm:text-lg text-white tracking-tight">' + escapeHtml(application.Name || 'Staff Member') + '</h4>',
+                    '          <span class="status-badge ' + statusLower + ' px-2.5 py-0.5 text-xs font-semibold shadow-xs">' + statusText + '</span>',
+                    '        </div>',
+                    '        <div class="flex items-center gap-2 text-xs text-slate-300 mt-1 flex-wrap">',
+                    '          <span><i class="fas fa-envelope text-[10px] text-slate-400 mr-1"></i>' + escapeHtml(application.Email || 'No email') + '</span>',
+                    '          <span class="text-slate-600">&bull;</span>',
+                    '          <span class="px-2 py-0.5 rounded-md bg-slate-800 text-emerald-300 border border-slate-700 font-medium text-[11px]"><i class="fas fa-building text-[9px] mr-1"></i>' + escapeHtml(application.Department || 'General') + '</span>',
+                    '        </div>',
                     '      </div>',
                     '    </div>',
-                    '    <div class="text-right">',
-                    '      <span class="status-badge ' + statusLower + ' px-3 py-1 rounded-full text-xs font-medium">' + statusText + '</span>',
-                    '      <p class="text-xs text-gray-500 mt-1">Applied: ' + dateAppliedText + '</p>',
+                    '    <div class="sm:text-right flex sm:flex-col items-center sm:items-end justify-between border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-700/60">',
+                    '      <p class="text-[11px] text-slate-400 font-medium">Applied on</p>',
+                    '      <p class="text-xs font-semibold text-slate-200 mt-0.5">' + dateAppliedText + '</p>',
                     '    </div>',
                     '  </div>',
-                    '  <div class="grid grid-cols-2 gap-4">',
-                    '    <div class="space-y-4">',
-                    '      <div>',
-                    '        <p class="text-sm text-gray-600">Leave Type</p>',
-                    '        <p class="font-medium text-gray-900">' + leaveTypeText + '</p>',
-                    '      </div>',
-                    '      <div>',
-                    '        <p class="text-sm text-gray-600">Duration</p>',
-                    '        <p class="font-medium text-gray-900">' + durationText + durationExtra + '</p>',
-                    '        ' + renderApplicationHolidaysBadge(application),
-                    '      </div>',
+
+                    // 2. Metrics Bento Grid
+                    '  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">',
+                    '    <div class="bg-white border border-slate-200/90 rounded-xl p-4 shadow-2xs hover:border-slate-300 transition-colors">',
+                    '      <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5"><i class="fas fa-layer-group text-emerald-600"></i> Leave Category</p>',
+                    '      <p class="text-sm sm:text-base font-bold text-slate-900 mt-1.5">' + leaveTypeText + '</p>',
+                    '      <p class="text-[11px] text-slate-500 font-medium mt-0.5">' + (isHourly ? 'Hourly request' : 'Full working day(s)') + '</p>',
                     '    </div>',
-                    '    <div class="space-y-4">',
-                    '      <div>',
-                    '        <p class="text-sm text-gray-600">Period</p>',
-                    '        <p class="font-medium text-gray-900">' + periodText + '</p>',
-                    '      </div>',
-                    supervisorBlock,
-                    processedByBlock,
+                    '    <div class="bg-white border border-slate-200/90 rounded-xl p-4 shadow-2xs hover:border-slate-300 transition-colors">',
+                    '      <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5"><i class="fas fa-clock text-blue-600"></i> Net Duration</p>',
+                    '      <p class="text-sm sm:text-base font-bold text-slate-900 mt-1.5">' + durationText + '</p>',
+                    '      <p class="text-[11px] text-slate-500 font-medium mt-0.5">' + (durationExtra ? durationExtra : 'Working days charged') + '</p>',
+                    '      ' + (holidaysBadgeHtml ? '<div class="mt-1">' + holidaysBadgeHtml + '</div>' : ''),
                     '    </div>',
-                    '  </div>',
-                    '  <div>',
-                    '    <p class="text-sm text-gray-600 mb-2">Reason</p>',
-                    '    <div class="p-4 bg-gray-50 rounded-lg">',
-                    '      <p class="text-gray-900">' + reasonText + '</p>',
+                    '    <div class="bg-white border border-slate-200/90 rounded-xl p-4 shadow-2xs hover:border-slate-300 transition-colors">',
+                    '      <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5"><i class="far fa-calendar-alt text-amber-600"></i> Leave Schedule</p>',
+                    '      <p class="text-xs sm:text-sm font-bold text-slate-900 mt-1.5">' + periodText + '</p>',
+                    '      ' + resumptionHtml,
                     '    </div>',
                     '  </div>',
+
+                    // 3. Reason for Leave
+                    '  <div class="bg-white border border-slate-200/90 rounded-xl p-4 shadow-2xs border-l-4 border-l-emerald-500">',
+                    '    <p class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5 flex items-center gap-1.5"><i class="fas fa-quote-left text-emerald-600 text-[10px]"></i> Purpose / Reason for Leave</p>',
+                    '    <p class="text-xs sm:text-sm text-slate-800 leading-relaxed font-normal bg-slate-50/70 p-3 rounded-lg border border-slate-100">' + reasonText + '</p>',
+                    '  </div>',
+
+                    // 4. Handover & Reliever Section
                     '  ' + renderApplicationHandover(application),
-                    '  ' + renderApplicationGmailSync(application),
-                    '  ' + renderApplicationAttachment(application),
+
+                    // 5. Deductions Breakdown (responsive, balanced)
                     '  ' + renderApplicationDeductions(application),
-                    '  <div class="p-4 bg-gray-50 border border-gray-100 rounded-xl">',
-                    '    <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Status Progression</p>',
-                    '    <div class="timeline-track text-xs">',
-                    '      <div class="timeline-node completed">',
-                    '        <p class="font-semibold text-gray-900">Application Submitted</p>',
-                    '        <p class="text-gray-500">' + dateAppliedText + '</p>',
-                    '      </div>',
-                    '      ' + renderApplicationTimeline(application),
-                    '    </div>',
-                    '  </div>',
-                    commentsBlock,
+
+                    // 6. Approval & Workflow Stepper
+                    '  ' + renderApplicationTimeline(application),
+
+                    // 7. Reviewer Remarks (if any)
+                    '  ' + commentsBlock,
+
+                    // 8. Attachments & Integrations
+                    '  ' + renderApplicationAttachment(application),
+                    '  ' + renderApplicationGmailSync(application),
+
                     '</div>'
                 ];
 
@@ -11447,43 +11557,32 @@
 
             function renderApplicationModalActionButtons(application, canTakeAction, isTeamView, appId, isConcluded) {
                 const printBtnHtml = application.Status === 'Approved'
-                    ? '<button class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 flex items-center gap-1.5 shadow-sm" id="printLeaveSlipBtn"><i class="fas fa-print"></i> Print Slip</button>'
+                    ? '<button type="button" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-97 text-white rounded-xl text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer" id="printLeaveSlipBtn"><i class="fas fa-print text-[11px]"></i> Print Slip</button>'
                     : '';
 
                 const amendBtnHtml = (application.Status === 'Approved' && application.LeaveMode !== 'Hourly' && !isConcluded)
-                    ? '<button type="button" class="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 flex items-center gap-1.5 shadow-sm" onclick="openAmendLeaveModal(\'' + appId + '\')"><i class="fas fa-calendar-alt"></i> Amend / Early Return</button>'
+                    ? '<button type="button" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:scale-97 text-white rounded-xl text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer" onclick="openAmendLeaveModal(\'' + appId + '\')"><i class="fas fa-calendar-alt text-[11px]"></i> Amend / Early Return</button>'
                     : '';
-
-                const closeBtnHtml = '<button class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50" id="cancelActionBtn">Close</button>';
 
                 if (canTakeAction) {
                     return [
-                        printBtnHtml,
-                        amendBtnHtml,
-                        closeBtnHtml,
-                        '<button class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 decline-action-btn" data-id="' + appId + '">Decline</button>',
-                        '<button class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 approve-action-btn" data-id="' + appId + '">Approve</button>'
-                    ].filter(Boolean).join('\n');
+                        '<button type="button" class="decline-action-btn px-4 py-2 bg-rose-600 hover:bg-rose-700 active:scale-97 text-white rounded-xl text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer" data-id="' + appId + '"><i class="fas fa-times text-[11px]"></i> Decline</button>',
+                        '<button type="button" class="approve-action-btn px-5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-97 text-white rounded-xl text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer" data-id="' + appId + '"><i class="fas fa-check text-[11px]"></i> Approve</button>'
+                    ].join('\n');
                 }
 
                 if (!isTeamView && (application.Status === 'Pending' || application.Status === 'Approved')) {
                     if (isConcluded) {
-                        return [
-                            '<span class="text-xs text-gray-500 italic mr-auto flex items-center gap-1.5"><i class="fas fa-info-circle text-amber-500"></i> Leave concluded &mdash; not eligible for cancellation</span>',
-                            printBtnHtml,
-                            closeBtnHtml
-                        ].filter(Boolean).join('\n');
+                        return printBtnHtml;
                     }
-                    return [
-                        printBtnHtml,
-                        amendBtnHtml,
-                        closeBtnHtml,
-                        '<button class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 modal-cancel-btn" data-id="' + appId + '">Cancel Application</button>'
-                    ].filter(Boolean).join('\n');
+                    if (application.Status === 'Pending') {
+                        return '<button type="button" class="modal-cancel-btn px-4 py-2 bg-rose-600 hover:bg-rose-700 active:scale-97 text-white rounded-xl text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer" data-id="' + appId + '"><i class="fas fa-ban text-[11px]"></i> Cancel Request</button>';
+                    }
+                    return [amendBtnHtml, printBtnHtml].filter(Boolean).join('\n');
                 }
 
                 if (application.Status === 'Approved') {
-                    return [printBtnHtml, amendBtnHtml, closeBtnHtml].filter(Boolean).join('\n');
+                    return [amendBtnHtml, printBtnHtml].filter(Boolean).join('\n');
                 }
 
                 return '';
@@ -11549,14 +11648,27 @@
 
                 // Populate modal with application details
                 const effectiveAppId = application.ID || application.Id || appId;
-                document.getElementById('applicationIdTitle').textContent = 'Application ID: ' + effectiveAppId;
+                const idEl = document.getElementById('applicationIdTitle');
+                if (idEl) {
+                    idEl.textContent = 'ID: ' + effectiveAppId;
+                }
+
+                const headerBadge = document.getElementById('applicationModalHeaderBadge');
+                if (headerBadge) {
+                    const stLower = (application.Status || 'pending').toLowerCase();
+                    headerBadge.innerHTML = '<span class="status-badge ' + stLower + ' px-2.5 py-0.5 text-xs font-semibold shadow-xs">' + escapeHtml(application.Status || 'Pending') + '</span>';
+                }
 
                 const user = AppState.currentUser;
                 const isSupervisorOrAdmin = user && (user.role === 'supervisor' || user.role === 'admin' || user.role === 'hr');
                 const isActualSupervisor = user && application.SupervisorEmail && (user.email || '').toLowerCase() === (application.SupervisorEmail || '').toLowerCase();
                 const canTakeAction = (isSupervisorOrAdmin || isActualSupervisor) && application.Status === 'Pending' && (isTeamView || isActualSupervisor);
 
-                document.getElementById('applicationDetailsContent').innerHTML = renderApplicationDetailsContent(application);
+                const contentEl = document.getElementById('applicationDetailsContent');
+                if (contentEl) {
+                    contentEl.innerHTML = renderApplicationDetailsContent(application);
+                    contentEl.scrollTop = 0; // Always start at the top
+                }
 
                 const endInput = application.EndDate || application.StartDate || application.HourlyDate;
                 const leaveEnd = parseLocalDate(endInput);
@@ -11565,40 +11677,50 @@
                 if (leaveEnd) leaveEnd.setHours(0, 0, 0, 0);
                 const isConcluded = application.Status === 'Approved' && leaveEnd && today > leaveEnd;
 
+                // Footer contextual info
+                const footerInfo = document.getElementById('applicationModalFooterInfo');
+                if (footerInfo) {
+                    if (isConcluded) {
+                        footerInfo.innerHTML = '<span class="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md flex items-center gap-1"><i class="fas fa-info-circle text-[10px]"></i> Leave concluded</span>';
+                    } else if (application.ProcessedBy && application.Status !== 'Pending') {
+                        footerInfo.innerHTML = '<span class="text-xs text-slate-500 flex items-center gap-1"><i class="fas fa-user-check text-[10px] text-slate-400"></i> Processed by ' + escapeHtml(application.ProcessedBy) + '</span>';
+                    } else {
+                        footerInfo.innerHTML = '';
+                    }
+                }
+
                 // Set up action buttons
                 const actionButtons = document.getElementById('applicationActionButtons');
                 const buttonsHtml = renderApplicationModalActionButtons(application, canTakeAction, isTeamView, effectiveAppId, isConcluded);
 
-                if (buttonsHtml) {
-                    actionButtons.classList.remove('hidden');
-                    actionButtons.innerHTML = buttonsHtml;
+                if (actionButtons) {
+                    actionButtons.innerHTML = buttonsHtml || '';
 
-                    document.getElementById('cancelActionBtn')?.addEventListener('click', () => {
-                        document.getElementById('applicationDetailsModal').classList.add('hidden');
+                    actionButtons.querySelectorAll('.decline-action-btn').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            const id = e.currentTarget.getAttribute('data-id') || e.target.closest('[data-id]')?.getAttribute('data-id');
+                            processApplicationDecision(id, 'decline', true);
+                        });
                     });
 
-                    document.querySelector('.decline-action-btn')?.addEventListener('click', (e) => {
-                        const id = e.target.getAttribute('data-id');
-                        processApplicationDecision(id, 'decline', true);
+                    actionButtons.querySelectorAll('.approve-action-btn').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            const id = e.currentTarget.getAttribute('data-id') || e.target.closest('[data-id]')?.getAttribute('data-id');
+                            processApplicationDecision(id, 'approve', true);
+                        });
                     });
 
-                    document.querySelector('.approve-action-btn')?.addEventListener('click', (e) => {
-                        const id = e.target.getAttribute('data-id');
-                        processApplicationDecision(id, 'approve', true);
+                    actionButtons.querySelectorAll('.modal-cancel-btn').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            const id = e.currentTarget.getAttribute('data-id') || e.target.closest('[data-id]')?.getAttribute('data-id');
+                            cancelApplication(id);
+                        });
                     });
 
-                    document.querySelector('.modal-cancel-btn')?.addEventListener('click', (e) => {
-                        const id = e.target.getAttribute('data-id');
-                        cancelApplication(id);
+                    document.getElementById('printLeaveSlipBtn')?.addEventListener('click', () => {
+                        printLeaveCertificate(application);
                     });
-                } else {
-                    actionButtons.classList.add('hidden');
-                    actionButtons.innerHTML = '';
                 }
-
-                document.getElementById('printLeaveSlipBtn')?.addEventListener('click', () => {
-                    printLeaveCertificate(application);
-                });
 
                 hideLoading();
                 document.getElementById('applicationDetailsModal').classList.remove('hidden');
