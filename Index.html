@@ -1681,13 +1681,29 @@
             transform: scale(0.99);
         }
 
-        /* ── Micro-Interaction Tactile Press ─────────────────────────── */
-        button:active,
-        .btn:active,
+        /* ── Micro-Interaction Tactile Press (Emil Kowalski) ─────────── */
+        button:active:not(:disabled),
+        .btn:active:not(:disabled),
+        [role="button"]:active:not([aria-disabled="true"]),
         .sidebar-link:active,
         .quick-chip:active,
-        .tab-summary-card:active {
-            transform: scale(0.97);
+        .tab-pill:active,
+        .tab-summary-card:active,
+        .my-app-stat-card:active {
+            transform: scale(0.97) !important;
+        }
+
+        /* Enforce sentence case & clean weight on table headers */
+        th {
+            text-transform: none !important;
+            letter-spacing: normal !important;
+        }
+
+        /* Elevated Bento KPI Card Selection State */
+        .my-app-stat-card.active-kpi {
+            border-color: var(--primary-500) !important;
+            background-color: rgba(236, 253, 245, 0.45) !important;
+            box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.25) !important;
         }
 
         /* Quick Action Chevron Slide */
@@ -5421,41 +5437,76 @@
                             };
 
                             pageHTML += `
-          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
-            <div class="bg-white rounded-xl shadow-xs border border-slate-200/90 p-4 hover:border-slate-300 active:scale-[0.98] transition-all cursor-pointer my-app-stat-card" data-status-filter="all" title="Click to show all applications">
-              <div class="flex items-center justify-between">
-                <p class="text-xs font-medium text-slate-500">All Applications</p>
-                <i class="fas fa-file-alt text-slate-400 text-sm"></i>
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-4 mb-6">
+            <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-emerald-300 active:scale-[0.98] transition-all cursor-pointer my-app-stat-card" data-status-filter="all" title="Click to show all applications">
+              <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+                <span class="text-xs font-semibold text-slate-500">All Filings</span>
+                <div class="h-8 w-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center text-xs">
+                  <i class="fas fa-file-lines"></i>
+                </div>
               </div>
-              <p class="text-2xl font-semibold text-slate-900 mt-2 tracking-tight tabular-nums">${stats.total}</p>
+              <p class="text-2xl font-bold text-slate-900 mt-2 tracking-tight tabular-nums">${stats.total}</p>
+              <div class="mt-2.5 flex items-center justify-between text-[11px] text-slate-500">
+                <span>Total records</span>
+                <span class="font-medium text-slate-700">100%</span>
+              </div>
             </div>
-            <div class="bg-white rounded-xl shadow-xs border border-slate-200/90 p-4 hover:border-slate-300 active:scale-[0.98] transition-all cursor-pointer my-app-stat-card" data-status-filter="approved" title="Click to filter by Approved">
-              <div class="flex items-center justify-between">
-                <p class="text-xs font-medium text-slate-500">Approved</p>
-                <i class="fas fa-check-circle text-emerald-500 text-sm"></i>
+
+            <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-emerald-300 active:scale-[0.98] transition-all cursor-pointer my-app-stat-card" data-status-filter="approved" title="Click to filter by Approved">
+              <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+                <span class="text-xs font-semibold text-slate-500">Approved</span>
+                <div class="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-xs">
+                  <i class="fas fa-check-circle"></i>
+                </div>
               </div>
-              <p class="text-2xl font-semibold text-slate-900 mt-2 tracking-tight tabular-nums">${stats.approved}</p>
+              <p class="text-2xl font-bold text-slate-900 mt-2 tracking-tight tabular-nums">${stats.approved}</p>
+              <div class="mt-2.5 flex items-center gap-1.5 text-[11px] text-emerald-700 font-medium">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
+                <span>Authorized</span>
+              </div>
             </div>
-            <div class="bg-white rounded-xl shadow-xs border border-slate-200/90 p-4 hover:border-slate-300 active:scale-[0.98] transition-all cursor-pointer my-app-stat-card" data-status-filter="pending" title="Click to filter by Pending">
-              <div class="flex items-center justify-between">
-                <p class="text-xs font-medium text-slate-500">Pending</p>
-                <i class="fas fa-clock text-amber-500 text-sm"></i>
+
+            <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-amber-300 active:scale-[0.98] transition-all cursor-pointer my-app-stat-card" data-status-filter="pending" title="Click to filter by Pending">
+              <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+                <span class="text-xs font-semibold text-slate-500">Pending</span>
+                <div class="h-8 w-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center text-xs relative">
+                  <i class="fas fa-clock"></i>
+                  ${stats.pending > 0 ? '<span class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-500 rounded-full animate-pulse border-2 border-white"></span>' : ''}
+                </div>
               </div>
-              <p class="text-2xl font-semibold text-slate-900 mt-2 tracking-tight tabular-nums">${stats.pending}</p>
+              <p class="text-2xl font-bold text-slate-900 mt-2 tracking-tight tabular-nums">${stats.pending}</p>
+              <div class="mt-2.5 flex items-center gap-1.5 text-[11px] text-amber-700 font-medium">
+                <span class="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block"></span>
+                <span>Awaiting review</span>
+              </div>
             </div>
-            <div class="bg-white rounded-xl shadow-xs border border-slate-200/90 p-4 hover:border-slate-300 active:scale-[0.98] transition-all cursor-pointer my-app-stat-card" data-status-filter="declined" title="Click to filter by Declined">
-              <div class="flex items-center justify-between">
-                <p class="text-xs font-medium text-slate-500">Declined</p>
-                <i class="fas fa-times-circle text-rose-500 text-sm"></i>
+
+            <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-rose-300 active:scale-[0.98] transition-all cursor-pointer my-app-stat-card" data-status-filter="declined" title="Click to filter by Declined">
+              <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+                <span class="text-xs font-semibold text-slate-500">Declined</span>
+                <div class="h-8 w-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-xs">
+                  <i class="fas fa-times-circle"></i>
+                </div>
               </div>
-              <p class="text-2xl font-semibold text-slate-900 mt-2 tracking-tight tabular-nums">${stats.declined}</p>
+              <p class="text-2xl font-bold text-slate-900 mt-2 tracking-tight tabular-nums">${stats.declined}</p>
+              <div class="mt-2.5 flex items-center gap-1.5 text-[11px] text-rose-700 font-medium">
+                <span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
+                <span>Not approved</span>
+              </div>
             </div>
-            <div class="bg-white rounded-xl shadow-xs border border-slate-200/90 p-4 hover:border-slate-300 active:scale-[0.98] transition-all cursor-pointer my-app-stat-card" data-status-filter="cancelled" title="Click to filter by Cancelled">
-              <div class="flex items-center justify-between">
-                <p class="text-xs font-medium text-slate-500">Cancelled</p>
-                <i class="fas fa-ban text-slate-400 text-sm"></i>
+
+            <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-slate-300 active:scale-[0.98] transition-all cursor-pointer my-app-stat-card" data-status-filter="cancelled" title="Click to filter by Cancelled">
+              <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+                <span class="text-xs font-semibold text-slate-500">Cancelled</span>
+                <div class="h-8 w-8 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center text-xs">
+                  <i class="fas fa-ban"></i>
+                </div>
               </div>
-              <p class="text-2xl font-semibold text-slate-900 mt-2 tracking-tight tabular-nums">${stats.cancelled}</p>
+              <p class="text-2xl font-bold text-slate-900 mt-2 tracking-tight tabular-nums">${stats.cancelled}</p>
+              <div class="mt-2.5 flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
+                <span class="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block"></span>
+                <span>Voided filings</span>
+              </div>
             </div>
           </div>
 
@@ -5472,14 +5523,14 @@
             </div>
             <div class="overflow-x-auto">
               <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-slate-50 border-b border-gray-200">
+                <thead class="bg-slate-50/80 border-b border-slate-200">
                   <tr>
-                    <th class="px-6 py-3.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Date</th>
-                    <th class="px-6 py-3.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Type</th>
-                    <th class="px-6 py-3.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Period</th>
-                    <th class="px-6 py-3.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Duration</th>
-                    <th class="px-6 py-3.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
-                    <th class="px-6 py-3.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
+                    <th class="px-5 py-3.5 text-left text-xs font-semibold text-slate-700">Date Applied</th>
+                    <th class="px-5 py-3.5 text-left text-xs font-semibold text-slate-700">Leave Type</th>
+                    <th class="px-5 py-3.5 text-left text-xs font-semibold text-slate-700">Period</th>
+                    <th class="px-5 py-3.5 text-left text-xs font-semibold text-slate-700">Duration</th>
+                    <th class="px-5 py-3.5 text-left text-xs font-semibold text-slate-700">Status</th>
+                    <th class="px-5 py-3.5 text-right text-xs font-semibold text-slate-700">Actions</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
@@ -5512,7 +5563,7 @@
                       ${app.ProcessedDate ? `<br><span class="text-xs text-gray-500">${formatDate(app.ProcessedDate)}</span>` : ''}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button class="text-emerald-600 hover:text-emerald-800 font-semibold mr-3 view-application-btn active:scale-95 transition-transform" data-id="${escapeHtml(app.ID || '')}">View</button>
+                      <button class="px-2.5 py-1 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 border border-slate-200/80 text-slate-700 rounded-lg text-xs font-semibold transition-all inline-flex items-center gap-1.5 active:scale-95 cursor-pointer mr-2 view-application-btn" data-id="${escapeHtml(app.ID || '')}"><i class="fas fa-eye text-[11px] text-slate-500"></i> View</button>
                       ${renderLeaveRowCancelButton(app)}
                     </td>
                   </tr>
@@ -5602,9 +5653,9 @@
                                 statCards.forEach(c => {
                                     const cFilter = c.getAttribute('data-status-filter');
                                     if (cFilter === currentStatusFilter && currentStatusFilter !== 'all') {
-                                        c.classList.add('ring-2', 'ring-emerald-500', 'shadow-md');
+                                        c.classList.add('ring-2', 'ring-emerald-500', 'shadow-md', 'active-kpi');
                                     } else {
-                                        c.classList.remove('ring-2', 'ring-emerald-500', 'shadow-md');
+                                        c.classList.remove('ring-2', 'ring-emerald-500', 'shadow-md', 'active-kpi');
                                     }
                                 });
                                 applyMyAppsFilters();
@@ -7407,12 +7458,14 @@
 
                             // Stats Cards - IMPROVED with icons and better visual hierarchy
                             document.getElementById('teamStats').innerHTML = `
-          <div class="bg-white rounded-xl shadow-xs border border-slate-200/90 p-5 hover:border-slate-300 transition-all">
-            <div class="flex items-center justify-between">
-              <p class="text-xs font-medium text-slate-500">Team Size</p>
-              <i class="fas fa-users text-slate-400 text-sm"></i>
+          <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-emerald-300 transition-all">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+              <span class="text-xs font-semibold text-slate-500">Team Size</span>
+              <div class="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-xs">
+                <i class="fas fa-users"></i>
+              </div>
             </div>
-            <p class="text-2xl font-semibold text-slate-900 mt-2 tracking-tight tabular-nums">${teamSize}</p>
+            <p class="text-2xl font-bold text-slate-900 mt-2 tracking-tight tabular-nums">${teamSize}</p>
             <div class="mt-3">
               <div class="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
                 <div class="h-full bg-emerald-500 rounded-full transition-all" style="width: ${(eligibleTeamSize / (teamSize || 1)) * 100}%"></div>
@@ -7424,24 +7477,29 @@
             </div>
           </div>
 
-          <div class="bg-white rounded-xl shadow-xs border border-slate-200/90 p-5 hover:border-slate-300 transition-all">
-            <div class="flex items-center justify-between">
-              <p class="text-xs font-medium text-slate-500">Pending Review</p>
-              <i class="fas fa-clock text-amber-500 text-sm"></i>
+          <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-amber-300 transition-all">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+              <span class="text-xs font-semibold text-slate-500">Pending Review</span>
+              <div class="h-8 w-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center text-xs relative">
+                <i class="fas fa-clock"></i>
+                ${pendingCount > 0 ? '<span class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-500 rounded-full animate-pulse border-2 border-white"></span>' : ''}
+              </div>
             </div>
-            <p class="text-2xl font-semibold text-slate-900 mt-2 tracking-tight tabular-nums">${pendingCount}</p>
+            <p class="text-2xl font-bold text-slate-900 mt-2 tracking-tight tabular-nums">${pendingCount}</p>
             <p class="text-xs text-slate-500 mt-3 flex items-center gap-1.5">
               <span class="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block"></span>
               ${pendingCount === 1 ? 'Application' : 'Applications'} awaiting review
             </p>
           </div>
 
-          <div class="bg-white rounded-xl shadow-xs border border-slate-200/90 p-5 hover:border-slate-300 transition-all">
-            <div class="flex items-center justify-between">
-              <p class="text-xs font-medium text-slate-500">Leave Utilization</p>
-              <i class="fas fa-chart-pie text-slate-400 text-sm"></i>
+          <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-blue-300 transition-all">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+              <span class="text-xs font-semibold text-slate-500">Leave Utilization</span>
+              <div class="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xs">
+                <i class="fas fa-chart-pie"></i>
+              </div>
             </div>
-            <p class="text-2xl font-semibold text-slate-900 mt-2 tracking-tight tabular-nums">${utilizationRate}%</p>
+            <p class="text-2xl font-bold text-slate-900 mt-2 tracking-tight tabular-nums">${utilizationRate}%</p>
             <div class="mt-3">
               <div class="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
                 <div class="h-full bg-blue-500 rounded-full transition-all" style="width: ${Math.min(100, utilizationRate)}%"></div>
@@ -7453,12 +7511,14 @@
             </div>
           </div>
 
-          <div class="bg-white rounded-xl shadow-xs border border-slate-200/90 p-5 hover:border-slate-300 transition-all">
-            <div class="flex items-center justify-between">
-              <p class="text-xs font-medium text-slate-500">In Deficit</p>
-              <i class="fas fa-exclamation-circle text-rose-500 text-sm"></i>
+          <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-rose-300 transition-all">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+              <span class="text-xs font-semibold text-slate-500">In Deficit</span>
+              <div class="h-8 w-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-xs">
+                <i class="fas fa-circle-exclamation"></i>
+              </div>
             </div>
-            <p class="text-2xl font-semibold text-slate-900 mt-2 tracking-tight tabular-nums">${deficitStaff.length}</p>
+            <p class="text-2xl font-bold text-slate-900 mt-2 tracking-tight tabular-nums">${deficitStaff.length}</p>
             <div class="mt-3">
               <p class="text-xs text-slate-500">Total deficit: <span class="font-medium text-rose-600">${totalDeficit.toFixed(2)}d</span></p>
               ${deficitStaff.length > 0 ? `
@@ -7475,12 +7535,14 @@
             </div>
           </div>
 
-          <div class="bg-white rounded-xl shadow-xs border border-slate-200/90 p-5 hover:border-slate-300 transition-all">
-            <div class="flex items-center justify-between">
-              <p class="text-xs font-medium text-slate-500">Cancelled</p>
-              <i class="fas fa-ban text-slate-400 text-sm"></i>
+          <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-slate-300 transition-all">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+              <span class="text-xs font-semibold text-slate-500">Cancelled</span>
+              <div class="h-8 w-8 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center text-xs">
+                <i class="fas fa-ban"></i>
+              </div>
             </div>
-            <p class="text-2xl font-semibold text-slate-900 mt-2 tracking-tight tabular-nums">${stats.cancelledCount || 0}</p>
+            <p class="text-2xl font-bold text-slate-900 mt-2 tracking-tight tabular-nums">${stats.cancelledCount || 0}</p>
             <p class="text-xs text-slate-500 mt-3 flex items-center gap-1.5">
               <span class="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block"></span>
               ${(stats.cancelledCount || 0) === 1 ? 'Application' : 'Applications'} cancelled
@@ -12278,50 +12340,52 @@
                         ? summary.cancelledApplications
                         : allApps.filter(a => (a.Status || a.status) === 'Cancelled').length;
 
-                    html += '<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5 mb-8">';
-                    html += '<div class="bg-white rounded-xl shadow-xs border border-slate-200/90 p-5 hover:border-slate-300 transition-all">' +
-                        '<div class="flex items-center justify-between">' +
-                        '<p class="text-xs font-medium text-slate-500">Total Staff</p>' +
-                        '<i class="fas fa-users text-slate-400 text-sm"></i>' +
+                    html += '<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 sm:gap-4 mb-8">';
+                    html += '<div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-emerald-300 transition-all">' +
+                        '<div class="flex items-center justify-between pb-2 border-b border-slate-100">' +
+                        '<span class="text-xs font-semibold text-slate-500">Total Staff</span>' +
+                        '<div class="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-xs"><i class="fas fa-users"></i></div>' +
                         '</div>' +
-                        '<p class="text-2xl font-semibold text-slate-900 mt-2 tracking-tight tabular-nums">' + (summary.totalStaff || 0) + '</p>' +
-                        '<p class="text-xs text-slate-500 mt-1.5 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>' + (summary.eligibleStaff || 0) + ' eligible for leave</p>' +
+                        '<p class="text-2xl font-bold text-slate-900 mt-2 tracking-tight tabular-nums">' + (summary.totalStaff || 0) + '</p>' +
+                        '<p class="text-xs text-slate-500 mt-2 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>' + (summary.eligibleStaff || 0) + ' eligible for leave</p>' +
                         '</div>';
 
-                    html += '<div class="bg-white rounded-xl shadow-xs border border-slate-200/90 p-5 hover:border-slate-300 transition-all">' +
-                        '<div class="flex items-center justify-between">' +
-                        '<p class="text-xs font-medium text-slate-500">Pending Applications</p>' +
-                        '<i class="fas fa-clock text-amber-500 text-sm"></i>' +
+                    html += '<div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-amber-300 transition-all">' +
+                        '<div class="flex items-center justify-between pb-2 border-b border-slate-100">' +
+                        '<span class="text-xs font-semibold text-slate-500">Pending Filings</span>' +
+                        '<div class="h-8 w-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center text-xs relative"><i class="fas fa-clock"></i>' +
+                        (summary.pendingApplications > 0 ? '<span class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-500 rounded-full animate-pulse border-2 border-white"></span>' : '') +
                         '</div>' +
-                        '<p class="text-2xl font-semibold text-slate-900 mt-2 tracking-tight tabular-nums">' + (summary.pendingApplications || 0) + '</p>' +
-                        '<p class="text-xs text-slate-500 mt-1.5 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block"></span>Awaiting review</p>' +
+                        '</div>' +
+                        '<p class="text-2xl font-bold text-slate-900 mt-2 tracking-tight tabular-nums">' + (summary.pendingApplications || 0) + '</p>' +
+                        '<p class="text-xs text-slate-500 mt-2 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block"></span>Awaiting review</p>' +
                         '</div>';
 
-                    html += '<div class="bg-white rounded-xl shadow-xs border border-slate-200/90 p-5 hover:border-slate-300 transition-all">' +
-                        '<div class="flex items-center justify-between">' +
-                        '<p class="text-xs font-medium text-slate-500">Total Applications</p>' +
-                        '<i class="fas fa-calendar-check text-slate-400 text-sm"></i>' +
+                    html += '<div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-blue-300 transition-all">' +
+                        '<div class="flex items-center justify-between pb-2 border-b border-slate-100">' +
+                        '<span class="text-xs font-semibold text-slate-500">All Applications</span>' +
+                        '<div class="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xs"><i class="fas fa-calendar-check"></i></div>' +
                         '</div>' +
-                        '<p class="text-2xl font-semibold text-slate-900 mt-2 tracking-tight tabular-nums">' + allApps.length + '</p>' +
-                        '<p class="text-xs text-slate-500 mt-1.5 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block"></span>All-time recorded</p>' +
+                        '<p class="text-2xl font-bold text-slate-900 mt-2 tracking-tight tabular-nums">' + allApps.length + '</p>' +
+                        '<p class="text-xs text-slate-500 mt-2 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block"></span>All-time recorded</p>' +
                         '</div>';
 
-                    html += '<div class="bg-white rounded-xl shadow-xs border border-slate-200/90 p-5 hover:border-slate-300 transition-all">' +
-                        '<div class="flex items-center justify-between">' +
-                        '<p class="text-xs font-medium text-slate-500">Cancelled</p>' +
-                        '<i class="fas fa-ban text-slate-400 text-sm"></i>' +
+                    html += '<div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-slate-300 transition-all">' +
+                        '<div class="flex items-center justify-between pb-2 border-b border-slate-100">' +
+                        '<span class="text-xs font-semibold text-slate-500">Cancelled</span>' +
+                        '<div class="h-8 w-8 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center text-xs"><i class="fas fa-ban"></i></div>' +
                         '</div>' +
-                        '<p class="text-2xl font-semibold text-slate-900 mt-2 tracking-tight tabular-nums">' + cancelledAppsCount + '</p>' +
-                        '<p class="text-xs text-slate-500 mt-1.5 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 inline-block"></span>Voided or withdrawn</p>' +
+                        '<p class="text-2xl font-bold text-slate-900 mt-2 tracking-tight tabular-nums">' + cancelledAppsCount + '</p>' +
+                        '<p class="text-xs text-slate-500 mt-2 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 inline-block"></span>Voided or withdrawn</p>' +
                         '</div>';
 
-                    // Unconsumed Days Card (No monetary amounts)
-                    html += '<div class="bg-white rounded-xl shadow-xs border border-slate-200/90 p-5 hover:border-slate-300 transition-all">' +
-                        '<div class="flex items-center justify-between">' +
-                        '<p class="text-xs font-medium text-slate-500">Unconsumed Pool</p>' +
-                        '<i class="fas fa-hourglass-half text-slate-400 text-sm"></i>' +
+                    // Unconsumed Days Card
+                    html += '<div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-purple-300 transition-all">' +
+                        '<div class="flex items-center justify-between pb-2 border-b border-slate-100">' +
+                        '<span class="text-xs font-semibold text-slate-500">Unconsumed Pool</span>' +
+                        '<div class="h-8 w-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center text-xs"><i class="fas fa-hourglass-half"></i></div>' +
                         '</div>' +
-                        '<p class="text-2xl font-semibold text-slate-900 mt-2 tracking-tight tabular-nums">' + (liability.totalUnconsumedDays || 0) + ' <span class="text-xs font-normal text-slate-500">days</span></p>' +
+                        '<p class="text-2xl font-bold text-slate-900 mt-2 tracking-tight tabular-nums">' + (liability.totalUnconsumedDays || 0) + ' <span class="text-xs font-normal text-slate-500">days</span></p>' +
                         '<div class="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">' +
                         '<span>' + (liability.totalAnnualDays || 0) + ' Annual</span>' +
                         '<span>•</span>' +
