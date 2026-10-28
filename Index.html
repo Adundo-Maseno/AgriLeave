@@ -6587,59 +6587,123 @@
                 const pageElement = document.getElementById('staffManagementPage');
 
                 pageElement.innerHTML = `
-    <div class="flex justify-end items-center mb-6 space-x-3">
-      <button id="awardCompGlobalBtn" onclick="openCompensationModal()" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white rounded-xl text-sm font-medium shadow-xs transition-all flex items-center gap-2">
-        <i class="fas fa-award"></i> Award Compensation
-      </button>
-      <button id="addStaffBtn" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white rounded-xl text-sm font-medium shadow-xs transition-all flex items-center gap-2">
-        <i class="fas fa-plus"></i> Add Staff
-      </button>
-    </div>
-
-    <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-emerald-100 p-4 mb-6">
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
-        <div class="relative">
-          <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
-          <input type="text" id="staffSearch" placeholder="Search by name or email" class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white">
+    <!-- Bento KPI Strip -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-4 mb-6" id="staffManagementKpiStrip">
+      <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-emerald-300 transition-all cursor-pointer staff-kpi-card active-kpi" data-kpi-filter="all" title="Click to show all staff">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+          <span class="text-xs font-semibold text-slate-500">Total Staff</span>
+          <div class="h-8 w-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center text-xs"><i class="fas fa-users"></i></div>
         </div>
-        <select id="roleFilter" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white">
-          <option value="">All Roles</option>
-          <option value="admin">Admin</option>
-          <option value="hr">HR</option>
-          <option value="supervisor">Supervisor</option>
-          <option value="staff">Staff</option>
-        </select>
-        <select id="eligibilityFilter" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white">
-          <option value="">All Staff</option>
-          <option value="true">Eligible Only</option>
-          <option value="false">Not Eligible</option>
-        </select>
-        <button id="applyStaffFilters" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white rounded-xl text-sm font-medium shadow-xs transition-all flex items-center justify-center gap-2">
-          <i class="fas fa-filter"></i> Apply Filters
-        </button>
+        <p class="text-2xl font-bold text-slate-900 mt-2 tracking-tight tabular-nums" id="smTotalStaff">-</p>
+        <p class="text-[11px] text-slate-500 mt-2 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block"></span>Directory records</p>
+      </div>
+
+      <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-emerald-300 transition-all cursor-pointer staff-kpi-card" data-kpi-filter="eligible" title="Click to filter Eligible staff">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+          <span class="text-xs font-semibold text-slate-500">Eligible</span>
+          <div class="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-xs"><i class="fas fa-user-check"></i></div>
+        </div>
+        <p class="text-2xl font-bold text-slate-900 mt-2 tracking-tight tabular-nums" id="smEligibleStaff">-</p>
+        <p class="text-[11px] text-emerald-700 font-medium mt-2 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>Active leave accrual</p>
+      </div>
+
+      <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-blue-300 transition-all cursor-pointer staff-kpi-card" data-kpi-filter="supervisor" title="Click to filter Supervisors & Admins">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+          <span class="text-xs font-semibold text-slate-500">Approvers</span>
+          <div class="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xs"><i class="fas fa-user-shield"></i></div>
+        </div>
+        <p class="text-2xl font-bold text-slate-900 mt-2 tracking-tight tabular-nums" id="smApproverCount">-</p>
+        <p class="text-[11px] text-blue-700 font-medium mt-2 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-blue-500 inline-block"></span>Supervisors, HR & Admin</p>
+      </div>
+
+      <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-indigo-300 transition-all cursor-pointer staff-kpi-card" data-kpi-filter="comp" title="Click to filter staff with Compensation Days">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+          <span class="text-xs font-semibold text-slate-500">Comp Holders</span>
+          <div class="h-8 w-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs"><i class="fas fa-award"></i></div>
+        </div>
+        <p class="text-2xl font-bold text-slate-900 mt-2 tracking-tight tabular-nums" id="smCompHolders">-</p>
+        <p class="text-[11px] text-indigo-700 font-medium mt-2 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-indigo-500 inline-block"></span>Awarded comp days</p>
+      </div>
+
+      <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-purple-300 transition-all">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+          <span class="text-xs font-semibold text-slate-500">Departments</span>
+          <div class="h-8 w-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center text-xs"><i class="fas fa-building"></i></div>
+        </div>
+        <p class="text-2xl font-bold text-slate-900 mt-2 tracking-tight tabular-nums" id="smDeptCount">-</p>
+        <p class="text-[11px] text-slate-500 mt-2 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-purple-500 inline-block"></span>Active units</p>
       </div>
     </div>
 
-    <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-gray-200/80 overflow-hidden">
+    <!-- Filter & Action Toolbar -->
+    <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 mb-6">
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3.5">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 flex-1">
+          <div class="relative">
+            <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+            <input type="text" id="staffSearch" placeholder="Search name, email, supervisor..." class="w-full pl-9 pr-8 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all bg-white text-slate-800">
+            <button type="button" id="staffSearchClear" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs" title="Clear search"><i class="fas fa-times"></i></button>
+          </div>
+          <select id="staffDeptFilter" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all bg-white text-slate-700">
+            <option value="">All Departments</option>
+          </select>
+          <select id="roleFilter" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all bg-white text-slate-700">
+            <option value="">All Roles</option>
+            <option value="admin">Admin</option>
+            <option value="hr">HR</option>
+            <option value="supervisor">Supervisor</option>
+            <option value="staff">Staff</option>
+          </select>
+          <select id="eligibilityFilter" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all bg-white text-slate-700">
+            <option value="">All Eligibility</option>
+            <option value="true">Eligible Only</option>
+            <option value="false">Not Eligible</option>
+            <option value="comp">Has Comp Balance</option>
+          </select>
+        </div>
+        <div class="flex flex-wrap items-center justify-end gap-2.5">
+          <button type="button" id="resetStaffFilters" class="hidden px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-all items-center gap-1.5 cursor-pointer">
+            <i class="fas fa-rotate-left text-[11px]"></i> Reset
+          </button>
+          <button type="button" id="awardCompGlobalBtn" onclick="openCompensationModal()" class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer">
+            <i class="fas fa-award"></i> Award Comp
+          </button>
+          <button type="button" id="addStaffBtn" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer">
+            <i class="fas fa-plus"></i> Add Staff
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-200/80 flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <i class="fas fa-id-badge text-emerald-600"></i> Employee Directory & Access Governance
+          </h3>
+          <p class="text-xs text-slate-500 mt-0.5">Manage roles, reporting lines, leave eligibility, and compensation awards</p>
+        </div>
+        <span id="staffManagementCountBadge" class="text-xs font-medium text-slate-600 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200 tabular-nums">Loading...</span>
+      </div>
       <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-slate-50/80 border-b border-gray-200">
+        <table class="min-w-full divide-y divide-slate-200">
+          <thead class="bg-slate-50/80 border-b border-slate-200">
             <tr>
-              <th class="px-6 py-3.5 text-left text-xs font-medium text-slate-500">Name</th>
-              <th class="px-6 py-3.5 text-left text-xs font-medium text-slate-500">Email</th>
-              <th class="px-6 py-3.5 text-left text-xs font-medium text-slate-500">Role</th>
-              <th class="px-6 py-3.5 text-left text-xs font-medium text-slate-500">Department</th>
-              <th class="px-6 py-3.5 text-left text-xs font-medium text-slate-500">Supervisor</th>
-              <th class="px-6 py-3.5 text-center text-xs font-medium text-slate-500">Eligible</th>
-              <th class="px-6 py-3.5 text-center text-xs font-medium text-indigo-700 bg-indigo-50/40">Comp Days</th>
-              <th class="px-6 py-3.5 text-left text-xs font-medium text-slate-500">Actions</th>
+              <th class="px-5 py-3.5 text-left text-xs font-semibold text-slate-700">Name</th>
+              <th class="px-5 py-3.5 text-left text-xs font-semibold text-slate-700">Email</th>
+              <th class="px-5 py-3.5 text-left text-xs font-semibold text-slate-700">Role</th>
+              <th class="px-5 py-3.5 text-left text-xs font-semibold text-slate-700">Department</th>
+              <th class="px-5 py-3.5 text-left text-xs font-semibold text-slate-700">Supervisor</th>
+              <th class="px-5 py-3.5 text-center text-xs font-semibold text-slate-700">Eligible</th>
+              <th class="px-5 py-3.5 text-center text-xs font-semibold text-indigo-700 bg-indigo-50/40">Comp Days</th>
+              <th class="px-5 py-3.5 text-right text-xs font-semibold text-slate-700">Actions</th>
             </tr>
           </thead>
-          <tbody id="staffTableBody" class="divide-y divide-gray-200">
+          <tbody id="staffTableBody" class="divide-y divide-slate-100 bg-white">
             <tr>
-              <td colspan="8" class="px-6 py-8 text-center text-gray-500">
+              <td colspan="8" class="px-6 py-8 text-center text-slate-500 text-xs">
                 <div class="flex justify-center items-center">
-                  <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600 mr-3"></div>
+                  <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-emerald-600 mr-2.5"></div>
                   Loading staff directory...
                 </div>
               </td>
@@ -6653,16 +6717,73 @@
                 loadStaffList();
 
                 // Add filter event listeners
-                document.getElementById('applyStaffFilters')?.addEventListener('click', filterStaffList);
-                document.getElementById('staffSearch')?.addEventListener('keyup', filterStaffList);
-                document.getElementById('roleFilter')?.addEventListener('change', filterStaffList);
-                document.getElementById('eligibilityFilter')?.addEventListener('change', filterStaffList);
+                const searchInput = document.getElementById('staffSearch');
+                const searchClear = document.getElementById('staffSearchClear');
+                const deptSelect = document.getElementById('staffDeptFilter');
+                const roleSelect = document.getElementById('roleFilter');
+                const eligSelect = document.getElementById('eligibilityFilter');
+                const resetBtn = document.getElementById('resetStaffFilters');
+
+                searchInput?.addEventListener('input', filterStaffList);
+                searchClear?.addEventListener('click', () => {
+                    if (searchInput) {
+                        searchInput.value = '';
+                        searchInput.focus();
+                    }
+                    filterStaffList();
+                });
+                deptSelect?.addEventListener('change', filterStaffList);
+                roleSelect?.addEventListener('change', filterStaffList);
+                eligSelect?.addEventListener('change', filterStaffList);
+                resetBtn?.addEventListener('click', () => {
+                    if (searchInput) searchInput.value = '';
+                    if (deptSelect) deptSelect.value = '';
+                    if (roleSelect) roleSelect.value = '';
+                    if (eligSelect) eligSelect.value = '';
+                    pageElement.querySelectorAll('.staff-kpi-card').forEach(c => c.classList.remove('active-kpi'));
+                    pageElement.querySelector('.staff-kpi-card[data-kpi-filter="all"]')?.classList.add('active-kpi');
+                    filterStaffList();
+                });
+
+                // Interactive KPI card filtering
+                pageElement.querySelectorAll('.staff-kpi-card').forEach(card => {
+                    card.addEventListener('click', () => {
+                        const kpi = card.getAttribute('data-kpi-filter');
+                        pageElement.querySelectorAll('.staff-kpi-card').forEach(c => c.classList.remove('active-kpi'));
+                        card.classList.add('active-kpi');
+                        if (kpi === 'all') {
+                            if (roleSelect) roleSelect.value = '';
+                            if (eligSelect) eligSelect.value = '';
+                        } else if (kpi === 'eligible') {
+                            if (roleSelect) roleSelect.value = '';
+                            if (eligSelect) eligSelect.value = 'true';
+                        } else if (kpi === 'supervisor') {
+                            if (eligSelect) eligSelect.value = '';
+                            if (roleSelect) roleSelect.value = 'supervisor';
+                        } else if (kpi === 'comp') {
+                            if (roleSelect) roleSelect.value = '';
+                            if (eligSelect) eligSelect.value = 'comp';
+                        }
+                        filterStaffList();
+                    });
+                });
             }
             // Add filter function
             function filterStaffList() {
                 const searchTerm = (document.getElementById('staffSearch')?.value || '').toLowerCase().trim();
+                const deptFilter = (document.getElementById('staffDeptFilter')?.value || '').toLowerCase().trim();
                 const roleFilter = (document.getElementById('roleFilter')?.value || '').toLowerCase().trim();
                 const eligibilityFilter = document.getElementById('eligibilityFilter')?.value || '';
+
+                const searchClear = document.getElementById('staffSearchClear');
+                if (searchClear) searchClear.classList.toggle('hidden', !searchTerm);
+
+                const resetBtn = document.getElementById('resetStaffFilters');
+                const hasAnyFilter = Boolean(searchTerm || deptFilter || roleFilter || eligibilityFilter);
+                if (resetBtn) {
+                    resetBtn.classList.toggle('hidden', !hasAnyFilter);
+                    resetBtn.classList.toggle('inline-flex', hasAnyFilter);
+                }
 
                 // Remove existing no-matching-results row if present
                 const existingEmpty = document.getElementById('noStaffFilterResultsRow');
@@ -6680,6 +6801,9 @@
                     const name = (row.getAttribute('data-name') || row.cells[0]?.textContent || '').toLowerCase().trim();
                     const email = (row.getAttribute('data-email') || row.cells[1]?.textContent || '').toLowerCase().trim();
                     const role = (row.getAttribute('data-role') || row.cells[2]?.textContent || '').toLowerCase().trim();
+                    const dept = (row.getAttribute('data-dept') || row.cells[3]?.textContent || '').toLowerCase().trim();
+                    const sup = (row.getAttribute('data-supervisor') || row.cells[4]?.textContent || '').toLowerCase().trim();
+                    const hasComp = row.getAttribute('data-comp') === 'true';
 
                     const rowEligibleAttr = row.getAttribute('data-eligible');
                     const eligible = (rowEligibleAttr !== null && rowEligibleAttr !== '')
@@ -6688,7 +6812,11 @@
 
                     let show = true;
 
-                    if (searchTerm && !name.includes(searchTerm) && !email.includes(searchTerm)) {
+                    if (searchTerm && !name.includes(searchTerm) && !email.includes(searchTerm) && !dept.includes(searchTerm) && !sup.includes(searchTerm)) {
+                        show = false;
+                    }
+
+                    if (deptFilter && dept !== deptFilter) {
                         show = false;
                     }
 
@@ -6700,11 +6828,18 @@
                         show = false;
                     } else if (eligibilityFilter === 'false' && eligible) {
                         show = false;
+                    } else if (eligibilityFilter === 'comp' && !hasComp) {
+                        show = false;
                     }
 
                     if (show) visibleCount++;
                     row.style.display = show ? '' : 'none';
                 });
+
+                const countBadge = document.getElementById('staffManagementCountBadge');
+                if (countBadge && dataRowCount > 0) {
+                    countBadge.textContent = `${visibleCount} of ${dataRowCount} staff`;
+                }
 
                 // Show no matching results row if all rows are filtered out
                 if (visibleCount === 0 && dataRowCount > 0) {
@@ -6712,7 +6847,7 @@
                     if (tbody) {
                         const tr = document.createElement('tr');
                         tr.id = 'noStaffFilterResultsRow';
-                        tr.innerHTML = '<td colspan="8" class="px-6 py-10 text-center text-gray-500 text-sm"><div class="flex flex-col items-center justify-center"><i class="fas fa-filter text-gray-300 text-2xl mb-2"></i><span>No staff members match the selected filter criteria</span></div></td>';
+                        tr.innerHTML = '<td colspan="8" class="px-6 py-10 text-center text-slate-500 text-xs"><div class="flex flex-col items-center justify-center"><i class="fas fa-filter text-slate-300 text-2xl mb-2"></i><span>No staff members match the selected filter criteria</span></div></td>';
                         tbody.appendChild(tr);
                     }
                 }
@@ -6748,6 +6883,11 @@
                                 }
                             });
 
+                            let eligibleCount = 0;
+                            let approverCount = 0;
+                            let compHoldersCount = 0;
+                            const deptSet = new Set();
+
                             tbody.innerHTML = uniqueStaff.map(s => {
                                 // Safely access properties with proper casing
                                 const name = s.Name || s.name || 'Unknown';
@@ -6760,6 +6900,13 @@
                                     (s.LeaveAccrual?.eligible !== undefined ? s.LeaveAccrual.eligible :
                                     (s.Metadata?.eligibleForLeave !== undefined ? s.Metadata.eligibleForLeave : true)));
                                 const isEligible = !(rawEligible === false || rawEligible === 'false' || rawEligible === 0 || rawEligible === '0');
+                                const compBal = Number(s.CompensationLeave?.balance || 0);
+
+                                if (isEligible) eligibleCount++;
+                                const roleLower = role.toLowerCase();
+                                if (roleLower.includes('supervisor') || roleLower.includes('admin') || roleLower.includes('hr')) approverCount++;
+                                if (compBal > 0) compHoldersCount++;
+                                if (department && department !== '-') deptSet.add(department);
 
                                 // Get supervisor name if supervisor is an email
                                 let supervisorDisplay = supervisor;
@@ -6779,34 +6926,35 @@
                                 const escapedSupervisor = escapeHtml(supervisorDisplay);
 
                                 return `
-            <tr data-name="${escapedName.toLowerCase()}" data-email="${escapedEmail.toLowerCase()}" data-role="${escapedRole.toLowerCase()}" data-eligible="${isEligible ? 'true' : 'false'}">
-              <td class="px-6 py-4 whitespace-nowrap">
-                <div class="font-medium text-gray-900">${escapedName}</div>
+            <tr class="hover:bg-slate-50/70 transition-colors" data-name="${escapedName.toLowerCase()}" data-email="${escapedEmail.toLowerCase()}" data-role="${escapedRole.toLowerCase()}" data-dept="${escapedDepartment.toLowerCase()}" data-supervisor="${escapedSupervisor.toLowerCase()}" data-eligible="${isEligible ? 'true' : 'false'}" data-comp="${compBal > 0 ? 'true' : 'false'}">
+              <td class="px-5 py-3.5 whitespace-nowrap">
+                <div class="font-semibold text-slate-900 text-xs">${escapedName}</div>
               </td>
-              <td class="px-6 py-4 whitespace-nowrap">${escapedEmail}</td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <span class="px-2 py-1 text-xs font-medium rounded-full ${role === 'admin' ? 'bg-purple-100 text-purple-800' :
-                                        role === 'supervisor' ? 'bg-blue-100 text-blue-800' :
-                                            'bg-gray-100 text-gray-800'
+              <td class="px-5 py-3.5 whitespace-nowrap text-xs text-slate-600">${escapedEmail}</td>
+              <td class="px-5 py-3.5 whitespace-nowrap">
+                <span class="px-2.5 py-0.5 text-[11px] font-semibold rounded-full ${roleLower === 'admin' ? 'bg-purple-50 text-purple-700 border border-purple-200' :
+                                        roleLower === 'supervisor' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                                        roleLower === 'hr' ? 'bg-teal-50 text-teal-700 border border-teal-200' :
+                                            'bg-slate-100 text-slate-700 border border-slate-200'
                                     }">
                   ${escapedRole}
                 </span>
               </td>
-              <td class="px-6 py-4 whitespace-nowrap">${escapedDepartment}</td>
-              <td class="px-6 py-4 whitespace-nowrap">${escapedSupervisor}</td>
-              <td class="px-6 py-4 whitespace-nowrap text-center">
-                <span class="px-2.5 py-1 text-xs font-semibold rounded-full ${isEligible ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}">
+              <td class="px-5 py-3.5 whitespace-nowrap text-xs text-slate-700">${escapedDepartment}</td>
+              <td class="px-5 py-3.5 whitespace-nowrap text-xs text-slate-600">${escapedSupervisor}</td>
+              <td class="px-5 py-3.5 whitespace-nowrap text-center">
+                <span class="px-2.5 py-0.5 text-[11px] font-semibold rounded-full ${isEligible ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}">
                   ${isEligible ? 'Yes' : 'No'}
                 </span>
               </td>
-              <td class="px-6 py-4 whitespace-nowrap text-center">
-                <span class="px-2.5 py-1 text-xs font-bold rounded-full tabular-nums font-mono ${(s.CompensationLeave?.balance || 0) > 0 ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-gray-100 text-gray-500'}">
-                  ${(s.CompensationLeave?.balance || 0).toFixed(3)}
+              <td class="px-5 py-3.5 whitespace-nowrap text-center">
+                <span class="px-2.5 py-0.5 text-xs font-bold rounded-full tabular-nums font-mono ${compBal > 0 ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-slate-100 text-slate-500'}">
+                  ${compBal.toFixed(3)}
                 </span>
               </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+              <td class="px-5 py-3.5 whitespace-nowrap text-right text-xs font-medium space-x-1.5">
                 <button 
-                  class="text-indigo-600 hover:text-indigo-900 active:scale-90 transition-transform award-staff-btn" 
+                  class="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80 rounded-lg transition-all award-staff-btn cursor-pointer" 
                   title="Award / Manage Compensation"
                   data-email="${escapedEmail}"
                   data-name="${escapedName}"
@@ -6815,16 +6963,16 @@
                   <i class="fas fa-award"></i>
                 </button>
                 <button 
-                  class="text-blue-600 hover:text-blue-900 active:scale-90 transition-transform edit-staff-btn" 
-                  title="Edit"
+                  class="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200/80 rounded-lg transition-all edit-staff-btn cursor-pointer" 
+                  title="Edit Staff"
                   data-email="${escapedEmail}"
                   onclick="editStaff(this.dataset.email)"
                 >
                   <i class="fas fa-edit"></i>
                 </button>
                 <button 
-                  class="text-rose-600 hover:text-rose-900 active:scale-90 transition-transform delete-staff-btn" 
-                  title="Delete"
+                  class="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200/80 rounded-lg transition-all delete-staff-btn cursor-pointer" 
+                  title="Delete Staff"
                   data-email="${escapedEmail}"
                   onclick="deleteStaff(this.dataset.email)"
                 >
@@ -6834,6 +6982,27 @@
             </tr>
           `;
                             }).join('');
+
+                            // Update KPI strip & Department dropdown
+                            const smTotal = document.getElementById('smTotalStaff');
+                            const smElig = document.getElementById('smEligibleStaff');
+                            const smAppr = document.getElementById('smApproverCount');
+                            const smComp = document.getElementById('smCompHolders');
+                            const smDept = document.getElementById('smDeptCount');
+                            if (smTotal) smTotal.textContent = uniqueStaff.length;
+                            if (smElig) smElig.textContent = eligibleCount;
+                            if (smAppr) smAppr.textContent = approverCount;
+                            if (smComp) smComp.textContent = compHoldersCount;
+                            if (smDept) smDept.textContent = deptSet.size;
+
+                            const deptSelect = document.getElementById('staffDeptFilter');
+                            if (deptSelect) {
+                                const sortedDepts = Array.from(deptSet).sort();
+                                const curVal = deptSelect.value;
+                                deptSelect.innerHTML = '<option value="">All Departments</option>' + sortedDepts.map(d => `<option value="${escapeHtml(d.toLowerCase())}">${escapeHtml(d)}</option>`).join('');
+                                if (curVal) deptSelect.value = curVal;
+                            }
+
                             filterStaffList();
                         }
                     })
@@ -6863,87 +7032,111 @@
                 const pageElement = document.getElementById('systemAdminPage');
 
                 pageElement.innerHTML = `
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-amber-100 p-6 hover:border-amber-200 transition-all">
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="text-lg font-bold text-gray-900">Year-End Processing</h3>
-              <span class="h-8 w-8 rounded-lg bg-amber-100 flex items-center justify-center">
-                <i class="fas fa-calendar-alt text-amber-600"></i>
-              </span>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-6 hover:border-amber-300 transition-all flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+                <div>
+                  <h3 class="text-base font-bold text-slate-900">Year-End Processing</h3>
+                  <p class="text-xs text-slate-500 mt-0.5">Annual carry-forward & statutory Easter forfeiture rollover</p>
+                </div>
+                <span class="h-9 w-9 rounded-xl bg-amber-50 border border-amber-200/60 flex items-center justify-center">
+                  <i class="fas fa-calendar-alt text-amber-600 text-sm"></i>
+                </span>
+              </div>
+              <p class="text-xs text-slate-600 mb-5 leading-relaxed">Run year-end carry-forward for all eligible staff, reset sick leave allocations, and archive completed annual records.</p>
             </div>
-            <p class="text-sm text-gray-600 mb-4">Run year-end carry-forward for all eligible staff</p>
-            <button id="processYearEndBtn" class="px-5 py-2.5 bg-amber-600 text-white rounded-xl hover:bg-amber-700 font-medium text-sm transition-colors flex items-center shadow-sm">
-              <i class="fas fa-play mr-2"></i> Run Year-End Processing
-            </button>
+            <div>
+              <button id="processYearEndBtn" class="px-4 py-2.5 bg-amber-600 text-white rounded-xl hover:bg-amber-700 font-semibold text-xs transition-all flex items-center gap-2 shadow-xs cursor-pointer">
+                <i class="fas fa-play text-[11px]"></i> Run Year-End Processing
+              </button>
+            </div>
           </div>
 
-          <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-emerald-100 p-6 hover:border-emerald-200 transition-all">
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="text-lg font-bold text-gray-900">Monthly Accrual</h3>
-              <span class="h-8 w-8 rounded-lg bg-emerald-100 flex items-center justify-center">
-                <i class="fas fa-chart-line text-emerald-600"></i>
-              </span>
+          <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-6 hover:border-emerald-300 transition-all flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+                <div>
+                  <h3 class="text-base font-bold text-slate-900">Monthly Accrual Engine</h3>
+                  <p class="text-xs text-slate-500 mt-0.5">Statutory 1.75 days/month entitlement credit</p>
+                </div>
+                <span class="h-9 w-9 rounded-xl bg-emerald-50 border border-emerald-200/60 flex items-center justify-center">
+                  <i class="fas fa-chart-line text-emerald-600 text-sm"></i>
+                </span>
+              </div>
+              <p class="text-xs text-slate-600 mb-5 leading-relaxed">Manually trigger or heal monthly accrual processing across all eligible employee accounts.</p>
             </div>
-            <p class="text-sm text-gray-600 mb-4">Manually trigger monthly accrual processing</p>
-            <button id="processAccrualBtn" class="px-5 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-medium text-sm transition-colors flex items-center shadow-sm">
-              <i class="fas fa-play mr-2"></i> Process Monthly Accrual
-            </button>
+            <div>
+              <button id="processAccrualBtn" class="px-4 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-semibold text-xs transition-all flex items-center gap-2 shadow-xs cursor-pointer">
+                <i class="fas fa-play text-[11px]"></i> Process Monthly Accrual
+              </button>
+            </div>
           </div>
 
-          <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-blue-100 p-6 hover:border-blue-200 transition-all">
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="text-lg font-bold text-gray-900">Cache Management</h3>
-              <span class="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center">
-                <i class="fas fa-database text-blue-600"></i>
-              </span>
+          <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-6 hover:border-blue-300 transition-all flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+                <div>
+                  <h3 class="text-base font-bold text-slate-900">Cache & Index Management</h3>
+                  <p class="text-xs text-slate-500 mt-0.5">Two-tier RAM & Apps Script CacheService telemetry</p>
+                </div>
+                <span class="h-9 w-9 rounded-xl bg-blue-50 border border-blue-200/60 flex items-center justify-center">
+                  <i class="fas fa-database text-blue-600 text-sm"></i>
+                </span>
+              </div>
+              <div class="mb-4">
+                <div id="cacheStats" class="p-3 bg-slate-50 border border-slate-200/80 rounded-xl text-xs text-slate-600 font-mono space-y-1">Loading cache telemetry...</div>
+              </div>
             </div>
-            <div class="space-y-4">
+            <div class="flex flex-wrap gap-2.5">
+              <button id="clearCacheBtn" class="px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-semibold hover:bg-rose-700 transition-all cursor-pointer">Clear All Caches</button>
+              <button id="rebuildIndexesBtn" class="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700 transition-all cursor-pointer">Rebuild Indexes</button>
+            </div>
+          </div>
+
+          <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-6 hover:border-indigo-300 transition-all flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+                <div>
+                  <h3 class="text-base font-bold text-slate-900">Compensation Leave Management</h3>
+                  <p class="text-xs text-slate-500 mt-0.5">Weekend & public holiday overtime awards</p>
+                </div>
+                <span class="h-9 w-9 rounded-xl bg-indigo-50 border border-indigo-200/60 flex items-center justify-center">
+                  <i class="fas fa-award text-indigo-600 text-sm"></i>
+                </span>
+              </div>
+              <p class="text-xs text-slate-600 mb-5 leading-relaxed">Award compensation days, adjust balances, or audit historical award logs for weekend and holiday work.</p>
+            </div>
+            <div class="flex flex-wrap gap-2.5">
+              <button type="button" onclick="openCompensationModal()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-semibold text-xs transition-all flex items-center gap-1.5 shadow-xs cursor-pointer">
+                <i class="fas fa-plus-circle"></i> Award / Adjust Days
+              </button>
+              <button type="button" onclick="viewAllCompensationRecords()" class="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 font-semibold text-xs transition-all flex items-center gap-1.5 cursor-pointer">
+                <i class="fas fa-list"></i> View All Records
+              </button>
+            </div>
+          </div>
+
+          <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-rose-200/90 p-6 hover:border-rose-300 transition-all lg:col-span-2 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="flex items-start gap-3.5">
+              <span class="h-10 w-10 rounded-xl bg-rose-50 border border-rose-200/80 flex items-center justify-center shrink-0 mt-0.5">
+                <i class="fas fa-exclamation-triangle text-rose-600 text-sm"></i>
+              </span>
               <div>
-                <p class="text-sm text-gray-600">Current Cache Stats:</p>
-                <div id="cacheStats" class="mt-2 p-3 bg-blue-50/50 border border-blue-100 rounded-lg text-sm">Loading...</div>
-              </div>
-              <div class="flex space-x-3">
-                <button id="clearCacheBtn" class="px-4 py-2 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 transition-colors">Clear All Caches</button>
-                <button id="rebuildIndexesBtn" class="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors">Rebuild Indexes</button>
+                <h3 class="text-base font-bold text-slate-900">System Initialization & Factory Reset</h3>
+                <p class="text-xs text-slate-600 mt-0.5">Initialize default staff records without overwriting data, or perform a gated full system reset.</p>
               </div>
             </div>
-          </div>
-
-          <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-indigo-100 p-6 hover:border-indigo-200 transition-all">
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="text-lg font-bold text-gray-900">Compensation Leave Management</h3>
-              <span class="h-8 w-8 rounded-lg bg-indigo-100 flex items-center justify-center">
-                <i class="fas fa-award text-indigo-600"></i>
-              </span>
-            </div>
-            <p class="text-sm text-gray-600 mb-4">Award, adjust balances, or view award history for weekend and holiday work</p>
-            <div class="flex flex-wrap gap-3">
-              <button type="button" onclick="openCompensationModal()" class="px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-medium text-sm transition-colors flex items-center shadow-sm">
-                <i class="fas fa-plus-circle mr-2"></i> Award / Adjust Days
-              </button>
-              <button type="button" onclick="viewAllCompensationRecords()" class="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 font-medium text-sm transition-colors flex items-center">
-                <i class="fas fa-list mr-2"></i> View All Records
-              </button>
-            </div>
-          </div>
-
-          <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-red-100 p-6 hover:border-red-200 transition-all">
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="text-lg font-bold text-gray-900">System Reset</h3>
-              <span class="h-8 w-8 rounded-lg bg-red-100 flex items-center justify-center">
-                <i class="fas fa-exclamation-triangle text-red-600"></i>
-              </span>
-            </div>
-            <p class="text-sm text-gray-600 mb-4">⚠️ Warning: This will reset the system to initial state</p>
-            <div class="flex space-x-3">
-              <button id="initializeSystemBtn" class="px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors">Initialize System</button>
-              <button id="resetSystemBtn" class="px-4 py-2 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 transition-colors">Full System Reset</button>
+            <div class="flex flex-wrap gap-2.5 shrink-0">
+              <button id="initializeSystemBtn" class="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-semibold hover:bg-emerald-700 transition-all cursor-pointer">Initialize System</button>
+              <button id="resetSystemBtn" class="px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-semibold hover:bg-rose-700 transition-all cursor-pointer">Full System Reset</button>
             </div>
           </div>
         </div>
       `;
 
                 attachSystemAdminEventListeners();
+                getCacheStats();
             }
 
             function getCacheStats() {
@@ -7206,17 +7399,18 @@
                 document.getElementById('exportTeamOverviewBtn')?.addEventListener('click', exportTeamOverviewToCSV);
             }
             function setupTeamOverviewFilters() {
-                const searchInput = document.getElementById('teamOverviewSearchInput');
-                const clearBtn = document.getElementById('teamOverviewClearSearch');
-                const filterSelect = document.getElementById('teamOverviewQuickFilter');
-                const countBadge = document.getElementById('teamOverviewCountBadge');
                 const tbody = document.getElementById('teamBalanceTableBody');
                 if (!tbody) return;
 
                 function runFilter() {
-                    const query = (searchInput ? searchInput.value : '').trim().toLowerCase();
-                    const mode = filterSelect ? filterSelect.value : 'all';
-                    if (clearBtn) clearBtn.classList.toggle('hidden', !query);
+                    const liveSearch = document.getElementById('teamOverviewSearchInput');
+                    const liveClear = document.getElementById('teamOverviewClearSearch');
+                    const liveSelect = document.getElementById('teamOverviewQuickFilter');
+                    const liveBadge = document.getElementById('teamOverviewCountBadge');
+
+                    const query = (liveSearch ? liveSearch.value : '').trim().toLowerCase();
+                    const mode = liveSelect ? liveSelect.value : 'all';
+                    if (liveClear) liveClear.classList.toggle('hidden', !query);
 
                     const rows = tbody.querySelectorAll('.team-balance-row');
                     let visibleCount = 0;
@@ -7242,8 +7436,8 @@
                         }
                     });
 
-                    if (countBadge) {
-                        countBadge.textContent = `${visibleCount} of ${rows.length} staff`;
+                    if (liveBadge) {
+                        liveBadge.textContent = `${visibleCount} of ${rows.length} staff`;
                     }
 
                     const existingEmpty = tbody.querySelector('#teamBalanceEmptyRow');
@@ -7259,14 +7453,20 @@
                     }
                 }
 
+                const searchInput = document.getElementById('teamOverviewSearchInput');
                 if (searchInput) {
                     searchInput.value = '';
                     const newInp = searchInput.cloneNode(true);
                     searchInput.parentNode.replaceChild(newInp, searchInput);
                     newInp.addEventListener('input', runFilter);
                     const newClr = document.getElementById('teamOverviewClearSearch');
-                    if (newClr) newClr.addEventListener('click', () => { newInp.value = ''; newInp.focus(); runFilter(); });
+                    if (newClr) {
+                        const freshClr = newClr.cloneNode(true);
+                        newClr.parentNode.replaceChild(freshClr, newClr);
+                        freshClr.addEventListener('click', () => { newInp.value = ''; newInp.focus(); runFilter(); });
+                    }
                 }
+                const filterSelect = document.getElementById('teamOverviewQuickFilter');
                 if (filterSelect) {
                     const newSel = filterSelect.cloneNode(true);
                     filterSelect.parentNode.replaceChild(newSel, filterSelect);
@@ -7704,58 +7904,56 @@
                 const currentYear = new Date().getFullYear();
 
                 pageElement.innerHTML = `
-    <!-- Filters -->
-    <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-emerald-100 p-6 mb-6">
-      <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <div class="md:col-span-2">
-          <label class="block text-xs font-medium text-gray-600 mb-2">Report Type</label>
-          <select id="reportType" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white">
-            <option value="overview">Overview Report</option>
-            <option value="utilization">Leave Utilization</option>
-            <option value="deficit">Deficit Analysis</option>
-            <option value="trends">Monthly Trends</option>
-            <option value="applications">All Applications (Audit)</option>
-          </select>
+    <!-- Top Report Control Bar -->
+    <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-5 mb-6">
+      <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-1">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1.5">Report View</label>
+            <select id="reportType" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all bg-white text-slate-800">
+              <option value="overview">Overview & Balances Report</option>
+              <option value="utilization">Leave Utilization Breakdown</option>
+              <option value="deficit">Deficit & Overdrawn Analysis</option>
+              <option value="trends">Monthly Leave Trends</option>
+              <option value="applications">All Applications (Audit Log)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1.5">Leave Year</label>
+            <select id="reportYear" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all bg-white text-slate-800">
+              <option value="${currentYear}">${currentYear}</option>
+              <option value="${currentYear - 1}">${currentYear - 1}</option>
+              <option value="${currentYear - 2}">${currentYear - 2}</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1.5">Department Scope</label>
+            <select id="reportDepartment" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all bg-white text-slate-800">
+              <option value="all">All Departments</option>
+            </select>
+          </div>
         </div>
-        <div>
-          <label class="block text-xs font-medium text-gray-600 mb-2">Year</label>
-          <select id="reportYear" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white">
-            <option value="${currentYear}">${currentYear}</option>
-            <option value="${currentYear - 1}">${currentYear - 1}</option>
-            <option value="${currentYear - 2}">${currentYear - 2}</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-gray-600 mb-2">Department</label>
-          <select id="reportDepartment" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white">
-            <option value="all">All Departments</option>
-            <option value="Tech Team">Tech Team</option>
-            <option value="Admin Team">Admin Team</option>
-            <option value="Operations">Operations</option>
-          </select>
-        </div>
-        <div class="flex items-end">
-          <button id="generateReportBtn" class="w-full px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white rounded-xl text-sm font-medium shadow-xs transition-all flex items-center justify-center gap-2">
-            <i class="fas fa-chart-bar"></i> Generate
+        <div class="flex flex-wrap items-center gap-2.5 shrink-0">
+          <button type="button" id="generateReportBtn" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer">
+            <i class="fas fa-sync-alt text-[11px]"></i> Generate Report
+          </button>
+          <button type="button" id="exportReportBtn" class="px-4 py-2.5 bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-semibold shadow-2xs transition-all flex items-center gap-2 cursor-pointer">
+            <i class="fas fa-download text-[11px]"></i> Export CSV
           </button>
         </div>
       </div>
     </div>
 
-    <!-- Export Button -->
-    <div class="flex justify-end mb-6">
-      <button id="exportReportBtn" class="px-4 py-2.5 bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-sm font-semibold shadow-sm transition-all flex items-center gap-2">
-        <i class="fas fa-download"></i> Export to CSV
-      </button>
-    </div>
-
-    <!-- Report Content - This will be dynamically populated -->
-    <div id="reportContent" class="space-y-8"></div>
+    <!-- Report Content - Dynamically populated -->
+    <div id="reportContent" class="space-y-6"></div>
   `;
 
-                // Attach event listeners
-                document.getElementById('generateReportBtn').addEventListener('click', generateReport);
-                document.getElementById('exportReportBtn').addEventListener('click', exportReportToCSV);
+                // Attach event listeners (button + live change triggers)
+                document.getElementById('generateReportBtn')?.addEventListener('click', generateReport);
+                document.getElementById('exportReportBtn')?.addEventListener('click', exportReportToCSV);
+                document.getElementById('reportType')?.addEventListener('change', generateReport);
+                document.getElementById('reportYear')?.addEventListener('change', generateReport);
+                document.getElementById('reportDepartment')?.addEventListener('change', generateReport);
 
                 // Load initial data
                 generateReport();
@@ -7765,7 +7963,8 @@
             async function generateReport() {
                 const reportType = document.getElementById('reportType')?.value || 'overview';
                 const year = document.getElementById('reportYear')?.value || new Date().getFullYear();
-                const department = document.getElementById('reportDepartment')?.value || 'all';
+                const deptSelectEl = document.getElementById('reportDepartment');
+                const department = deptSelectEl?.value || 'all';
 
                 showLoading('Generating report...');
 
@@ -7781,48 +7980,62 @@
 
                     const allStaff = staffResult.data?.data || [];
 
-                    // Get ALL applications (admin endpoint - need to create this)
+                    // Dynamically populate #reportDepartment from actual staff departments while preserving selection
+                    if (deptSelectEl && allStaff.length > 0) {
+                        const actualDepts = Array.from(new Set(allStaff.map(s => (s.Department || s.department || '').trim()).filter(Boolean))).sort();
+                        const prevDept = department;
+                        deptSelectEl.innerHTML = '<option value="all">All Departments</option>' +
+                            actualDepts.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
+                        if (prevDept && (prevDept === 'all' || actualDepts.includes(prevDept))) {
+                            deptSelectEl.value = prevDept;
+                        }
+                    }
+
+                    const activeDept = deptSelectEl?.value || 'all';
+
+                    // Get ALL applications
                     const appsResult = await callGoogleScriptFunction('apiGetAllApplications');
                     let allApplications = appsResult.success ? (appsResult.data?.data || []) : [];
 
                     // Filter applications by selected year
                     allApplications = allApplications.filter(app => {
-                        const appYear = new Date(app.DateApplied || app.dateApplied).getFullYear();
+                        const d = new Date(app.DateApplied || app.dateApplied || app.StartDate || app.startDate);
+                        const appYear = !isNaN(d.getTime()) ? d.getFullYear() : Number(year);
                         return appYear.toString() === year.toString();
                     });
 
-                    // Filter by department if needed
-                    const filteredStaff = department === 'all'
+                    // Filter staff by department if selected
+                    const filteredStaff = activeDept === 'all'
                         ? allStaff
-                        : allStaff.filter(s => (s.Department || s.department) === department);
+                        : allStaff.filter(s => (s.Department || s.department || '').toLowerCase() === activeDept.toLowerCase());
+
+                    // Filter applications by department if selected
+                    const filteredEmails = new Set(filteredStaff.map(s => (s.Email || s.email || '').toLowerCase()).filter(Boolean));
+                    const filteredApplications = activeDept === 'all'
+                        ? allApplications
+                        : allApplications.filter(app => {
+                            const appEmail = (app.Email || app.email || '').toLowerCase();
+                            const appDept = (app.Department || app.department || '').toLowerCase();
+                            return filteredEmails.has(appEmail) || appDept === activeDept.toLowerCase();
+                        });
 
                     const reportContent = document.getElementById('reportContent');
 
                     if (reportType === 'applications') {
-                        // Show applications audit view with ALL applications
-                        const applicationsHTML = renderApplicationsAudit(allApplications, allStaff, year);
+                        const applicationsHTML = renderApplicationsAudit(filteredApplications, allStaff, year, activeDept);
                         reportContent.innerHTML = applicationsHTML;
-
-                        // Attach filter event listeners
-                        setTimeout(() => {
-                            attachApplicationsFilters();
-                        }, 100);
+                        attachApplicationsFilters();
                     } else {
-                        // Show full report with all sections using ALL data
                         const fullReportHTML = renderFullReport();
                         reportContent.innerHTML = fullReportHTML;
 
-                        // Update all sections with admin-level data
-                        setTimeout(() => {
-                            updateReportSummary(filteredStaff, allApplications, year);
-                            updateReportCharts(reportType, filteredStaff, allApplications, year);
-                            updateDepartmentBreakdown(allStaff, allApplications);
-                            updateStaffReportTable(filteredStaff, allApplications, year);
-                        }, 100);
+                        updateReportSummary(filteredStaff, filteredApplications, year);
+                        updateReportCharts(reportType, filteredStaff, filteredApplications, year);
+                        updateDepartmentBreakdown(filteredStaff, filteredApplications);
+                        updateStaffReportTable(filteredStaff, filteredApplications, year, reportType, activeDept);
                     }
 
                     hideLoading();
-                    showToast('success', 'Report Generated', `Report for ${year} is ready`);
 
                 } catch (error) {
                     hideLoading();
@@ -7830,94 +8043,129 @@
                     showToast('error', 'Report Failed', error.message);
                 }
             }
+
             // Render full report HTML structure
             function renderFullReport() {
                 return `
-    <!-- Summary Cards -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-      <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-xs border border-gray-200/90 p-5 hover:border-gray-300 transition-all">
-        <div class="flex items-center justify-between mb-2">
-          <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Staff</p>
-          <span class="h-9 w-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center border border-slate-200/80">
-            <i class="fas fa-users text-sm"></i>
-          </span>
+    <!-- 5-Card Bento KPI Strip -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-4">
+      <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-emerald-300 transition-all cursor-pointer" onclick="document.getElementById('staffReportStatusFilter') && (document.getElementById('staffReportStatusFilter').value='all', document.getElementById('staffReportStatusFilter').dispatchEvent(new Event('change')), document.getElementById('staffReportTable')?.scrollIntoView({behavior:'smooth', block:'start'}))" title="Click to view all staff in table">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+          <span class="text-xs font-semibold text-slate-500">Total Staff</span>
+          <div class="h-8 w-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center text-xs">
+            <i class="fas fa-users"></i>
+          </div>
         </div>
-        <p class="text-2xl font-bold text-gray-900 tabular-nums font-mono" id="totalStaffCount">-</p>
-        <p class="text-xs text-gray-500 mt-1">Active employees</p>
+        <p class="text-2xl font-bold text-slate-900 mt-2 tracking-tight tabular-nums" id="totalStaffCount">-</p>
+        <p class="text-[11px] text-slate-500 mt-2 flex items-center gap-1.5" id="eligibleStaffSubtext">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>Active employees
+        </p>
       </div>
 
-      <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-xs border border-gray-200/90 p-5 hover:border-gray-300 transition-all">
-        <div class="flex items-center justify-between mb-2">
-          <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Applications</p>
-          <span class="h-9 w-9 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center border border-indigo-200/80">
-            <i class="fas fa-file-alt text-sm"></i>
-          </span>
+      <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-indigo-300 transition-all">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+          <span class="text-xs font-semibold text-slate-500">Filings (YTD)</span>
+          <div class="h-8 w-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs">
+            <i class="fas fa-file-lines"></i>
+          </div>
         </div>
-        <p class="text-2xl font-bold text-gray-900 tabular-nums font-mono" id="totalApplications">-</p>
-        <p class="text-xs text-gray-500 mt-1" id="applicationsPeriod">YTD</p>
+        <p class="text-2xl font-bold text-slate-900 mt-2 tracking-tight tabular-nums" id="totalApplications">-</p>
+        <p class="text-[11px] text-indigo-700 font-medium mt-2 flex items-center gap-1.5" id="applicationsPeriod">
+          <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 inline-block"></span>YTD recorded
+        </p>
       </div>
 
-      <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-xs border border-gray-200/90 p-5 hover:border-gray-300 transition-all">
-        <div class="flex items-center justify-between mb-2">
-          <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Utilization</p>
-          <span class="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/80">
-            <i class="fas fa-percent text-sm"></i>
-          </span>
+      <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-emerald-300 transition-all">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+          <span class="text-xs font-semibold text-slate-500">Utilization</span>
+          <div class="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-xs">
+            <i class="fas fa-chart-pie"></i>
+          </div>
         </div>
-        <p class="text-2xl font-bold text-gray-900 tabular-nums font-mono" id="utilizationRate">-</p>
-        <p class="text-xs text-gray-500 mt-1">Annual leave used</p>
+        <p class="text-2xl font-bold text-slate-900 mt-2 tracking-tight tabular-nums" id="utilizationRate">-</p>
+        <div class="mt-2.5">
+          <div class="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+            <div id="utilizationProgressBar" class="h-full bg-emerald-500 rounded-full transition-all duration-300" style="width: 0%"></div>
+          </div>
+        </div>
       </div>
 
-      <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-xs border border-gray-200/90 p-5 hover:border-gray-300 transition-all">
-        <div class="flex items-center justify-between mb-2">
-          <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">In Deficit</p>
-          <span class="h-9 w-9 rounded-xl bg-rose-50 text-rose-700 flex items-center justify-center border border-rose-200/80">
-            <i class="fas fa-exclamation-triangle text-sm"></i>
-          </span>
+      <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-amber-300 transition-all cursor-pointer" onclick="document.getElementById('staffReportStatusFilter') && (document.getElementById('staffReportStatusFilter').value='bf_active', document.getElementById('staffReportStatusFilter').dispatchEvent(new Event('change')), document.getElementById('staffReportTable')?.scrollIntoView({behavior:'smooth', block:'start'}))" title="Click to filter staff with active Brought Forward leave">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+          <span class="text-xs font-semibold text-slate-500">Brought Forward</span>
+          <div class="h-8 w-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center text-xs">
+            <i class="fas fa-forward"></i>
+          </div>
         </div>
-        <p class="text-2xl font-bold text-gray-900 tabular-nums font-mono" id="staffInDeficit">-</p>
-        <p class="text-xs text-gray-500 mt-1">Staff members</p>
+        <p class="text-2xl font-bold text-slate-900 mt-2 tracking-tight tabular-nums" id="totalBfRemaining">-</p>
+        <p class="text-[11px] text-amber-700 font-medium mt-2 flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block"></span>Expires Easter Sunday
+        </p>
+      </div>
+
+      <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-rose-300 transition-all cursor-pointer" onclick="document.getElementById('staffReportStatusFilter') && (document.getElementById('staffReportStatusFilter').value='deficit', document.getElementById('staffReportStatusFilter').dispatchEvent(new Event('change')), document.getElementById('staffReportTable')?.scrollIntoView({behavior:'smooth', block:'start'}))" title="Click to filter staff in deficit">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+          <span class="text-xs font-semibold text-slate-500">In Deficit</span>
+          <div class="h-8 w-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-xs">
+            <i class="fas fa-circle-exclamation"></i>
+          </div>
+        </div>
+        <p class="text-2xl font-bold text-slate-900 mt-2 tracking-tight tabular-nums" id="staffInDeficit">-</p>
+        <p class="text-[11px] text-rose-700 font-medium mt-2 flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>Click to filter table
+        </p>
       </div>
     </div>
 
     <!-- Charts Row -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <!-- Leave Distribution -->
-      <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-xs border border-gray-200/90 p-6">
-        <h3 class="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
-          <i class="fas fa-chart-pie text-emerald-600 text-sm"></i> Leave Distribution by Type
+      <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-6">
+        <h3 class="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2" id="leftChartTitle">
+          <i class="fas fa-chart-pie text-emerald-600 text-xs"></i> Leave Distribution by Type
         </h3>
-        <div class="min-h-[280px]" id="leaveDistributionChart">
-          <div class="text-center py-12 text-gray-400">
-            <i class="fas fa-chart-pie text-4xl mb-3 opacity-30"></i>
-            <p class="text-xs">Select filters to view</p>
+        <div class="min-h-[240px]" id="leaveDistributionChart">
+          <div class="text-center py-12 text-slate-400">
+            <i class="fas fa-chart-pie text-3xl mb-2 opacity-30"></i>
+            <p class="text-xs">Loading distribution...</p>
           </div>
         </div>
       </div>
 
-      <!-- Monthly Trends -->
-      <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-xs border border-gray-200/90 p-6">
-        <h3 class="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
-          <i class="fas fa-chart-line text-emerald-600 text-sm"></i> Monthly Leave Trends
+      <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-6">
+        <h3 class="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2" id="rightChartTitle">
+          <i class="fas fa-chart-line text-emerald-600 text-xs"></i> Monthly Leave Trends
         </h3>
-        <div class="min-h-[280px]" id="monthlyTrendsChart">
-          <div class="text-center py-12 text-gray-400">
-            <i class="fas fa-chart-line text-4xl mb-3 opacity-30"></i>
-            <p class="text-xs">Select filters to view</p>
+        <div class="min-h-[240px]" id="monthlyTrendsChart">
+          <div class="text-center py-12 text-slate-400">
+            <i class="fas fa-chart-line text-3xl mb-2 opacity-30"></i>
+            <p class="text-xs">Loading trends...</p>
           </div>
         </div>
       </div>
     </div>
 
     <!-- Department Summary -->
-    <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-xs border border-gray-200/90 p-6">
-      <h3 class="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
-        <i class="fas fa-building text-emerald-600 text-sm"></i> Department Summary
-      </h3>
-      <div class="overflow-x-auto rounded-xl border border-gray-200 shadow-2xs">
+    <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <div>
+          <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <i class="fas fa-building text-emerald-600 text-xs"></i> Department Summary
+          </h3>
+          <p class="text-xs text-slate-500 mt-0.5">Click any department row to filter the Staff Leave Details table below</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="relative">
+            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+            <input type="text" id="deptReportSearchInput" placeholder="Search department..." class="pl-8 pr-7 py-1.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all w-44 sm:w-52">
+            <button type="button" id="deptReportClearSearch" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs p-0.5" title="Clear search"><i class="fas fa-times"></i></button>
+          </div>
+          <span id="deptReportCountBadge" class="text-xs font-medium text-slate-600 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200 tabular-nums"></span>
+        </div>
+      </div>
+      <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-2xs">
         <table class="w-full text-xs" id="departmentTable">
           <thead>
-            <tr class="bg-slate-50 border-b border-gray-200 text-slate-700 font-semibold uppercase tracking-wider">
+            <tr class="bg-slate-50/80 border-b border-slate-200 text-slate-700 font-semibold">
               <th class="text-left py-3.5 px-4">Department</th>
               <th class="text-right py-3.5 px-4">Staff</th>
               <th class="text-right py-3.5 px-4">Leave Used</th>
@@ -7926,9 +8174,9 @@
               <th class="text-center py-3.5 px-4">In Deficit</th>
             </tr>
           </thead>
-          <tbody id="departmentTableBody" class="divide-y divide-gray-100 bg-white">
+          <tbody id="departmentTableBody" class="divide-y divide-slate-100 bg-white">
             <tr>
-              <td colspan="6" class="text-center py-8 text-gray-400">Loading department data...</td>
+              <td colspan="6" class="text-center py-8 text-slate-400">Loading department data...</td>
             </tr>
           </tbody>
         </table>
@@ -7936,82 +8184,74 @@
     </div>
 
     <!-- Staff Details - WITH DEFICIT & COMPENSATION COLUMNS -->
-    <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-xs border border-gray-200/90 p-6">
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+    <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-6">
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
         <div>
-          <h3 class="text-base font-bold text-gray-900 flex items-center gap-2">
-            <i class="fas fa-users-cog text-emerald-600 text-sm"></i> Staff Leave Details
+          <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <i class="fas fa-users-cog text-emerald-600 text-xs"></i> Staff Leave Details
           </h3>
-          <p class="text-xs text-gray-500 mt-0.5">Comprehensive audit and balance records for all employees</p>
+          <p class="text-xs text-slate-500 mt-0.5">Comprehensive audit and balance records for all employees</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
           <div class="relative">
-            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
-            <input type="text" id="staffReportSearchInput" placeholder="Filter staff name, email, dept..." class="pl-8 pr-7 py-1.5 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors w-52 sm:w-64">
-            <button id="staffReportClearSearch" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs p-0.5" title="Clear filter"><i class="fas fa-times"></i></button>
+            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+            <input type="text" id="staffReportSearchInput" placeholder="Filter staff name, email, dept..." class="pl-8 pr-7 py-1.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-colors w-48 sm:w-56">
+            <button type="button" id="staffReportClearSearch" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs p-0.5" title="Clear filter"><i class="fas fa-times"></i></button>
           </div>
-          <select id="staffReportDeptFilter" class="text-xs bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          <select id="staffReportDeptFilter" class="text-xs bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
             <option value="all">All Departments</option>
           </select>
-          <span id="staffReportCountBadge" class="text-xs font-medium text-gray-500 bg-gray-50 px-2.5 py-1 rounded-md border border-gray-200 tabular-nums"></span>
+          <select id="staffReportStatusFilter" class="text-xs bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
+            <option value="all">All Balances</option>
+            <option value="deficit">In Deficit (&lt; 0d)</option>
+            <option value="bf_active">Active Brought Forward</option>
+            <option value="bf_forfeited">Forfeited BF</option>
+            <option value="comp">Has Comp Balance</option>
+            <option value="low_annual">Low Annual (&lt; 5d)</option>
+          </select>
+          <button type="button" id="staffReportResetBtn" class="hidden px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-all items-center gap-1 cursor-pointer">
+            <i class="fas fa-rotate-left text-[10px]"></i> Reset
+          </button>
+          <span id="staffReportCountBadge" class="text-xs font-medium text-slate-600 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200 tabular-nums"></span>
         </div>
       </div>
-      <div class="overflow-x-auto rounded-xl border border-gray-200 shadow-2xs">
+      <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-2xs">
         <table class="w-full text-xs" id="staffReportTable">
           <thead>
-            <tr class="bg-slate-100/80 border-b border-gray-200 font-semibold text-slate-800 uppercase tracking-wider">
-              <th rowspan="2" class="text-left py-3 px-4 border-r border-gray-200">Staff</th>
-              <th rowspan="2" class="text-left py-3 px-4 border-r border-gray-200">Department</th>
-              
-              <!-- Annual Leave Group -->
-              <th colspan="3" class="text-center py-2.5 px-3 border-r border-gray-200 text-slate-800 font-bold">Annual Leave</th>
-              
-              <!-- Brought Forward Group -->
-              <th colspan="4" class="text-center py-2.5 px-3 border-r border-gray-200 text-slate-800 font-bold">Brought Forward</th>
-              
-              <!-- Sick Leave Group -->
-              <th colspan="2" class="text-center py-2.5 px-3 border-r border-gray-200 text-slate-800 font-bold">Sick Leave</th>
-
-              <!-- Compensation Leave Group -->
-              <th colspan="2" class="text-center py-2.5 px-3 border-r border-gray-200 text-slate-800 font-bold">Compensation</th>
-              
-              <!-- Deficit Column -->
-              <th rowspan="2" class="text-right py-3 px-3 border-r border-gray-200 font-bold text-rose-800">Deficit</th>
-              
-              <!-- Total -->
+            <tr class="bg-slate-100/80 border-b border-slate-200 font-semibold text-slate-800">
+              <th rowspan="2" class="text-left py-3 px-4 border-r border-slate-200">Staff</th>
+              <th rowspan="2" class="text-left py-3 px-4 border-r border-slate-200">Department</th>
+              <th colspan="3" class="text-center py-2.5 px-3 border-r border-slate-200 text-slate-800 font-bold">Annual Leave</th>
+              <th colspan="4" class="text-center py-2.5 px-3 border-r border-slate-200 text-slate-800 font-bold">Brought Forward</th>
+              <th colspan="2" class="text-center py-2.5 px-3 border-r border-slate-200 text-slate-800 font-bold">Sick Leave</th>
+              <th colspan="2" class="text-center py-2.5 px-3 border-r border-slate-200 text-slate-800 font-bold">Compensation</th>
+              <th rowspan="2" class="text-right py-3 px-3 border-r border-slate-200 font-bold text-rose-800">Deficit</th>
               <th rowspan="2" class="text-right py-3 px-4 font-bold text-emerald-900 bg-emerald-50/50">Total Available</th>
             </tr>
-            <tr class="bg-slate-50 border-b border-gray-200 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
-              <!-- Annual Leave Subheaders -->
+            <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-600">
               <th class="text-right py-2 px-3">Used</th>
               <th class="text-right py-2 px-3">Accrued</th>
-              <th class="text-right py-2 px-3 border-r border-gray-200 text-emerald-800">Remaining</th>
-              
-              <!-- Brought Forward Subheaders -->
+              <th class="text-right py-2 px-3 border-r border-slate-200 text-emerald-800">Remaining</th>
               <th class="text-right py-2 px-3">Pool</th>
               <th class="text-right py-2 px-3">Used</th>
               <th class="text-right py-2 px-3">Forfeited</th>
-              <th class="text-right py-2 px-3 border-r border-gray-200 text-amber-800">Remaining</th>
-              
-              <!-- Sick Leave Subheaders -->
+              <th class="text-right py-2 px-3 border-r border-slate-200 text-amber-800">Remaining</th>
               <th class="text-right py-2 px-3">Used</th>
-              <th class="text-right py-2 px-3 border-r border-gray-200 text-teal-800">Remaining</th>
-
-              <!-- Compensation Leave Subheaders -->
+              <th class="text-right py-2 px-3 border-r border-slate-200 text-teal-800">Remaining</th>
               <th class="text-right py-2 px-3">Used</th>
-              <th class="text-right py-2 px-3 border-r border-gray-200 text-indigo-800">Balance</th>
+              <th class="text-right py-2 px-3 border-r border-slate-200 text-indigo-800">Balance</th>
             </tr>
           </thead>
-          <tbody id="staffReportTableBody" class="divide-y divide-gray-100 bg-white">
+          <tbody id="staffReportTableBody" class="divide-y divide-slate-100 bg-white">
             <tr>
-              <td colspan="15" class="text-center py-8 text-gray-400">Loading staff data...</td>
+              <td colspan="15" class="text-center py-8 text-slate-400">Loading staff data...</td>
             </tr>
           </tbody>
         </table>
       </div>
-      <p class="text-xs text-gray-500 mt-3 flex items-center justify-between flex-wrap gap-2">
+      <p class="text-xs text-slate-500 mt-3 flex items-center justify-between flex-wrap gap-2">
         <span>Deficit subtracts from available days • Total Available = Annual Remaining + Brought Forward Remaining + Compensation Balance + Deficit</span>
-        <span class="inline-flex items-center gap-1.5 text-amber-800 bg-amber-50 border border-amber-200/80 px-2.5 py-1 rounded-md text-[11px] font-medium shadow-2xs">
+        <span class="inline-flex items-center gap-1.5 text-amber-800 bg-amber-50 border border-amber-200/80 px-2.5 py-1 rounded-lg text-[11px] font-medium shadow-2xs">
           <i class="far fa-calendar-alt text-amber-600"></i> Brought forward leave expires annually on Easter Sunday
         </span>
       </p>
@@ -8020,11 +8260,20 @@
             }
 
             // Render applications audit view
-            function renderApplicationsAudit(applications, staff, year) {
-                // Create a map of staff emails to names for quick lookup
+            function renderApplicationsAudit(applications, staff, year, activeDept = 'all') {
+                // Create maps of staff emails to names and departments
                 const staffMap = {};
+                const staffDeptMap = {};
+                const deptSet = new Set();
                 staff.forEach(s => {
-                    staffMap[s.Email || s.email] = s.Name || s.name;
+                    const em = (s.Email || s.email || '').toLowerCase();
+                    const nm = s.Name || s.name || '';
+                    const dp = s.Department || s.department || '';
+                    if (em) {
+                        staffMap[em] = nm;
+                        staffDeptMap[em] = dp;
+                    }
+                    if (dp) deptSet.add(dp);
                 });
 
                 // Sort applications by date (newest first)
@@ -8034,6 +8283,16 @@
                     return dateB - dateA;
                 });
 
+                // Collect all leave types dynamically
+                const defaultTypes = ['Annual Leave', 'Sick Leave', 'Compensation Leave', 'Maternity Leave', 'Paternity Leave', 'Compassionate Leave', 'Study Leave'];
+                const typeSet = new Set(defaultTypes);
+                applications.forEach(a => {
+                    const t = (a.LeaveType || a.leaveType || '').trim();
+                    if (t) typeSet.add(t);
+                });
+                const allLeaveTypes = Array.from(typeSet);
+                const sortedDepts = Array.from(deptSet).sort();
+
                 // Calculate summary stats
                 const totalApps = applications.length;
                 const pendingApps = applications.filter(a => (a.Status || a.status) === 'Pending').length;
@@ -8042,80 +8301,99 @@
                 const cancelledApps = applications.filter(a => (a.Status || a.status) === 'Cancelled').length;
 
                 return `
-    <!-- Applications Summary Cards -->
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-      <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-xs border border-gray-200/90 p-4 hover:border-gray-300 transition-all">
-        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Applications</p>
-        <p class="text-2xl font-bold text-gray-900 tabular-nums font-mono mt-1">${totalApps}</p>
+    <!-- Applications 5-Card Bento KPI Strip (Click to Filter) -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-4 mb-6">
+      <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-emerald-300 transition-all cursor-pointer app-audit-kpi-card active-kpi" data-status-filter="all" title="Click to show all applications">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+          <span class="text-xs font-semibold text-slate-500">All Filings</span>
+          <div class="h-8 w-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center text-xs"><i class="fas fa-file-lines"></i></div>
+        </div>
+        <p class="text-2xl font-bold text-slate-900 tabular-nums mt-2">${totalApps}</p>
+        <p class="text-[11px] text-slate-500 mt-2 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block"></span>${year} audit log</p>
       </div>
-      <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-xs border border-amber-200/80 p-4 hover:border-amber-300 transition-all">
-        <p class="text-xs font-semibold text-amber-700 uppercase tracking-wider">Pending</p>
-        <p class="text-2xl font-bold text-amber-800 tabular-nums font-mono mt-1">${pendingApps}</p>
+
+      <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-amber-300 transition-all cursor-pointer app-audit-kpi-card" data-status-filter="Pending" title="Click to filter Pending">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+          <span class="text-xs font-semibold text-slate-500">Pending</span>
+          <div class="h-8 w-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center text-xs"><i class="fas fa-clock"></i></div>
+        </div>
+        <p class="text-2xl font-bold text-slate-900 tabular-nums mt-2">${pendingApps}</p>
+        <p class="text-[11px] text-amber-700 font-medium mt-2 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block"></span>Awaiting decision</p>
       </div>
-      <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-xs border border-emerald-200/80 p-4 hover:border-emerald-300 transition-all">
-        <p class="text-xs font-semibold text-emerald-700 uppercase tracking-wider">Approved</p>
-        <p class="text-2xl font-bold text-emerald-800 tabular-nums font-mono mt-1">${approvedApps}</p>
+
+      <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-emerald-300 transition-all cursor-pointer app-audit-kpi-card" data-status-filter="Approved" title="Click to filter Approved">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+          <span class="text-xs font-semibold text-slate-500">Approved</span>
+          <div class="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-xs"><i class="fas fa-check-circle"></i></div>
+        </div>
+        <p class="text-2xl font-bold text-slate-900 tabular-nums mt-2">${approvedApps}</p>
+        <p class="text-[11px] text-emerald-700 font-medium mt-2 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>Authorized</p>
       </div>
-      <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-xs border border-rose-200/80 p-4 hover:border-rose-300 transition-all">
-        <p class="text-xs font-semibold text-rose-700 uppercase tracking-wider">Declined</p>
-        <p class="text-2xl font-bold text-rose-800 tabular-nums font-mono mt-1">${declinedApps}</p>
+
+      <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-rose-300 transition-all cursor-pointer app-audit-kpi-card" data-status-filter="Declined" title="Click to filter Declined">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+          <span class="text-xs font-semibold text-slate-500">Declined</span>
+          <div class="h-8 w-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-xs"><i class="fas fa-times-circle"></i></div>
+        </div>
+        <p class="text-2xl font-bold text-slate-900 tabular-nums mt-2">${declinedApps}</p>
+        <p class="text-[11px] text-rose-700 font-medium mt-2 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>Rejected filings</p>
       </div>
-      <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-xs border border-slate-200/90 p-4 hover:border-slate-300 transition-all">
-        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Cancelled</p>
-        <p class="text-2xl font-bold text-slate-700 tabular-nums font-mono mt-1">${cancelledApps}</p>
+
+      <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-slate-300 transition-all cursor-pointer app-audit-kpi-card" data-status-filter="Cancelled" title="Click to filter Cancelled">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+          <span class="text-xs font-semibold text-slate-500">Cancelled</span>
+          <div class="h-8 w-8 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center text-xs"><i class="fas fa-ban"></i></div>
+        </div>
+        <p class="text-2xl font-bold text-slate-900 tabular-nums mt-2">${cancelledApps}</p>
+        <p class="text-[11px] text-slate-500 font-medium mt-2 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block"></span>Withdrawn</p>
       </div>
     </div>
 
-    <!-- Filters -->
-    <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-xs border border-gray-200/90 p-5 mb-6">
-      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5">
+    <!-- Applications Table & Integrated Filter Bar -->
+    <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-6">
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4">
         <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1.5">Status</label>
-          <select id="appStatusFilter" class="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all bg-white text-gray-800">
+          <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <i class="fas fa-list-check text-emerald-600 text-xs"></i> All Applications Audit — ${year}
+          </h3>
+          <p class="text-xs text-slate-500 mt-0.5">Filter by staff name, email, department, leave type, or approval status</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="relative">
+            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+            <input type="text" id="appSearchFilter" placeholder="Search name, email, reason..." class="pl-8 pr-7 py-1.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all w-48 sm:w-56">
+            <button type="button" id="appClearSearchBtn" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs p-0.5" title="Clear search"><i class="fas fa-times"></i></button>
+          </div>
+          <select id="appDeptFilter" class="px-2.5 py-1.5 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white text-slate-700">
+            <option value="all">All Departments</option>
+            ${sortedDepts.map(d => `<option value="${escapeHtml(d.toLowerCase())}">${escapeHtml(d)}</option>`).join('')}
+          </select>
+          <select id="appStatusFilter" class="px-2.5 py-1.5 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white text-slate-700">
             <option value="all">All Statuses</option>
             <option value="Pending">Pending</option>
             <option value="Approved">Approved</option>
             <option value="Declined">Declined</option>
             <option value="Cancelled">Cancelled</option>
           </select>
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1.5">Leave Type</label>
-          <select id="appTypeFilter" class="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all bg-white text-gray-800">
-            <option value="all">All Types</option>
-            <option value="Annual Leave">Annual Leave</option>
-            <option value="Sick Leave">Sick Leave</option>
-            <option value="Compensation Leave">Compensation Leave</option>
+          <select id="appTypeFilter" class="px-2.5 py-1.5 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white text-slate-700">
+            <option value="all">All Leave Types</option>
+            ${allLeaveTypes.map(t => `<option value="${escapeHtml(t.toLowerCase())}">${escapeHtml(t)}</option>`).join('')}
           </select>
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1.5">Search</label>
-          <input type="text" id="appSearchFilter" placeholder="Name or email..." class="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all bg-white text-gray-800">
-        </div>
-        <div class="flex items-end">
-          <button id="applyAppFilters" class="w-full px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 active:scale-95 text-white rounded-xl text-xs font-semibold shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
-            <i class="fas fa-filter text-xs"></i> Apply Filters
+          <button type="button" id="resetAppFiltersBtn" class="hidden px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-all items-center gap-1 cursor-pointer">
+            <i class="fas fa-rotate-left text-[10px]"></i> Reset
           </button>
+          <span id="appAuditCountBadge" class="text-xs font-medium text-slate-600 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200 tabular-nums">${applications.length} of ${applications.length} filings</span>
         </div>
       </div>
-    </div>
 
-    <!-- Applications Table -->
-    <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-xs border border-gray-200/90 p-6">
-      <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <h3 class="text-base font-bold text-gray-900 flex items-center gap-2">
-          <i class="fas fa-list-check text-emerald-600 text-sm"></i> All Applications — ${year}
-        </h3>
-        <span class="text-xs text-gray-500 tabular-nums font-mono">${applications.length} applications recorded</span>
-      </div>
-      <div class="overflow-x-auto rounded-xl border border-gray-200 shadow-2xs">
+      <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-2xs">
         <table class="w-full text-xs" id="applicationsAuditTable">
           <thead>
-            <tr class="bg-slate-50 border-b border-gray-200 text-slate-700 font-semibold uppercase tracking-wider">
+            <tr class="bg-slate-50/80 border-b border-slate-200 text-slate-700 font-semibold">
               <th class="text-left py-3.5 px-3">Date</th>
               <th class="text-left py-3.5 px-3">Staff</th>
-              <th class="text-left py-3.5 px-3">Email</th>
-              <th class="text-left py-3.5 px-3">Type</th>
+              <th class="text-left py-3.5 px-3">Department</th>
+              <th class="text-left py-3.5 px-3">Leave Type</th>
               <th class="text-center py-3.5 px-3">Period</th>
               <th class="text-right py-3.5 px-3">Duration</th>
               <th class="text-center py-3.5 px-3">Status</th>
@@ -8123,41 +8401,52 @@
               <th class="text-left py-3.5 px-3">Reason</th>
             </tr>
           </thead>
-          <tbody id="applicationsAuditBody" class="divide-y divide-gray-100 bg-white">
-            ${sortedApps.map(app => {
+          <tbody id="applicationsAuditBody" class="divide-y divide-slate-100 bg-white">
+            ${sortedApps.length === 0 ? `
+              <tr>
+                <td colspan="9" class="py-10 text-center text-slate-400 text-xs">No applications recorded for ${year}</td>
+              </tr>
+            ` : sortedApps.map(app => {
                     const dateApplied = formatDate(app.DateApplied || app.dateApplied);
                     const startDate = formatDate(app.StartDate || app.startDate);
                     const endDate = app.EndDate || app.endDate ? formatDate(app.EndDate || app.endDate) : '';
                     const period = startDate + (endDate && endDate !== startDate ? ` - ${endDate}` : '');
-                    const status = app.Status || app.status || 'Pending';
+                    const status = (app.Status || app.status || 'Pending').trim();
                     const statusClass = status.toLowerCase();
                     const processedBy = app.ProcessedBy || app.processedBy || '-';
                     const processedDate = app.ProcessedDate ? formatDate(app.ProcessedDate) : '';
-                    const staffName = app.Name || app.name || staffMap[app.Email || app.email] || 'Unknown';
-                    const email = app.Email || app.email || '';
-                    const type = app.LeaveType || app.leaveType || 'Unknown';
+                    const email = (app.Email || app.email || '').trim();
+                    const emailLower = email.toLowerCase();
+                    const staffName = app.Name || app.name || staffMap[emailLower] || 'Unknown';
+                    const dept = app.Department || app.department || staffDeptMap[emailLower] || 'Unassigned';
+                    const type = (app.LeaveType || app.leaveType || 'Unknown').trim();
                     const duration = app.Duration || app.duration || 0;
                     const mode = app.LeaveMode || app.leaveMode || 'Daily';
                     const displayDuration = mode === 'Hourly'
                         ? `${app.Hours || 0}h`
                         : `${duration.toFixed ? duration.toFixed(3) : duration}d`;
-                    const reason = (app.Reason || app.reason || '').substring(0, 30) + ((app.Reason?.length || 0) > 30 ? '...' : '');
+                    const fullReason = app.Reason || app.reason || '';
+                    const reason = fullReason.substring(0, 34) + (fullReason.length > 34 ? '...' : '');
+                    const combinedSearch = `${staffName} ${email} ${dept} ${type} ${status} ${processedBy} ${fullReason}`.toLowerCase();
 
                     return `
-                <tr class="hover:bg-slate-50/70 transition-colors" data-id="${app.ID || ''}">
-                  <td class="px-3 py-3 whitespace-nowrap text-xs text-gray-600">${dateApplied}</td>
-                  <td class="px-3 py-3 whitespace-nowrap font-medium text-gray-900">${escapeHtml(staffName)}</td>
-                  <td class="px-3 py-3 whitespace-nowrap text-xs text-gray-500">${escapeHtml(email)}</td>
-                  <td class="px-3 py-3 whitespace-nowrap"><span class="leave-type-badge ${(type || '').replace(/\s+/g, '-').toLowerCase()} px-2.5 py-0.5 rounded-full text-[11px] font-medium">${escapeHtml(type)}</span></td>
-                  <td class="px-3 py-3 whitespace-nowrap text-center text-xs text-gray-700">${period}</td>
-                  <td class="px-3 py-3 whitespace-nowrap text-right tabular-nums font-mono font-semibold text-gray-900">${displayDuration}</td>
+                <tr class="hover:bg-slate-50/70 transition-colors app-audit-row" data-id="${escapeHtml(app.ID || '')}" data-status="${escapeHtml(statusClass)}" data-type="${escapeHtml(type.toLowerCase())}" data-dept="${escapeHtml(dept.toLowerCase())}" data-search="${escapeHtml(combinedSearch)}">
+                  <td class="px-3 py-3 whitespace-nowrap text-xs text-slate-600">${dateApplied}</td>
+                  <td class="px-3 py-3 whitespace-nowrap">
+                    <div class="font-semibold text-slate-900">${escapeHtml(staffName)}</div>
+                    <div class="text-[11px] text-slate-500">${escapeHtml(email)}</div>
+                  </td>
+                  <td class="px-3 py-3 whitespace-nowrap text-xs text-slate-700">${escapeHtml(dept)}</td>
+                  <td class="px-3 py-3 whitespace-nowrap"><span class="leave-type-badge ${type.replace(/\s+/g, '-').toLowerCase()} px-2.5 py-0.5 rounded-full text-[11px] font-medium">${escapeHtml(type)}</span></td>
+                  <td class="px-3 py-3 whitespace-nowrap text-center text-xs text-slate-700">${period}</td>
+                  <td class="px-3 py-3 whitespace-nowrap text-right tabular-nums font-mono font-semibold text-slate-900">${displayDuration}</td>
                   <td class="px-3 py-3 whitespace-nowrap text-center">
-                    <span class="status-badge ${statusClass} px-2.5 py-0.5 rounded-full text-[11px] font-medium">${status}</span>
+                    <span class="status-badge ${statusClass} px-2.5 py-0.5 rounded-full text-[11px] font-medium">${escapeHtml(status)}</span>
                   </td>
-                  <td class="px-3 py-3 whitespace-nowrap text-center text-xs text-gray-600">
-                    ${processedBy}${processedDate ? `<br><span class="text-[11px] text-gray-400 font-mono">${processedDate}</span>` : ''}
+                  <td class="px-3 py-3 whitespace-nowrap text-center text-xs text-slate-600">
+                    ${escapeHtml(processedBy)}${processedDate ? `<br><span class="text-[11px] text-slate-400 font-mono">${processedDate}</span>` : ''}
                   </td>
-                  <td class="px-3 py-3 max-w-xs truncate text-xs text-gray-600" title="${escapeHtml(app.Reason || app.reason || '')}">
+                  <td class="px-3 py-3 max-w-xs truncate text-xs text-slate-600" title="${escapeHtml(fullReason)}">
                     ${escapeHtml(reason)}
                   </td>
                 </tr>
@@ -8166,137 +8455,191 @@
           </tbody>
         </table>
       </div>
-      <p class="text-xs text-gray-500 mt-4 tabular-nums font-mono">Total: ${applications.length} applications</p>
     </div>
   `;
             }
 
             // Attach filters for applications audit
             function attachApplicationsFilters() {
-                console.log('Attaching applications filters');
-
-                const applyBtn = document.getElementById('applyAppFilters');
-                if (applyBtn) {
-                    // Remove existing listeners
-                    const newBtn = applyBtn.cloneNode(true);
-                    applyBtn.parentNode.replaceChild(newBtn, applyBtn);
-                    newBtn.addEventListener('click', filterApplicationsTable);
-                }
-
                 const searchInput = document.getElementById('appSearchFilter');
-                if (searchInput) {
-                    const newInput = searchInput.cloneNode(true);
-                    searchInput.parentNode.replaceChild(newInput, searchInput);
-                    newInput.addEventListener('keyup', filterApplicationsTable);
-                }
-
+                const clearBtn = document.getElementById('appClearSearchBtn');
+                const deptFilter = document.getElementById('appDeptFilter');
                 const statusFilter = document.getElementById('appStatusFilter');
-                if (statusFilter) {
-                    const newStatus = statusFilter.cloneNode(true);
-                    statusFilter.parentNode.replaceChild(newStatus, statusFilter);
-                    newStatus.addEventListener('change', filterApplicationsTable);
-                }
-
                 const typeFilter = document.getElementById('appTypeFilter');
-                if (typeFilter) {
-                    const newType = typeFilter.cloneNode(true);
-                    typeFilter.parentNode.replaceChild(newType, typeFilter);
-                    newType.addEventListener('change', filterApplicationsTable);
-                }
+                const resetBtn = document.getElementById('resetAppFiltersBtn');
+
+                searchInput?.addEventListener('input', filterApplicationsTable);
+                clearBtn?.addEventListener('click', () => {
+                    if (searchInput) {
+                        searchInput.value = '';
+                        searchInput.focus();
+                    }
+                    filterApplicationsTable();
+                });
+                deptFilter?.addEventListener('change', filterApplicationsTable);
+                statusFilter?.addEventListener('change', () => {
+                    const val = statusFilter.value;
+                    document.querySelectorAll('.app-audit-kpi-card').forEach(c => {
+                        c.classList.toggle('active-kpi', c.getAttribute('data-status-filter') === val);
+                    });
+                    filterApplicationsTable();
+                });
+                typeFilter?.addEventListener('change', filterApplicationsTable);
+
+                resetBtn?.addEventListener('click', () => {
+                    if (searchInput) searchInput.value = '';
+                    if (deptFilter) deptFilter.value = 'all';
+                    if (statusFilter) statusFilter.value = 'all';
+                    if (typeFilter) typeFilter.value = 'all';
+                    document.querySelectorAll('.app-audit-kpi-card').forEach(c => {
+                        c.classList.toggle('active-kpi', c.getAttribute('data-status-filter') === 'all');
+                    });
+                    filterApplicationsTable();
+                });
+
+                document.querySelectorAll('.app-audit-kpi-card').forEach(card => {
+                    card.addEventListener('click', () => {
+                        const targetStatus = card.getAttribute('data-status-filter') || 'all';
+                        document.querySelectorAll('.app-audit-kpi-card').forEach(c => c.classList.remove('active-kpi'));
+                        card.classList.add('active-kpi');
+                        if (statusFilter) statusFilter.value = targetStatus;
+                        filterApplicationsTable();
+                    });
+                });
             }
 
             // Filter applications table
             function filterApplicationsTable() {
-                const statusFilter = document.getElementById('appStatusFilter')?.value || 'all';
-                const typeFilter = document.getElementById('appTypeFilter')?.value || 'all';
-                const searchFilter = (document.getElementById('appSearchFilter')?.value || '').toLowerCase();
+                const statusVal = (document.getElementById('appStatusFilter')?.value || 'all').toLowerCase();
+                const typeVal = (document.getElementById('appTypeFilter')?.value || 'all').toLowerCase();
+                const deptVal = (document.getElementById('appDeptFilter')?.value || 'all').toLowerCase();
+                const searchVal = (document.getElementById('appSearchFilter')?.value || '').trim().toLowerCase();
+
+                const clearBtn = document.getElementById('appClearSearchBtn');
+                if (clearBtn) clearBtn.classList.toggle('hidden', !searchVal);
+
+                const resetBtn = document.getElementById('resetAppFiltersBtn');
+                const hasActiveFilter = Boolean(searchVal || statusVal !== 'all' || typeVal !== 'all' || deptVal !== 'all');
+                if (resetBtn) {
+                    resetBtn.classList.toggle('hidden', !hasActiveFilter);
+                    resetBtn.classList.toggle('inline-flex', hasActiveFilter);
+                }
 
                 const tbody = document.getElementById('applicationsAuditBody');
                 if (!tbody) return;
 
-                const rows = tbody.querySelectorAll('tr');
-
+                const rows = tbody.querySelectorAll('.app-audit-row');
                 let visibleCount = 0;
 
                 rows.forEach(row => {
-                    const status = row.querySelector('td:nth-child(7) .status-badge')?.textContent || '';
-                    const type = row.querySelector('td:nth-child(4)')?.textContent || '';
-                    const name = row.querySelector('td:nth-child(2)')?.textContent?.toLowerCase() || '';
-                    const email = row.querySelector('td:nth-child(3)')?.textContent?.toLowerCase() || '';
+                    const rStatus = (row.getAttribute('data-status') || '').toLowerCase();
+                    const rType = (row.getAttribute('data-type') || '').toLowerCase();
+                    const rDept = (row.getAttribute('data-dept') || '').toLowerCase();
+                    const rSearch = (row.getAttribute('data-search') || '').toLowerCase();
 
-                    let show = true;
+                    const matchesStatus = statusVal === 'all' || rStatus === statusVal;
+                    const matchesType = typeVal === 'all' || rType === typeVal || rType.includes(typeVal);
+                    const matchesDept = deptVal === 'all' || rDept === deptVal;
+                    const matchesSearch = !searchVal || rSearch.includes(searchVal);
 
-                    if (statusFilter !== 'all' && status !== statusFilter) show = false;
-                    if (typeFilter !== 'all' && type !== typeFilter) show = false;
-                    if (searchFilter && !name.includes(searchFilter) && !email.includes(searchFilter)) show = false;
-
+                    const show = matchesStatus && matchesType && matchesDept && matchesSearch;
                     row.style.display = show ? '' : 'none';
                     if (show) visibleCount++;
                 });
 
-                showToast('info', 'Filter Applied', `Showing ${visibleCount} of ${rows.length} applications`);
+                const countBadge = document.getElementById('appAuditCountBadge');
+                if (countBadge) {
+                    countBadge.textContent = `${visibleCount} of ${rows.length} filings`;
+                }
+
+                const existingEmpty = tbody.querySelector('#appAuditEmptyRow');
+                if (visibleCount === 0 && rows.length > 0) {
+                    if (!existingEmpty) {
+                        const tr = document.createElement('tr');
+                        tr.id = 'appAuditEmptyRow';
+                        tr.innerHTML = `<td colspan="9" class="py-8 text-center text-xs text-slate-500"><i class="fas fa-filter text-slate-300 mr-2"></i>No applications match the selected filter criteria</td>`;
+                        tbody.appendChild(tr);
+                    }
+                } else if (existingEmpty) {
+                    existingEmpty.remove();
+                }
             }
 
             // Update summary cards
             function updateReportSummary(staff, applications, year) {
                 const totalStaff = staff.length;
+                const eligibleStaff = staff.filter(s => s.EligibleForLeave !== false).length;
 
                 // Filter applications for the selected year
                 const yearApps = applications.filter(app => {
-                    const appYear = new Date(app.DateApplied || app.dateApplied).getFullYear();
+                    const d = new Date(app.DateApplied || app.dateApplied || app.StartDate || app.startDate);
+                    const appYear = !isNaN(d.getTime()) ? d.getFullYear() : Number(year);
                     return appYear.toString() === year.toString();
                 });
 
                 const totalApplications = yearApps.length;
-
-                // Calculate utilization rate from APPROVED applications only
                 const approvedApps = yearApps.filter(app => (app.Status || app.status) === 'Approved');
+
                 let totalUsed = 0;
                 approvedApps.forEach(app => {
                     totalUsed += app.Duration || 0;
                 });
 
-                // Calculate total accrued for all staff
                 let totalAccrued = 0;
+                let totalBfActive = 0;
+                const today = new Date();
+                const reportYearNum = parseInt(year, 10) || today.getFullYear();
+
                 staff.forEach(s => {
                     if (s.EligibleForLeave !== false) {
                         totalAccrued += s.LeaveAccrual?.accruedYearToDate || 0;
+                    }
+                    const bf = s.LeaveBroughtForward;
+                    if (bf) {
+                        const easterExp = getEasterExpiryDate(bf, reportYearNum);
+                        easterExp.setHours(23, 59, 59, 999);
+                        const isPastEaster = today > easterExp || (today.getFullYear() > reportYearNum);
+                        const bfExpired = Boolean(bf.isExpired) || Boolean(bf.isForfeited) || isPastEaster;
+                        if (!bfExpired) {
+                            totalBfActive += Math.max(0, Number(bf.daysCarriedFromPreviousYear || 0));
+                        }
                     }
                 });
 
                 const utilizationRate = totalAccrued > 0 ? Math.round((totalUsed / totalAccrued) * 100) : 0;
 
-                // Count staff in deficit
                 const staffInDeficit = staff.filter(s => {
                     const deficit = s.LeaveAccrual?.annualDeficit?.amount || 0;
                     return deficit < 0;
                 }).length;
 
-                // Update UI
                 const totalStaffEl = document.getElementById('totalStaffCount');
+                const eligSubEl = document.getElementById('eligibleStaffSubtext');
                 const totalAppsEl = document.getElementById('totalApplications');
                 const periodEl = document.getElementById('applicationsPeriod');
                 const utilEl = document.getElementById('utilizationRate');
+                const utilBarEl = document.getElementById('utilizationProgressBar');
+                const bfEl = document.getElementById('totalBfRemaining');
                 const deficitEl = document.getElementById('staffInDeficit');
 
                 if (totalStaffEl) totalStaffEl.textContent = totalStaff;
+                if (eligSubEl) eligSubEl.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>${eligibleStaff} eligible`;
                 if (totalAppsEl) totalAppsEl.textContent = totalApplications;
-                if (periodEl) periodEl.textContent = `${year} (YTD)`;
+                if (periodEl) periodEl.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-indigo-500 inline-block"></span>${approvedApps.length} approved (${year})`;
                 if (utilEl) utilEl.textContent = `${utilizationRate}%`;
+                if (utilBarEl) utilBarEl.style.width = `${Math.min(100, utilizationRate)}%`;
+                if (bfEl) bfEl.textContent = `${totalBfActive.toFixed(1)}d`;
                 if (deficitEl) deficitEl.textContent = staffInDeficit;
             }
 
-            // Update department breakdown using ALL staff and ALL applications
+            // Update department breakdown using staff and applications
             function updateDepartmentBreakdown(allStaff, allApplications) {
-                // Filter to only approved applications
                 const approvedApps = allApplications.filter(app =>
                     (app.Status || app.status) === 'Approved'
                 );
 
-                // Group staff by department
                 const departments = {};
 
-                // Initialize departments with ALL staff
                 allStaff.forEach(s => {
                     const dept = s.Department || s.department || 'Unassigned';
                     if (!departments[dept]) {
@@ -8312,19 +8655,16 @@
                     departments[dept].staffEmails.add((s.Email || s.email || '').toLowerCase());
                     departments[dept].staffCount++;
 
-                    // Check deficit from staff record
                     const deficit = s.LeaveAccrual?.annualDeficit?.amount || 0;
                     if (deficit < 0) {
                         departments[dept].deficitCount++;
                     }
                 });
 
-                // Calculate leave used from ALL approved applications
                 approvedApps.forEach(app => {
                     const appEmail = (app.Email || app.email || '').toLowerCase();
                     if (!appEmail) return;
 
-                    // Find which department this staff belongs to
                     for (const [dept, data] of Object.entries(departments)) {
                         if (data.staffEmails.has(appEmail)) {
                             data.totalLeaveUsed += app.Duration || 0;
@@ -8334,43 +8674,87 @@
                 });
 
                 const tbody = document.getElementById('departmentTableBody');
-
                 if (!tbody) return;
 
-                if (Object.keys(departments).length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-gray-500">No department data available</td></tr>';
+                const entries = Object.entries(departments).sort((a, b) => a[0].localeCompare(b[0]));
+
+                if (entries.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-slate-500">No department data available</td></tr>';
                     return;
                 }
 
-                tbody.innerHTML = Object.entries(departments).map(([dept, data]) => {
+                tbody.innerHTML = entries.map(([dept, data]) => {
                     const staffCount = data.staffCount;
                     const avgPerStaff = staffCount > 0 ? (data.totalLeaveUsed / staffCount).toFixed(3) : '0.000';
                     const totalPotential = staffCount * 21;
                     const utilization = totalPotential > 0 ? Math.round((data.totalLeaveUsed / totalPotential) * 100) : 0;
 
                     return `
-      <tr class="hover:bg-slate-50/70 transition-colors">
-        <td class="px-6 py-3.5 whitespace-nowrap font-medium text-gray-900">${escapeHtml(dept)}</td>
-        <td class="px-6 py-3.5 whitespace-nowrap text-right tabular-nums font-mono text-gray-700">${staffCount}</td>
-        <td class="px-6 py-3.5 whitespace-nowrap text-right font-medium tabular-nums font-mono text-gray-900">${data.totalLeaveUsed.toFixed(3)}</td>
-        <td class="px-6 py-3.5 whitespace-nowrap text-right font-medium tabular-nums font-mono text-gray-700">${avgPerStaff}</td>
-        <td class="px-6 py-3.5 whitespace-nowrap">
+      <tr class="hover:bg-emerald-50/40 transition-colors cursor-pointer dept-summary-row" data-dept="${escapeHtml(dept.toLowerCase())}" data-dept-label="${escapeHtml(dept)}" title="Click to filter Staff Leave Details by ${escapeHtml(dept)}">
+        <td class="px-4 py-3.5 whitespace-nowrap font-semibold text-slate-900 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          ${escapeHtml(dept)}
+        </td>
+        <td class="px-4 py-3.5 whitespace-nowrap text-right tabular-nums font-mono text-slate-700">${staffCount}</td>
+        <td class="px-4 py-3.5 whitespace-nowrap text-right font-medium tabular-nums font-mono text-slate-900">${data.totalLeaveUsed.toFixed(3)}</td>
+        <td class="px-4 py-3.5 whitespace-nowrap text-right font-medium tabular-nums font-mono text-slate-700">${avgPerStaff}</td>
+        <td class="px-4 py-3.5 whitespace-nowrap">
           <div class="flex items-center justify-end gap-2.5">
-            <span class="text-xs font-medium tabular-nums font-mono text-gray-700">${utilization}%</span>
+            <span class="text-xs font-medium tabular-nums font-mono text-slate-700">${utilization}%</span>
             <div class="w-16 bg-slate-100 rounded-full h-1.5 overflow-hidden">
-              <div class="bg-emerald-600 rounded-full h-1.5 transition-all duration-300" style="width: ${utilization}%"></div>
+              <div class="bg-emerald-600 rounded-full h-1.5 transition-all duration-300" style="width: ${Math.min(100, utilization)}%"></div>
             </div>
           </div>
         </td>
-        <td class="px-6 py-3.5 whitespace-nowrap text-center">
+        <td class="px-4 py-3.5 whitespace-nowrap text-center">
           ${data.deficitCount > 0
             ? `<span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-rose-50 text-rose-700 border border-rose-200 tabular-nums font-mono shadow-2xs">${data.deficitCount}</span>`
-            : `<span class="text-gray-400 font-mono text-xs">0</span>`}
+            : `<span class="text-slate-400 font-mono text-xs">0</span>`}
         </td>
       </tr>
     `;
                 }).join('');
+
+                // Setup Department Summary search & row click-to-filter
+                const deptSearch = document.getElementById('deptReportSearchInput');
+                const deptClear = document.getElementById('deptReportClearSearch');
+                const deptBadge = document.getElementById('deptReportCountBadge');
+
+                function filterDeptSummary() {
+                    const q = (deptSearch ? deptSearch.value : '').trim().toLowerCase();
+                    if (deptClear) deptClear.classList.toggle('hidden', !q);
+                    const rows = tbody.querySelectorAll('.dept-summary-row');
+                    let vis = 0;
+                    rows.forEach(r => {
+                        const d = r.getAttribute('data-dept') || '';
+                        if (!q || d.includes(q)) {
+                            r.style.display = '';
+                            vis++;
+                        } else {
+                            r.style.display = 'none';
+                        }
+                    });
+                    if (deptBadge) deptBadge.textContent = `${vis} of ${rows.length} depts`;
+                }
+
+                if (deptSearch) deptSearch.addEventListener('input', filterDeptSummary);
+                if (deptClear) deptClear.addEventListener('click', () => { deptSearch.value = ''; deptSearch.focus(); filterDeptSummary(); });
+                filterDeptSummary();
+
+                // Clicking a department row filters the Staff Leave Details table below
+                tbody.querySelectorAll('.dept-summary-row').forEach(row => {
+                    row.addEventListener('click', () => {
+                        const targetDept = row.getAttribute('data-dept') || 'all';
+                        const staffDeptSelect = document.getElementById('staffReportDeptFilter');
+                        if (staffDeptSelect) {
+                            staffDeptSelect.value = staffDeptSelect.value === targetDept ? 'all' : targetDept;
+                            staffDeptSelect.dispatchEvent(new Event('change'));
+                            document.getElementById('staffReportTable')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                    });
+                });
             }
+
             // Calculate movable Easter Sunday using Meeus/Jones/Butcher algorithm
             function calculateEasterDate(year) {
                 const y = parseInt(year, 10);
@@ -8417,13 +8801,12 @@
             }
 
             // Update staff report table - WITH DEFICIT, COMPENSATION, & BROUGHT FORWARD FORFEITURE INCLUDED
-            function updateStaffReportTable(staff, applications, year) {
+            function updateStaffReportTable(staff, applications, year, reportType = 'overview', activeDept = 'all') {
                 const tbody = document.getElementById('staffReportTableBody');
-
                 if (!tbody) return;
 
                 if (staff.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="15" class="px-6 py-4 text-center text-gray-500">No staff data available</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="15" class="px-6 py-4 text-center text-slate-500">No staff data available</td></tr>';
                     return;
                 }
 
@@ -8444,7 +8827,6 @@
                     const email = s.Email || s.email || '';
                     const department = s.Department || s.department || 'Unassigned';
 
-                    // Get history for selected report year (fallback to current year)
                     const history = s.LeaveHistory?.[reportYear] || s.LeaveHistory?.[currentYear] || {
                         annualUsed: 0,
                         sickUsed: 0,
@@ -8452,22 +8834,17 @@
                         totalUsed: 0
                     };
 
-                    // =============================================
                     // ANNUAL LEAVE CALCULATIONS
-                    // =============================================
                     const annualAccrued = s.LeaveAccrual?.accruedYearToDate || 0;
                     const annualUsed = history.annualUsed || 0;
                     const annualRemaining = Math.max(0, annualAccrued - annualUsed);
 
-                    // =============================================
                     // BROUGHT FORWARD CALCULATIONS & FORFEITURE CHECK
-                    // =============================================
                     const bf = s.LeaveBroughtForward;
                     const bfUsed = history.broughtForwardUsed || 0;
                     const bfRawRemaining = bf?.daysCarriedFromPreviousYear || 0;
                     const bfStoredForfeited = bf?.forfeitedDays || bf?.forfeited || 0;
 
-                    // Easter expiry evaluation (under company policy, brought-forward leave expires on Easter Sunday)
                     const easterExpiryDate = getEasterExpiryDate(bf, reportYearNum);
                     easterExpiryDate.setHours(23, 59, 59, 999);
                     const isPastEaster = today > easterExpiryDate || (today.getFullYear() > reportYearNum);
@@ -8480,87 +8857,83 @@
 
                     if (bf) {
                         if (bfIsExpired) {
-                            // Carried-forward days expired after Easter Sunday
                             bfForfeitedDays = bfStoredForfeited > 0 ? bfStoredForfeited : bfRawRemaining;
                             bfEffectiveRemaining = 0;
-                            // Reconstruct original carried-forward days: remaining before forfeiture (or forfeited) + used
                             bfOriginal = (bfRawRemaining > 0 ? bfRawRemaining : bfForfeitedDays) + bfUsed;
                         } else {
-                            // Active pool prior to Easter Sunday
                             bfForfeitedDays = 0;
                             bfEffectiveRemaining = Math.max(0, bfRawRemaining);
                             bfOriginal = bfRawRemaining + bfUsed;
                         }
                     }
 
-                    // =============================================
                     // SICK LEAVE CALCULATIONS
-                    // =============================================
                     const sickUsed = s.SickLeave?.used || 0;
                     const sickRemaining = Math.max(0, 7 - sickUsed);
 
-                    // =============================================
                     // COMPENSATION LEAVE CALCULATIONS
-                    // =============================================
                     const compBalance = s.CompensationLeave?.balance || 0;
                     const compUsed = s.CompensationLeave?.used || 0;
 
-                    // =============================================
                     // DEFICIT CALCULATION
-                    // =============================================
                     const deficit = s.LeaveAccrual?.annualDeficit?.amount || 0;
                     const hasDeficit = deficit < 0;
                     const deficitAmount = hasDeficit ? Math.abs(deficit).toFixed(3) : '0.000';
 
-                    // =============================================
-                    // TOTAL AVAILABLE - Uses effective active BF remaining (0 if forfeited)
-                    // =============================================
-                    // Deficit is negative, so adding it subtracts from total
+                    // TOTAL AVAILABLE
                     const totalAvailable = (annualRemaining + bfEffectiveRemaining + compBalance + deficit).toFixed(3);
 
                     return `
-      <tr class="hover:bg-slate-50/70 transition-colors staff-report-row" data-name="${escapeHtml(name.toLowerCase())}" data-email="${escapeHtml(email.toLowerCase())}" data-dept="${escapeHtml(department.toLowerCase())}">
+      <tr class="hover:bg-slate-50/70 transition-colors staff-report-row"
+          data-name="${escapeHtml(name.toLowerCase())}"
+          data-email="${escapeHtml(email.toLowerCase())}"
+          data-dept="${escapeHtml(department.toLowerCase())}"
+          data-deficit="${hasDeficit ? '1' : '0'}"
+          data-bf-active="${bfEffectiveRemaining > 0 ? '1' : '0'}"
+          data-bf-forfeited="${bfForfeitedDays > 0 ? '1' : '0'}"
+          data-comp="${compBalance > 0 ? '1' : '0'}"
+          data-low-annual="${annualRemaining < 5 ? '1' : '0'}">
         <td class="px-4 py-3">
-          <div class="font-medium text-gray-900">${escapeHtml(name)}</div>
-          <div class="text-xs text-gray-500">${escapeHtml(email)}</div>
+          <div class="font-semibold text-slate-900">${escapeHtml(name)}</div>
+          <div class="text-[11px] text-slate-500">${escapeHtml(email)}</div>
         </td>
-        <td class="px-4 py-3 whitespace-nowrap text-gray-700 border-r border-gray-200/80">${escapeHtml(department)}</td>
+        <td class="px-4 py-3 whitespace-nowrap text-slate-700 border-r border-slate-200/80">${escapeHtml(department)}</td>
         
         <!-- ANNUAL LEAVE COLUMNS -->
-        <td class="px-3 py-3 whitespace-nowrap text-right tabular-nums font-mono text-gray-700" data-val="${annualUsed.toFixed(3)}">${annualUsed.toFixed(3)}</td>
-        <td class="px-3 py-3 whitespace-nowrap text-right tabular-nums font-mono text-gray-700" data-val="${annualAccrued.toFixed(3)}">${annualAccrued.toFixed(3)}</td>
-        <td class="px-3 py-3 whitespace-nowrap text-right font-semibold tabular-nums font-mono text-emerald-800 border-r border-gray-200/80" data-val="${annualRemaining.toFixed(3)}">${annualRemaining.toFixed(3)}</td>
+        <td class="px-3 py-3 whitespace-nowrap text-right tabular-nums font-mono text-slate-700" data-val="${annualUsed.toFixed(3)}">${annualUsed.toFixed(3)}</td>
+        <td class="px-3 py-3 whitespace-nowrap text-right tabular-nums font-mono text-slate-700" data-val="${annualAccrued.toFixed(3)}">${annualAccrued.toFixed(3)}</td>
+        <td class="px-3 py-3 whitespace-nowrap text-right font-semibold tabular-nums font-mono text-emerald-800 border-r border-slate-200/80" data-val="${annualRemaining.toFixed(3)}">${annualRemaining.toFixed(3)}</td>
         
         <!-- BROUGHT FORWARD COLUMNS (WITH FORFEITURE SUPPORT) -->
-        <td class="px-3 py-3 whitespace-nowrap text-right tabular-nums font-mono text-gray-700" data-val="${bfOriginal.toFixed(3)}">${bfOriginal.toFixed(3)}</td>
-        <td class="px-3 py-3 whitespace-nowrap text-right tabular-nums font-mono text-gray-700" data-val="${bfUsed.toFixed(3)}">${bfUsed.toFixed(3)}</td>
+        <td class="px-3 py-3 whitespace-nowrap text-right tabular-nums font-mono text-slate-700" data-val="${bfOriginal.toFixed(3)}">${bfOriginal.toFixed(3)}</td>
+        <td class="px-3 py-3 whitespace-nowrap text-right tabular-nums font-mono text-slate-700" data-val="${bfUsed.toFixed(3)}">${bfUsed.toFixed(3)}</td>
         <td class="px-3 py-3 whitespace-nowrap text-right tabular-nums font-mono" data-val="${bfForfeitedDays.toFixed(3)}">
           ${bfForfeitedDays > 0
             ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 tabular-nums font-mono shadow-2xs" title="Forfeited after Easter Sunday">${bfForfeitedDays.toFixed(3)}</span>`
-            : `<span class="text-gray-400">0.000</span>`}
+            : `<span class="text-slate-400">0.000</span>`}
         </td>
-        <td class="px-3 py-3 whitespace-nowrap text-right tabular-nums font-mono border-r border-gray-200/80" data-val="${bfEffectiveRemaining.toFixed(3)}">
+        <td class="px-3 py-3 whitespace-nowrap text-right tabular-nums font-mono border-r border-slate-200/80" data-val="${bfEffectiveRemaining.toFixed(3)}">
           ${bfIsExpired && (bfOriginal > 0 || bfForfeitedDays > 0)
             ? `<div class="inline-flex items-center justify-end gap-1.5">
-                <span class="text-gray-400 line-through">0.000</span>
+                <span class="text-slate-400 line-through">0.000</span>
                 <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-50 text-rose-600 border border-rose-200 shadow-2xs" title="Carried-forward days forfeited after Easter">Forfeited</span>
                </div>`
-            : `<span class="${bfEffectiveRemaining > 0 ? 'text-amber-800 font-semibold' : 'text-gray-400'}">${bfEffectiveRemaining.toFixed(3)}</span>`}
+            : `<span class="${bfEffectiveRemaining > 0 ? 'text-amber-800 font-semibold' : 'text-slate-400'}">${bfEffectiveRemaining.toFixed(3)}</span>`}
         </td>
         
         <!-- SICK LEAVE COLUMNS -->
-        <td class="px-3 py-3 whitespace-nowrap text-right tabular-nums font-mono text-gray-700" data-val="${sickUsed.toFixed(3)}">${sickUsed.toFixed(3)}</td>
-        <td class="px-3 py-3 whitespace-nowrap text-right font-semibold tabular-nums font-mono text-teal-800 border-r border-gray-200/80" data-val="${sickRemaining.toFixed(3)}">${sickRemaining.toFixed(3)}</td>
+        <td class="px-3 py-3 whitespace-nowrap text-right tabular-nums font-mono text-slate-700" data-val="${sickUsed.toFixed(3)}">${sickUsed.toFixed(3)}</td>
+        <td class="px-3 py-3 whitespace-nowrap text-right font-semibold tabular-nums font-mono text-teal-800 border-r border-slate-200/80" data-val="${sickRemaining.toFixed(3)}">${sickRemaining.toFixed(3)}</td>
         
         <!-- COMPENSATION LEAVE COLUMNS -->
-        <td class="px-3 py-3 whitespace-nowrap text-right tabular-nums font-mono text-gray-700" data-val="${compUsed.toFixed(3)}">${compUsed.toFixed(3)}</td>
-        <td class="px-3 py-3 whitespace-nowrap text-right font-semibold tabular-nums font-mono text-indigo-800 border-r border-gray-200/80" data-val="${compBalance.toFixed(3)}">${compBalance.toFixed(3)}</td>
+        <td class="px-3 py-3 whitespace-nowrap text-right tabular-nums font-mono text-slate-700" data-val="${compUsed.toFixed(3)}">${compUsed.toFixed(3)}</td>
+        <td class="px-3 py-3 whitespace-nowrap text-right font-semibold tabular-nums font-mono text-indigo-800 border-r border-slate-200/80" data-val="${compBalance.toFixed(3)}">${compBalance.toFixed(3)}</td>
         
         <!-- DEFICIT COLUMN -->
-        <td class="px-3 py-3 whitespace-nowrap text-right font-semibold border-r border-gray-200/80 tabular-nums font-mono" data-val="${hasDeficit ? deficit.toFixed(3) : '0.000'}">
+        <td class="px-3 py-3 whitespace-nowrap text-right font-semibold border-r border-slate-200/80 tabular-nums font-mono" data-val="${hasDeficit ? deficit.toFixed(3) : '0.000'}">
           ${hasDeficit
               ? `<span class="text-rose-600 font-bold">${deficitAmount}</span>`
-              : '<span class="text-gray-400">0.000</span>'}
+              : '<span class="text-slate-400">0.000</span>'}
         </td>
         
         <!-- TOTAL AVAILABLE -->
@@ -8568,28 +8941,47 @@
       </tr>
     `;
                 }).join('');
-                setupStaffReportFilters(sortedStaff);
+                setupStaffReportFilters(sortedStaff, reportType);
             }
 
-            function setupStaffReportFilters(staffList) {
-                const searchInput = document.getElementById('staffReportSearchInput');
-                const clearBtn = document.getElementById('staffReportClearSearch');
-                const deptSelect = document.getElementById('staffReportDeptFilter');
-                const countBadge = document.getElementById('staffReportCountBadge');
+            function setupStaffReportFilters(staffList, reportType = 'overview') {
                 const tbody = document.getElementById('staffReportTableBody');
                 if (!tbody) return;
 
-                if (deptSelect && staffList && staffList.length > 0) {
+                const initialDeptSelect = document.getElementById('staffReportDeptFilter');
+                if (initialDeptSelect && staffList && staffList.length > 0) {
                     const depts = Array.from(new Set(staffList.map(s => s.Department || s.department).filter(Boolean))).sort();
-                    const currentVal = deptSelect.value;
-                    deptSelect.innerHTML = '<option value="all">All Departments</option>' + depts.map(d => `<option value="${escapeHtml(d.toLowerCase())}">${escapeHtml(d)}</option>`).join('');
-                    if (currentVal) deptSelect.value = currentVal;
+                    const currentVal = initialDeptSelect.value;
+                    initialDeptSelect.innerHTML = '<option value="all">All Departments</option>' + depts.map(d => `<option value="${escapeHtml(d.toLowerCase())}">${escapeHtml(d)}</option>`).join('');
+                    if (currentVal && (currentVal === 'all' || depts.some(d => d.toLowerCase() === currentVal))) {
+                        initialDeptSelect.value = currentVal;
+                    }
+                }
+
+                const initialStatusSelect = document.getElementById('staffReportStatusFilter');
+                if (initialStatusSelect && reportType === 'deficit') {
+                    initialStatusSelect.value = 'deficit';
                 }
 
                 function runFilter() {
-                    const query = (searchInput ? searchInput.value : '').trim().toLowerCase();
-                    const dept = deptSelect ? deptSelect.value : 'all';
-                    if (clearBtn) clearBtn.classList.toggle('hidden', !query);
+                    const liveSearch = document.getElementById('staffReportSearchInput');
+                    const liveClear = document.getElementById('staffReportClearSearch');
+                    const liveDept = document.getElementById('staffReportDeptFilter');
+                    const liveStatus = document.getElementById('staffReportStatusFilter');
+                    const liveReset = document.getElementById('staffReportResetBtn');
+                    const liveBadge = document.getElementById('staffReportCountBadge');
+
+                    const query = (liveSearch ? liveSearch.value : '').trim().toLowerCase();
+                    const dept = liveDept ? liveDept.value : 'all';
+                    const statusMode = liveStatus ? liveStatus.value : 'all';
+
+                    if (liveClear) liveClear.classList.toggle('hidden', !query);
+
+                    const hasActiveFilter = Boolean(query || dept !== 'all' || statusMode !== 'all');
+                    if (liveReset) {
+                        liveReset.classList.toggle('hidden', !hasActiveFilter);
+                        liveReset.classList.toggle('inline-flex', hasActiveFilter);
+                    }
 
                     const rows = tbody.querySelectorAll('.staff-report-row');
                     let visibleCount = 0;
@@ -8598,11 +8990,23 @@
                         const name = r.getAttribute('data-name') || '';
                         const email = r.getAttribute('data-email') || '';
                         const rDept = r.getAttribute('data-dept') || '';
+                        const isDeficit = r.getAttribute('data-deficit') === '1';
+                        const isBfActive = r.getAttribute('data-bf-active') === '1';
+                        const isBfForfeited = r.getAttribute('data-bf-forfeited') === '1';
+                        const isComp = r.getAttribute('data-comp') === '1';
+                        const isLowAnnual = r.getAttribute('data-low-annual') === '1';
 
                         const matchesText = !query || name.includes(query) || email.includes(query) || rDept.includes(query);
                         const matchesDept = (dept === 'all' || rDept === dept);
 
-                        if (matchesText && matchesDept) {
+                        let matchesStatus = true;
+                        if (statusMode === 'deficit') matchesStatus = isDeficit;
+                        else if (statusMode === 'bf_active') matchesStatus = isBfActive;
+                        else if (statusMode === 'bf_forfeited') matchesStatus = isBfForfeited;
+                        else if (statusMode === 'comp') matchesStatus = isComp;
+                        else if (statusMode === 'low_annual') matchesStatus = isLowAnnual;
+
+                        if (matchesText && matchesDept && matchesStatus) {
                             r.style.display = '';
                             visibleCount++;
                         } else {
@@ -8610,8 +9014,8 @@
                         }
                     });
 
-                    if (countBadge) {
-                        countBadge.textContent = `${visibleCount} of ${rows.length} staff`;
+                    if (liveBadge) {
+                        liveBadge.textContent = `${visibleCount} of ${rows.length} staff`;
                     }
 
                     const existingEmpty = tbody.querySelector('#staffReportEmptyRow');
@@ -8619,7 +9023,7 @@
                         if (!existingEmpty) {
                             const tr = document.createElement('tr');
                             tr.id = 'staffReportEmptyRow';
-                            tr.innerHTML = `<td colspan="15" class="py-8 text-center text-xs text-gray-500"><i class="fas fa-search text-gray-400 mr-2"></i>No staff records match filter criteria</td>`;
+                            tr.innerHTML = `<td colspan="15" class="py-8 text-center text-xs text-slate-500"><i class="fas fa-search text-slate-400 mr-2"></i>No staff records match filter criteria</td>`;
                             tbody.appendChild(tr);
                         }
                     } else if (existingEmpty) {
@@ -8627,19 +9031,53 @@
                     }
                 }
 
+                const searchInput = document.getElementById('staffReportSearchInput');
                 if (searchInput) {
                     searchInput.value = '';
                     const newInp = searchInput.cloneNode(true);
                     searchInput.parentNode.replaceChild(newInp, searchInput);
                     newInp.addEventListener('input', runFilter);
-                    const newClr = document.getElementById('staffReportClearSearch');
-                    if (newClr) newClr.addEventListener('click', () => { newInp.value = ''; newInp.focus(); runFilter(); });
+                    const clrBtn = document.getElementById('staffReportClearSearch');
+                    if (clrBtn) {
+                        const newClr = clrBtn.cloneNode(true);
+                        clrBtn.parentNode.replaceChild(newClr, clrBtn);
+                        newClr.addEventListener('click', () => { newInp.value = ''; newInp.focus(); runFilter(); });
+                    }
                 }
+
+                const deptSelect = document.getElementById('staffReportDeptFilter');
                 if (deptSelect) {
+                    const savedDept = deptSelect.value;
                     const newSel = deptSelect.cloneNode(true);
+                    newSel.value = savedDept;
                     deptSelect.parentNode.replaceChild(newSel, deptSelect);
                     newSel.addEventListener('change', runFilter);
                 }
+
+                const statusSelect = document.getElementById('staffReportStatusFilter');
+                if (statusSelect) {
+                    const savedStatus = statusSelect.value;
+                    const newStatus = statusSelect.cloneNode(true);
+                    newStatus.value = savedStatus;
+                    statusSelect.parentNode.replaceChild(newStatus, statusSelect);
+                    newStatus.addEventListener('change', runFilter);
+                }
+
+                const resetBtn = document.getElementById('staffReportResetBtn');
+                if (resetBtn) {
+                    const newReset = resetBtn.cloneNode(true);
+                    resetBtn.parentNode.replaceChild(newReset, resetBtn);
+                    newReset.addEventListener('click', () => {
+                        const sInp = document.getElementById('staffReportSearchInput');
+                        const dSel = document.getElementById('staffReportDeptFilter');
+                        const stSel = document.getElementById('staffReportStatusFilter');
+                        if (sInp) sInp.value = '';
+                        if (dSel) dSel.value = 'all';
+                        if (stSel) stSel.value = 'all';
+                        runFilter();
+                    });
+                }
+
                 runFilter();
             }
 
@@ -8647,6 +9085,8 @@
             function updateReportCharts(reportType, staff, applications, year) {
                 const distributionChart = document.getElementById('leaveDistributionChart');
                 const trendsChart = document.getElementById('monthlyTrendsChart');
+                const leftTitle = document.getElementById('leftChartTitle');
+                const rightTitle = document.getElementById('rightChartTitle');
 
                 if (!distributionChart || !trendsChart) return;
 
@@ -8655,39 +9095,118 @@
                     (app.Status || app.status) === 'Approved'
                 );
 
-                if (reportType === 'overview' || reportType === 'utilization' || reportType === 'distribution') {
-                    // Count leave types from APPROVED applications only
-                    const leaveTypes = {
-                        'Annual Leave': 0,
-                        'Sick Leave': 0,
-                        'Compensation Leave': 0,
-                        'Other': 0
-                    };
+                if (reportType === 'deficit') {
+                    if (leftTitle) leftTitle.innerHTML = '<i class="fas fa-exclamation-triangle text-rose-600 text-xs"></i> Staff Deficit Breakdown';
+                    if (rightTitle) rightTitle.innerHTML = '<i class="fas fa-chart-bar text-rose-600 text-xs"></i> Deficit Exposure & Pool Health';
 
-                    approvedApplications.forEach(app => {
-                        const type = app.LeaveType || app.leaveType;
-                        const duration = app.Duration || 0;
-
-                        if (type === 'Annual Leave') leaveTypes['Annual Leave'] += duration;
-                        else if (type === 'Sick Leave') leaveTypes['Sick Leave'] += duration;
-                        else if (type === 'Compensation Leave') leaveTypes['Compensation Leave'] += duration;
-                        else leaveTypes['Other'] += duration;
+                    const staffInDeficit = staff.filter(s => {
+                        const deficit = s.LeaveAccrual?.annualDeficit?.amount || 0;
+                        return deficit < 0;
                     });
 
-                    const total = Object.values(leaveTypes).reduce((a, b) => a + b, 0);
-
-                    if (total > 0) {
+                    if (staffInDeficit.length > 0) {
                         distributionChart.innerHTML = `
+        <div class="space-y-3">
+          <p class="font-semibold text-slate-700 text-xs">${staffInDeficit.length} staff member(s) currently in annual leave deficit</p>
+          <div class="max-h-56 overflow-y-auto divide-y divide-slate-100 border border-slate-100 rounded-xl p-2">
+            ${staffInDeficit.map(s => {
+                            const name = s.Name || s.name || 'Unknown';
+                            const dept = s.Department || s.department || 'Unassigned';
+                            const deficit = Math.abs(s.LeaveAccrual?.annualDeficit?.amount || 0);
+                            return `
+                <div class="flex justify-between items-center py-2 px-2 hover:bg-rose-50/40 rounded-lg">
+                  <div>
+                    <span class="text-xs font-semibold text-slate-900 block">${escapeHtml(name)}</span>
+                    <span class="text-[11px] text-slate-500">${escapeHtml(dept)}</span>
+                  </div>
+                  <span class="px-2.5 py-0.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-full font-bold tabular-nums font-mono text-xs">-${deficit.toFixed(3)}d</span>
+                </div>
+              `;
+                        }).join('')}
+          </div>
+        </div>
+      `;
+
+                        const totalDeficitDays = Math.abs(staffInDeficit.reduce((sum, s) => sum + (s.LeaveAccrual?.annualDeficit?.amount || 0), 0));
+                        const pctStaff = staff.length > 0 ? ((staffInDeficit.length / staff.length) * 100).toFixed(1) : '0.0';
+                        trendsChart.innerHTML = `
+        <div class="space-y-4 py-2">
+          <div class="p-4 bg-rose-50/50 border border-rose-100 rounded-xl flex items-center justify-between">
+            <div>
+              <p class="text-xs font-medium text-rose-700">Total Overdrawn Leave Days</p>
+              <p class="text-2xl font-bold text-rose-900 tabular-nums font-mono mt-1">${totalDeficitDays.toFixed(3)} days</p>
+            </div>
+            <div class="h-10 w-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
+              <i class="fas fa-scale-unbalanced"></i>
+            </div>
+          </div>
+          <div>
+            <div class="flex justify-between text-xs mb-1.5">
+              <span class="font-medium text-slate-700">Workforce Deficit Ratio</span>
+              <span class="font-mono font-semibold text-rose-700">${pctStaff}% (${staffInDeficit.length} / ${staff.length})</span>
+            </div>
+            <div class="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+              <div class="h-full bg-rose-500 rounded-full transition-all duration-500" style="width: ${Math.min(100, (staffInDeficit.length / (staff.length || 1)) * 100)}%"></div>
+            </div>
+          </div>
+          <p class="text-xs text-slate-500 leading-relaxed">Deficit balances automatically offset against upcoming monthly accruals (1.75d/month).</p>
+        </div>
+      `;
+                    } else {
+                        distributionChart.innerHTML = `
+        <div class="text-center py-12 text-slate-500">
+          <i class="fas fa-check-circle text-4xl mb-3 text-emerald-500 opacity-75"></i>
+          <p class="text-sm font-bold text-slate-800">Zero Deficit Exposure</p>
+          <p class="text-xs text-slate-400 mt-1">All staff members are within positive leave entitlements</p>
+        </div>
+      `;
+                        trendsChart.innerHTML = `
+        <div class="text-center py-12 text-slate-500">
+          <i class="fas fa-shield-check text-4xl mb-3 text-emerald-500 opacity-60"></i>
+          <p class="text-sm font-semibold text-slate-700">100% Workforce Compliance</p>
+          <p class="text-xs text-slate-400 mt-1">No negative annual leave balances recorded for ${year}</p>
+        </div>
+      `;
+                    }
+                    return;
+                }
+
+                // For overview, utilization, trends -> always populate BOTH charts so neither panel is ever empty!
+                if (leftTitle) leftTitle.innerHTML = '<i class="fas fa-chart-pie text-emerald-600 text-xs"></i> Leave Distribution by Type';
+                if (rightTitle) rightTitle.innerHTML = '<i class="fas fa-chart-line text-emerald-600 text-xs"></i> Monthly Leave Trends';
+
+                // 1. Render Distribution Chart
+                const leaveTypes = {
+                    'Annual Leave': 0,
+                    'Sick Leave': 0,
+                    'Compensation Leave': 0,
+                    'Other Statutory': 0
+                };
+
+                approvedApplications.forEach(app => {
+                    const type = app.LeaveType || app.leaveType;
+                    const duration = app.Duration || 0;
+
+                    if (type === 'Annual Leave') leaveTypes['Annual Leave'] += duration;
+                    else if (type === 'Sick Leave') leaveTypes['Sick Leave'] += duration;
+                    else if (type === 'Compensation Leave') leaveTypes['Compensation Leave'] += duration;
+                    else leaveTypes['Other Statutory'] += duration;
+                });
+
+                const total = Object.values(leaveTypes).reduce((a, b) => a + b, 0);
+
+                if (total > 0) {
+                    distributionChart.innerHTML = `
         <div class="space-y-3.5 w-full">
           ${Object.entries(leaveTypes).map(([type, days]) => {
-                            const percentage = total > 0 ? Math.round((days / total) * 100) : 0;
-                            const colors = {
-                                'Annual Leave': 'bg-emerald-600',
-                                'Sick Leave': 'bg-teal-600',
-                                'Compensation Leave': 'bg-indigo-600',
-                                'Other': 'bg-slate-500'
-                            };
-                            return `
+                        const percentage = total > 0 ? Math.round((days / total) * 100) : 0;
+                        const colors = {
+                            'Annual Leave': 'bg-emerald-600',
+                            'Sick Leave': 'bg-teal-600',
+                            'Compensation Leave': 'bg-indigo-600',
+                            'Other Statutory': 'bg-slate-500'
+                        };
+                        return `
               <div>
                 <div class="flex justify-between text-xs mb-1.5">
                   <span class="font-medium text-slate-800">${type}</span>
@@ -8698,138 +9217,88 @@
                 </div>
               </div>
             `;
-                        }).join('')}
-          <div class="pt-3 mt-2 border-t border-gray-200/90 flex justify-between items-center text-xs font-semibold text-slate-900">
-            <span>Total Approved</span>
+                    }).join('')}
+          <div class="pt-3 mt-2 border-t border-slate-200/90 flex justify-between items-center text-xs font-semibold text-slate-900">
+            <span>Total Approved Leave</span>
             <span class="tabular-nums font-mono text-emerald-800 font-bold">${total.toFixed(3)} days</span>
           </div>
         </div>
       `;
-                    } else {
-                        distributionChart.innerHTML = `
-        <div class="text-center py-12 text-gray-500">
+                } else {
+                    distributionChart.innerHTML = `
+        <div class="text-center py-12 text-slate-500">
           <i class="fas fa-chart-pie text-4xl mb-3 opacity-30"></i>
-          <p class="text-base font-semibold text-gray-800">No approved leave data</p>
-          <p class="text-xs text-gray-400 mt-0.5">for ${year}</p>
+          <p class="text-sm font-semibold text-slate-800">No approved leave data</p>
+          <p class="text-xs text-slate-400 mt-0.5">for ${year}</p>
         </div>
       `;
-                    }
                 }
 
-                if (reportType === 'overview' || reportType === 'trends') {
-                    // Group APPROVED applications by month
-                    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                    const monthlyData = {
-                        applications: new Array(12).fill(0),
-                        days: new Array(12).fill(0)
-                    };
+                // 2. Render Monthly Trends Table
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const monthlyData = {
+                    applications: new Array(12).fill(0),
+                    days: new Array(12).fill(0)
+                };
 
-                    approvedApplications.forEach(app => {
-                        const date = new Date(app.DateApplied || app.dateApplied);
-                        if (date.getFullYear().toString() === year.toString()) {
-                            const month = date.getMonth();
-                            monthlyData.applications[month]++;
-                            monthlyData.days[month] += app.Duration || 0;
-                        }
-                    });
+                approvedApplications.forEach(app => {
+                    const date = new Date(app.StartDate || app.startDate || app.DateApplied || app.dateApplied);
+                    if (!isNaN(date.getTime()) && date.getFullYear().toString() === year.toString()) {
+                        const month = date.getMonth();
+                        monthlyData.applications[month]++;
+                        monthlyData.days[month] += app.Duration || 0;
+                    }
+                });
 
-                    // Calculate averages
-                    const averages = months.map((_, i) =>
-                        monthlyData.applications[i] > 0
-                            ? (monthlyData.days[i] / monthlyData.applications[i]).toFixed(3)
-                            : '0.000'
-                    );
+                const averages = months.map((_, i) =>
+                    monthlyData.applications[i] > 0
+                        ? (monthlyData.days[i] / monthlyData.applications[i]).toFixed(2)
+                        : '0.00'
+                );
 
-                    const totalApps = monthlyData.applications.reduce((a, b) => a + b, 0);
-                    const totalDays = monthlyData.days.reduce((a, b) => a + b, 0);
-                    const overallAvg = totalApps > 0 ? (totalDays / totalApps).toFixed(3) : '0.000';
+                const totalApps = monthlyData.applications.reduce((a, b) => a + b, 0);
+                const totalDays = monthlyData.days.reduce((a, b) => a + b, 0);
+                const overallAvg = totalApps > 0 ? (totalDays / totalApps).toFixed(2) : '0.00';
 
-                    trendsChart.innerHTML = `
-      <div class="overflow-x-auto rounded-xl border border-gray-200 shadow-2xs">
+                trendsChart.innerHTML = `
+      <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-2xs">
         <table class="w-full text-xs border-collapse">
           <thead>
-            <tr class="bg-slate-50 border-b border-gray-200 text-slate-700 font-semibold">
-              <th class="py-3 px-3 text-left border-r border-gray-200">Metric</th>
+            <tr class="bg-slate-50/80 border-b border-slate-200 text-slate-700 font-semibold">
+              <th class="py-2.5 px-3 text-left border-r border-slate-200">Metric</th>
               ${months.map(month => `
-                <th class="py-3 px-2 text-right border-r border-gray-100 min-w-[58px] font-semibold">${month}</th>
+                <th class="py-2.5 px-2 text-right border-r border-slate-100 min-w-[52px] font-semibold">${month}</th>
               `).join('')}
-              <th class="py-3 px-3 text-right bg-slate-100 font-bold text-slate-900">Total</th>
+              <th class="py-2.5 px-3 text-right bg-slate-100 font-bold text-slate-900">Total</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-gray-100 bg-white">
+          <tbody class="divide-y divide-slate-100 bg-white">
             <tr class="hover:bg-slate-50/70 transition-colors">
-              <td class="py-2.5 px-3 font-semibold text-slate-800 border-r border-gray-200">Applications</td>
+              <td class="py-2.5 px-3 font-semibold text-slate-800 border-r border-slate-200">Filings</td>
               ${months.map((_, i) => `
-                <td class="py-2.5 px-2 text-right tabular-nums font-mono text-slate-700 border-r border-gray-100">${monthlyData.applications[i]}</td>
+                <td class="py-2.5 px-2 text-right tabular-nums font-mono text-slate-700 border-r border-slate-100">${monthlyData.applications[i]}</td>
               `).join('')}
               <td class="py-2.5 px-3 text-right font-bold tabular-nums font-mono text-slate-900 bg-slate-50/60">${totalApps}</td>
             </tr>
             <tr class="hover:bg-slate-50/70 transition-colors">
-              <td class="py-2.5 px-3 font-semibold text-slate-800 border-r border-gray-200">Days Taken</td>
+              <td class="py-2.5 px-3 font-semibold text-slate-800 border-r border-slate-200">Days Taken</td>
               ${months.map((_, i) => `
-                <td class="py-2.5 px-2 text-right tabular-nums font-mono text-slate-700 border-r border-gray-100">${monthlyData.days[i].toFixed(3)}</td>
+                <td class="py-2.5 px-2 text-right tabular-nums font-mono text-slate-700 border-r border-slate-100">${monthlyData.days[i].toFixed(1)}</td>
               `).join('')}
-              <td class="py-2.5 px-3 text-right font-bold tabular-nums font-mono text-emerald-800 bg-emerald-50/40">${totalDays.toFixed(3)}</td>
+              <td class="py-2.5 px-3 text-right font-bold tabular-nums font-mono text-emerald-800 bg-emerald-50/40">${totalDays.toFixed(2)}</td>
             </tr>
             <tr class="hover:bg-slate-50/70 transition-colors">
-              <td class="py-2.5 px-3 font-semibold text-slate-800 border-r border-gray-200">Avg Days</td>
+              <td class="py-2.5 px-3 font-semibold text-slate-800 border-r border-slate-200">Avg Days</td>
               ${months.map((_, i) => `
-                <td class="py-2.5 px-2 text-right tabular-nums font-mono text-slate-700 border-r border-gray-100">${averages[i]}</td>
+                <td class="py-2.5 px-2 text-right tabular-nums font-mono text-slate-700 border-r border-slate-100">${averages[i]}</td>
               `).join('')}
               <td class="py-2.5 px-3 text-right font-bold tabular-nums font-mono text-slate-900 bg-slate-50/60">${overallAvg}</td>
             </tr>
           </tbody>
         </table>
       </div>
-      <p class="text-[11px] text-gray-400 mt-2 text-right">Based on approved applications only</p>
+      <p class="text-[11px] text-slate-400 mt-2 text-right">Based on approved leave applications in ${year}</p>
     `;
-                }
-
-                if (reportType === 'deficit') {
-                    // Show deficit analysis
-                    const staffInDeficit = staff.filter(s => {
-                        const deficit = s.LeaveAccrual?.annualDeficit?.amount || 0;
-                        return deficit < 0;
-                    });
-
-                    if (staffInDeficit.length > 0) {
-                        distributionChart.innerHTML = `
-        <div class="space-y-4">
-          <p class="font-medium text-gray-700 text-sm">${staffInDeficit.length} staff members in deficit</p>
-          <div class="max-h-64 overflow-y-auto divide-y divide-gray-100">
-            ${staffInDeficit.map(s => {
-                            const name = s.Name || s.name || 'Unknown';
-                            const deficit = Math.abs(s.LeaveAccrual?.annualDeficit?.amount || 0);
-                            return `
-                <div class="flex justify-between items-center py-2 px-1">
-                  <span class="text-xs text-gray-800">${escapeHtml(name)}</span>
-                  <span class="text-rose-600 font-semibold tabular-nums font-mono text-xs">${deficit.toFixed(3)} days</span>
-                </div>
-              `;
-                        }).join('')}
-          </div>
-        </div>
-      `;
-
-                        trendsChart.innerHTML = `
-        <div class="space-y-4">
-          <p class="font-medium text-gray-700 text-sm">Total Deficit: <span class="text-rose-700 font-bold tabular-nums font-mono">${Math.abs(staffInDeficit.reduce((sum, s) => sum + (s.LeaveAccrual?.annualDeficit?.amount || 0), 0)).toFixed(3)} days</span></p>
-          <div class="h-2.5 bg-slate-100 rounded-full overflow-hidden">
-            <div class="h-full bg-rose-500 rounded-full transition-all duration-500" style="width: ${Math.min(100, (staffInDeficit.length / staff.length) * 100)}%"></div>
-          </div>
-          <p class="text-xs text-gray-500 tabular-nums font-mono">${((staffInDeficit.length / staff.length) * 100).toFixed(1)}% of staff in deficit</p>
-        </div>
-      `;
-                    } else {
-                        distributionChart.innerHTML = `
-        <div class="text-center py-12 text-gray-500">
-          <i class="fas fa-check-circle text-4xl mb-3 text-emerald-500 opacity-60"></i>
-          <p class="text-base font-semibold text-gray-800">No staff in deficit</p>
-        </div>
-      `;
-                        trendsChart.innerHTML = '';
-                    }
-                }
             }
 
             // Export report to CSV
@@ -8855,10 +9324,10 @@
                 const rows = [];
 
                 // Headers
-                const headers = ['Date Applied', 'Staff Name', 'Email', 'Leave Type', 'Period', 'Duration', 'Status', 'Processed By', 'Processed Date', 'Reason'];
+                const headers = ['Date Applied', 'Staff Name', 'Email', 'Department', 'Leave Type', 'Period', 'Duration', 'Status', 'Processed By', 'Processed Date', 'Reason'];
                 rows.push(headers.join(','));
 
-                const tableRows = tbody.querySelectorAll('tr');
+                const tableRows = tbody.querySelectorAll('.app-audit-row');
 
                 if (tableRows.length === 0) {
                     showToast('warning', 'No Data', 'No applications found to export');
@@ -8872,33 +9341,36 @@
 
                     const cells = row.querySelectorAll('td');
 
-                    if (cells.length >= 8) {
+                    if (cells.length >= 9) {
                         const rowData = [];
 
                         // Date Applied
-                        rowData.push(`"${cells[0]?.textContent?.trim() || ''}"`);
-                        // Staff Name
-                        rowData.push(`"${cells[1]?.textContent?.trim() || ''}"`);
-                        // Email
-                        rowData.push(`"${cells[2]?.textContent?.trim() || ''}"`);
+                        rowData.push(`"${(cells[0]?.textContent?.trim() || '').replace(/"/g, '""')}"`);
+                        // Staff Name & Email
+                        const staffName = cells[1]?.querySelector('.font-semibold')?.textContent?.trim() || cells[1]?.textContent?.trim() || '';
+                        const staffEmail = cells[1]?.querySelector('.text-slate-500')?.textContent?.trim() || '';
+                        rowData.push(`"${staffName.replace(/"/g, '""')}"`);
+                        rowData.push(`"${staffEmail.replace(/"/g, '""')}"`);
+                        // Department
+                        rowData.push(`"${(cells[2]?.textContent?.trim() || '').replace(/"/g, '""')}"`);
                         // Leave Type
-                        rowData.push(`"${cells[3]?.textContent?.trim() || ''}"`);
+                        rowData.push(`"${(cells[3]?.textContent?.trim() || '').replace(/"/g, '""')}"`);
                         // Period
-                        rowData.push(`"${cells[4]?.textContent?.trim() || ''}"`);
+                        rowData.push(`"${(cells[4]?.textContent?.trim() || '').replace(/"/g, '""')}"`);
                         // Duration
-                        rowData.push(`"${cells[5]?.textContent?.trim() || ''}"`);
+                        rowData.push(`"${(cells[5]?.textContent?.trim() || '').replace(/"/g, '""')}"`);
                         // Status
                         const status = cells[6]?.querySelector('.status-badge')?.textContent?.trim() || cells[6]?.textContent?.trim() || '';
                         rowData.push(`"${status}"`);
 
-                        // Processed By and Date (cell 7 may have line break)
-                        const processedCell = cells[7]?.textContent?.trim() || '';
+                        // Processed By and Date (cell 7)
+                        const processedCell = cells[7]?.innerText?.trim() || cells[7]?.textContent?.trim() || '';
                         const processedParts = processedCell.split('\n');
-                        rowData.push(`"${processedParts[0]?.trim() || ''}"`);
-                        rowData.push(`"${processedParts[1]?.trim() || ''}"`);
+                        rowData.push(`"${(processedParts[0]?.trim() || '').replace(/"/g, '""')}"`);
+                        rowData.push(`"${(processedParts[1]?.trim() || '').replace(/"/g, '""')}"`);
 
                         // Reason
-                        const reason = cells[8]?.textContent?.trim() || '';
+                        const reason = cells[8]?.getAttribute('title') || cells[8]?.textContent?.trim() || '';
                         rowData.push(`"${reason.replace(/"/g, '""')}"`);
 
                         rows.push(rowData.join(','));
@@ -8907,7 +9379,7 @@
                 });
 
                 if (exportedCount === 0) {
-                    showToast('warning', 'No Data', 'No data available to export');
+                    showToast('warning', 'No Data', 'No matching applications available to export');
                     return;
                 }
 
@@ -8931,7 +9403,7 @@
                 showToast('success', 'Export Successful', `Exported ${exportedCount} applications`);
             }
 
-            // Export staff report to CSV
+            // Export staff report to CSV (respects active table filters)
             function exportStaffReportToCSV() {
                 const tbody = document.getElementById('staffReportTableBody');
 
@@ -8951,21 +9423,20 @@
                 ];
                 rows.push(headers.join(','));
 
-                const tableRows = tbody.querySelectorAll('tr');
+                const tableRows = tbody.querySelectorAll('.staff-report-row');
 
                 tableRows.forEach(row => {
-                    if (row.querySelector('td[colspan]')) return;
+                    if (row.style.display === 'none') return;
 
                     const cells = row.querySelectorAll('td');
 
                     if (cells.length >= 15) {
-                        const nameDiv = cells[0]?.querySelector('.font-medium');
+                        const nameDiv = cells[0]?.querySelector('.font-semibold') || cells[0]?.querySelector('.font-medium');
                         const name = nameDiv ? nameDiv.textContent?.trim() : cells[0]?.textContent?.trim() || '';
-                        const emailSpan = cells[0]?.querySelector('.text-gray-500');
+                        const emailSpan = cells[0]?.querySelector('.text-slate-500') || cells[0]?.querySelector('.text-gray-500');
                         const email = emailSpan ? emailSpan.textContent?.trim() : '';
                         const department = cells[1]?.textContent?.trim() || '';
 
-                        // Extract clean numeric values using data-val (fallback to sanitized text)
                         const getCleanVal = (cell) => {
                             if (!cell) return '0.000';
                             if (cell.dataset && cell.dataset.val !== undefined) return cell.dataset.val;
@@ -9010,7 +9481,7 @@
                 });
 
                 if (rows.length === 1) {
-                    showToast('warning', 'No Data', 'No data available to export');
+                    showToast('warning', 'No Data', 'No matching staff records to export');
                     return;
                 }
 
@@ -13259,15 +13730,16 @@
             }
 
             function setupLiabilityStaffFilter() {
-                const searchInput = document.getElementById('liabilityStaffSearchInput');
-                const clearBtn = document.getElementById('liabilityStaffClearSearch');
-                const countBadge = document.getElementById('liabilityStaffCountBadge');
                 const tbody = document.getElementById('liabilityStaffTableBody');
                 if (!tbody) return;
 
                 function applyFilter() {
-                    const q = (searchInput ? searchInput.value : '').trim().toLowerCase();
-                    if (clearBtn) clearBtn.classList.toggle('hidden', !q);
+                    const liveSearch = document.getElementById('liabilityStaffSearchInput');
+                    const liveClear = document.getElementById('liabilityStaffClearSearch');
+                    const liveBadge = document.getElementById('liabilityStaffCountBadge');
+
+                    const q = (liveSearch ? liveSearch.value : '').trim().toLowerCase();
+                    if (liveClear) liveClear.classList.toggle('hidden', !q);
                     const rows = tbody.querySelectorAll('.liability-staff-row');
                     let visible = 0;
                     rows.forEach(r => {
@@ -13279,7 +13751,7 @@
                             r.style.display = 'none';
                         }
                     });
-                    if (countBadge) countBadge.textContent = `${visible} of ${rows.length}`;
+                    if (liveBadge) liveBadge.textContent = `${visible} of ${rows.length}`;
 
                     const existingEmpty = tbody.querySelector('#liabilityStaffEmptyRow');
                     if (visible === 0 && rows.length > 0) {
@@ -13294,13 +13766,18 @@
                     }
                 }
 
+                const searchInput = document.getElementById('liabilityStaffSearchInput');
                 if (searchInput) {
                     searchInput.value = '';
                     const newInp = searchInput.cloneNode(true);
                     searchInput.parentNode.replaceChild(newInp, searchInput);
                     newInp.addEventListener('input', applyFilter);
-                    const newClr = document.getElementById('liabilityStaffClearSearch');
-                    if (newClr) newClr.addEventListener('click', () => { newInp.value = ''; newInp.focus(); applyFilter(); });
+                    const clrBtn = document.getElementById('liabilityStaffClearSearch');
+                    if (clrBtn) {
+                        const newClr = clrBtn.cloneNode(true);
+                        clrBtn.parentNode.replaceChild(newClr, clrBtn);
+                        newClr.addEventListener('click', () => { newInp.value = ''; newInp.focus(); applyFilter(); });
+                    }
                 }
                 applyFilter();
             }
