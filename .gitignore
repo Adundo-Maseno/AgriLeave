@@ -1,0 +1,6 @@
+# Local AI Agent & Skill Configurations
+.agents/
+scratch/
+node_modules/
+.DS_Store
+Thumbs.db

@@ -8,15 +8,17 @@ This document contains a complete inventory of all custom skills, plugins, MCP (
 
 | Category | Count | Primary Location |
 | :--- | :--- | :--- |
-| **Custom Skills** | 115 | `C:\Users\User\.gemini\config\skills\` |
-| **Custom Plugins** | 1 | `C:\Users\User\.gemini\config\plugins\` |
-| **Configured MCP Servers** | 14 | `C:\Users\User\.gemini\config\mcp_config.json` |
+| **Global Custom Plugins** | 3 | `C:\Users\User\.gemini\config\plugins\` (`ecc`, `rea`, `googlecloudtools.datacloud_telemetry`) |
+| **Global Custom Skills** | 123 (standalone) + 299 (in ecc plugin) | `C:\Users\User\.gemini\config\skills\` & `plugins\ecc\skills\` |
+| **Workspace ECC Agents** | 71 | `c:\Users\User\OneDrive - Agri Experience Limited\AgriLeave\.agents\agents\` |
+| **Workspace ECC Rules & Workflows** | 219 (122 rules, 97 workflows) | `c:\Users\User\OneDrive - Agri Experience Limited\AgriLeave\.agents\` |
+| **Configured MCP Servers** | 15 | `C:\Users\User\.gemini\config\mcp_config.json` |
 | **Global Agent Config** | 1 | `C:\Users\User\.gemini\config\config.json` |
 | **IDE User Settings** | 1 | `C:\Users\User\AppData\Roaming\Antigravity IDE\User\settings.json` |
 
 ---
 
-## 2. Complete Skills Inventory (115 Total)
+## 2. Complete Skills Inventory (118 Total)
 
 > **Note:** Antigravity includes only 3 built-in skills by default (`agy-customizations`, `antigravity_guide`, `permissioned-github`). All skills listed below represent your added environment skills.
 
@@ -161,29 +163,60 @@ This document contains a complete inventory of all custom skills, plugins, MCP (
 
 ---
 
-## 3. Custom Plugins (1 Total)
-
-Located at `C:\Users\User\.gemini\config\plugins\`:
-* **`googlecloudtools.datacloud_telemetry`** — Integrated GCP Data Cloud telemetry and analytics provider.
+### D. Reverse Engineering & Binary Analysis (5 Skills)
+* `reverse-engineer-anything` — Inspect native binaries, Electron/JavaScript applications, Android APKs, firmware, and web apps with local evidence-backed analysis.
+* `rea-analysis-optimization` — Performance and accuracy optimization for reverse engineering runs and decompilation passes.
+* `rea-ci-tests-audit` — Auditing reverse engineering pipelines and CI test suites against target artifacts.
+* `rea-tool-design` — Architecture and schema standards for reverse engineering tools.
+* `rea-changelog-update` — Change tracking and version reconciliation across analyzed target builds.
 
 ---
 
-## 4. MCP Servers Configuration (14 Total)
+### E. Agent Routing, Knowledge Graphs & Minimalist Engineering (3 Skills)
+* `ponytail` — Lazy senior developer mode enforcing the "ladder of laziness", the smallest complete change, YAGNI, and lean diffs without over-engineering.
+* `omniroute` — Multi-provider AI gateway, intelligent combo routing (`auto`, `auto/coding`, `auto/fast`), quota failover, RTK/Caveman token compression, and MCP/A2A orchestration.
+* `graphify` — Deterministic AST code parsing, multi-format ingestion, and local knowledge graph generation with interactive HTML visualization and community clustering.
+
+---
+
+## 3. Custom Plugins (3 Total)
+
+Located at `C:\Users\User\.gemini\config\plugins\`:
+1. **`ecc`** — **Everything Claude Code / ECC Agent Harness Framework** (Global Plugin):
+   * Manifest: `C:\Users\User\.gemini\config\plugins\ecc\plugin.json`
+   * **71 Specialized Subagents** (`plugins\ecc\agents\`) adapted with native Antigravity IDE tools and models (`planner`, `architect`, `code-reviewer`, `security-reviewer`, `tdd-guide`, `e2e-runner`, `build-error-resolver`, etc.).
+   * **122 Project Rules** (`plugins\ecc\rules\`) loaded when the plugin is active.
+   * **97 Automation Workflows** (`plugins\ecc\workflows\`).
+   * **299 Capability Skills** (`plugins\ecc\skills\`).
+   * Registered and enabled globally in `C:\Users\User\.gemini\config\config.json`.
+2. **`rea`** — **Reverse Engineer Anything (REA)** (Global Plugin):
+   * Manifest: `C:\Users\User\.gemini\config\plugins\rea\plugin.json`
+   * Comprehensive reverse engineering skill suite for inspecting native binaries, Electron/JavaScript applications, Android APKs, firmware, and websites.
+   * Bundled Skills: `reverse-engineer-anything`, `rea-analysis-optimization`, `rea-ci-tests-audit`, `rea-tool-design`, `rea-changelog-update`.
+   * Registered and enabled globally in `C:\Users\User\.gemini\config\config.json`.
+3. **`googlecloudtools.datacloud_telemetry`** — Integrated GCP Data Cloud telemetry and analytics provider.
+
+---
+
+## 4. MCP Servers Configuration (15 Total)
 
 Defined in `C:\Users\User\.gemini\config\mcp_config.json`:
 
 ### Local / Developer Tools
-1. **`playwright`**
+1. **`rea`**
+   * Command: `cmd.exe /c npx -y rea-agents@latest mcp`
+   * Function: Reverse engineer anything across binaries, applications, and runtime behavior (229 MCP tools for disassembling, memory analysis, Frida instrumentation, ADB device interaction, Electron/V8 inspection, and web execution tracing).
+2. **`playwright`**
    * Command: `cmd.exe /c npx -y @playwright/mcp@latest --headless`
    * Function: Browser automation, headless testing, web scraping, and UI verification.
-2. **`figma`**
+3. **`figma`**
    * Command: `cmd.exe /c npx -y figma-developer-mcp --stdio`
    * Environment Variable: `FIGMA_API_KEY` configured.
-3. **`notebooks`**
+4. **`notebooks`**
    * Command: `node` running Datacloud proxy bundle (`notebooks-antigravityide`).
-4. **`visualization`**
+5. **`visualization`**
    * Command: `node` running Datacloud proxy bundle (`visualization-antigravityide`).
-5. **`data-agent-kit`**
+6. **`data-agent-kit`**
    * Command: `node` running Datacloud proxy bundle (`dataAgentKit-antigravityide`).
 
 ### Google Cloud Remote MCP Endpoints
@@ -200,7 +233,29 @@ All configured with `authProviderType: "google_credentials"`:
 
 ---
 
-## 5. IDE User Settings & Configuration
+## 5. Workspace ECC Agent Framework (`.agents/`)
+
+Installed directly from GitHub repository [`affaan-m/ECC`](https://github.com/affaan-m/ECC) adapted specifically for Antigravity IDE:
+* **Root Location**: `c:\Users\User\OneDrive - Agri Experience Limited\AgriLeave\.agents\`
+* **Installed Components**:
+  * **71 Specialized Subagents** (`.agents/agents/`):
+    * `planner.md` — Strategic architecture, feature breakdown, and planning.
+    * `architect.md` / `code-architect.md` — System architecture and structural design decisions.
+    * `code-reviewer.md` — Rigorous code quality and confidence-based linting/logic review.
+    * `security-reviewer.md` — Vulnerability detection (OWASP, injection, SSRF, secret leaks).
+    * `tdd-guide.md` — Test-driven development workflows and test scaffolding.
+    * `e2e-runner.md` — End-to-end integration and user journey testing.
+    * `build-error-resolver.md` — Diagnostic and automated resolution for build/compilation errors.
+    * `performance-optimizer.md` — Runtime, network, and render bottleneck resolution.
+    * `refactor-cleaner.md` / `code-simplifier.md` — Code hygiene, dead code removal, and simplification.
+    * `doc-updater.md` — Automated synchronization of documentation with code changes.
+  * **122 Project Rules** (`.agents/rules/`): Best practices for code health, defensive security, API design, commit conventions, and architecture.
+  * **97 Workflows** (`.agents/workflows/`): Reusable agent task automation workflows.
+  * **452 Specialized Skills** (`.agents/skills/`): Modular capability suites covering verification loops, story lifecycles, click path audits, and refactoring gates.
+
+---
+
+## 6. IDE User Settings & Configuration
 
 ### A. Antigravity IDE Settings (`settings.json`)
 Location: `C:\Users\User\AppData\Roaming\Antigravity IDE\User\settings.json`
@@ -233,7 +288,7 @@ Location: `C:\Users\User\.gemini\config\config.json`
 
 ---
 
-## 6. Migration Guide (Transfer to New Laptop)
+## 7. Migration Guide (Transfer to New Laptop)
 
 Follow these steps to migrate your entire customization ecosystem to your new machine:
 
