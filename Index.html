@@ -4268,142 +4268,205 @@
                     }
 
                     dashboardHTML = `
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5 mb-8">
-        <div class="bg-white rounded-xl shadow-xs border border-slate-200/90 p-5 hover:border-slate-300 transition-all">
-          <div class="flex items-center">
-            <div class="h-10 w-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center mr-3 border border-emerald-100 flex-shrink-0">
-              <i class="fas fa-calendar-alt text-base"></i>
+      <!-- 1. Executive Leave Balances Strip (Top Bento Row) -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 mb-4">
+        <!-- Annual Leave Card -->
+        <div class="stat-card stat-card-elevated bg-white rounded-2xl border border-slate-200/90 p-4 hover:border-emerald-300 transition-all flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Annual Leave</span>
+              <div class="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 flex-shrink-0">
+                <i class="fas fa-calendar-alt text-sm"></i>
+              </div>
             </div>
-            <div>
-              <p class="text-xs font-medium text-slate-500">Annual Leave</p>
-              <p class="text-2xl font-semibold text-slate-900 tabular-nums tracking-tight">${balance?.annual?.available?.toFixed(3) || '0.0'}</p>
-              <p class="text-[11px] text-slate-400 tabular-nums">${balance?.annual?.accrued?.toFixed(3) || '0.0'} accrued • ${balance?.annual?.used?.toFixed(3) || '0.0'} used</p>
-            </div>
+            <p class="text-2xl font-bold text-slate-900 tabular-nums tracking-tight mb-0.5">${balance?.annual?.available?.toFixed(3) || '0.0'}</p>
+            <p class="text-[11px] text-slate-500 tabular-nums">${balance?.annual?.accrued?.toFixed(3) || '0.0'} accrued &bull; ${balance?.annual?.used?.toFixed(3) || '0.0'} used</p>
           </div>
-          <div class="mt-4">
+          <div class="mt-3 pt-2.5 border-t border-slate-100">
             <div class="h-1.5 bg-slate-100 rounded-full overflow-hidden">
               <div class="h-full bg-emerald-500 rounded-full transition-all" style="width: ${balance?.annual?.accrued ? Math.min(100, Math.round(((balance?.annual?.used || 0) / balance.annual.accrued) * 100)) : 0}%"></div>
             </div>
-            <div class="flex justify-between items-center text-xs text-slate-500 mt-1.5">
-              <span class="tabular-nums">${balance?.annual?.accrued ? Math.min(100, Math.round(((balance?.annual?.used || 0) / balance.annual.accrued) * 100)) : 0}% used</span>
-              <span class="text-emerald-700 font-medium bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 text-[11px]">Annual Accrual</span>
+            <div class="flex justify-between items-center text-[11px] text-slate-500 mt-1.5">
+              <span class="tabular-nums font-medium">${balance?.annual?.accrued ? Math.min(100, Math.round(((balance?.annual?.used || 0) / balance.annual.accrued) * 100)) : 0}% used</span>
+              <span class="text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100/80">Accrual Active</span>
             </div>
           </div>
           ${balance?.annual?.hasDeficit ? `
-          <div class="mt-3 p-2 bg-rose-50 border border-rose-100 rounded-lg text-xs font-medium text-rose-800 flex items-center">
-            <i class="fas fa-exclamation-triangle mr-1.5 text-rose-600"></i>
+          <div class="mt-2 p-1.5 bg-rose-50 border border-rose-100 rounded-lg text-[11px] font-medium text-rose-800 flex items-center">
+            <i class="fas fa-exclamation-triangle mr-1 text-rose-600"></i>
             Deficit: ${Math.abs(balance.annual.annualDeficit || 0).toFixed(3)} days
           </div>
           ` : ''}
         </div>
 
-        <!-- Dashboard BFW Card -->
-        <div class="bg-white rounded-xl shadow-xs border border-slate-200/90 p-5 hover:border-slate-300 transition-all">
-          <div class="flex items-center">
-            <div class="h-10 w-10 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center mr-3 border border-amber-100 flex-shrink-0">
-              <i class="fas fa-forward text-base"></i>
+        <!-- Brought Forward Card -->
+        <div class="stat-card stat-card-elevated bg-white rounded-2xl border border-slate-200/90 p-4 hover:border-amber-300 transition-all flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Brought Forward</span>
+              <div class="h-8 w-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100 flex-shrink-0">
+                <i class="fas fa-forward text-sm"></i>
+              </div>
             </div>
-            <div>
-              <p class="text-xs font-medium text-slate-500">Brought Forward</p>
-              <p class="text-2xl font-semibold tabular-nums tracking-tight ${balance?.broughtForward?.isExpired ? 'text-slate-400' : 'text-slate-900'}">${balance?.broughtForward?.remaining != null ? balance.broughtForward.remaining.toFixed(3) : (balance?.broughtForward?.daysCarriedFromPreviousYear?.toFixed(3) || '0.000')}</p>
-              <p class="text-[11px] text-slate-400">
-                <i class="far fa-calendar-alt mr-1"></i>
-                ${balance?.broughtForward?.isExpired ? '<span class="text-rose-600 font-medium">Forfeited after Easter</span>' : `Expires: ${balance?.broughtForward?.expiryDate ? formatDate(balance.broughtForward.expiryDate) : 'N/A'}`}
-              </p>
-            </div>
+            <p class="text-2xl font-bold tabular-nums tracking-tight mb-0.5 ${balance?.broughtForward?.isExpired ? 'text-slate-400' : 'text-slate-900'}">${balance?.broughtForward?.remaining != null ? balance.broughtForward.remaining.toFixed(3) : (balance?.broughtForward?.daysCarriedFromPreviousYear?.toFixed(3) || '0.000')}</p>
+            <p class="text-[11px] text-slate-500">
+              <i class="far fa-calendar-alt mr-1"></i>
+              ${balance?.broughtForward?.isExpired ? '<span class="text-rose-600 font-medium">Forfeited after Easter</span>' : `Expires: ${balance?.broughtForward?.expiryDate ? formatDate(balance.broughtForward.expiryDate) : 'Easter'}`}
+            </p>
           </div>
-          <div class="mt-4">
+          <div class="mt-3 pt-2.5 border-t border-slate-100">
             <div class="h-1.5 bg-slate-100 rounded-full overflow-hidden">
               <div class="h-full ${balance?.broughtForward?.isExpired ? 'bg-slate-300' : 'bg-amber-500'} rounded-full transition-all" style="width: ${balance?.broughtForward?.percentage || 0}%"></div>
             </div>
-            <div class="flex justify-between items-center text-xs text-slate-500 mt-1.5">
-              <span class="tabular-nums">${balance?.broughtForward?.percentage || 0}% used</span>
-              <span class="${balance?.broughtForward?.isExpired ? 'text-rose-700 bg-rose-50 border-rose-200' : 'text-amber-700 bg-amber-50 border-amber-100'} font-medium px-2 py-0.5 rounded-full border text-[11px]">
+            <div class="flex justify-between items-center text-[11px] text-slate-500 mt-1.5">
+              <span class="tabular-nums font-medium">${balance?.broughtForward?.percentage || 0}% used</span>
+              <span class="${balance?.broughtForward?.isExpired ? 'text-rose-700 bg-rose-50 border-rose-200' : 'text-amber-700 bg-amber-50 border-amber-100/80'} font-semibold px-2 py-0.5 rounded-full border">
                 ${balance?.broughtForward?.isExpired ? 'Forfeited' : (balance?.broughtForward?.remaining != null ? balance.broughtForward.remaining.toFixed(3) + ' remaining' : 'Active')}
               </span>
             </div>
           </div>
         </div>
 
-        <!-- Dashboard Sick Leave Card -->
-        <div class="bg-white rounded-xl shadow-xs border border-slate-200/90 p-5 hover:border-slate-300 transition-all">
-          <div class="flex items-center">
-            <div class="h-10 w-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center mr-3 border border-blue-100 flex-shrink-0">
-              <i class="fas fa-heartbeat text-base"></i>
+        <!-- Sick Leave Card -->
+        <div class="stat-card stat-card-elevated bg-white rounded-2xl border border-slate-200/90 p-4 hover:border-blue-300 transition-all flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Sick Leave</span>
+              <div class="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100 flex-shrink-0">
+                <i class="fas fa-heartbeat text-sm"></i>
+              </div>
             </div>
-            <div>
-              <p class="text-xs font-medium text-slate-500">Sick Leave</p>
-              <p class="text-2xl font-semibold text-slate-900 tabular-nums tracking-tight">${balance?.sick?.balance?.toFixed(3) || '0.0'}</p>
-              <p class="text-[11px] text-slate-400 tabular-nums">${balance?.sick?.allocation?.toFixed(3) || '7.0'} alloc • ${balance?.sick?.used?.toFixed(3) || '0.0'} used</p>
-            </div>
+            <p class="text-2xl font-bold text-slate-900 tabular-nums tracking-tight mb-0.5">${balance?.sick?.balance?.toFixed(3) || '0.0'}</p>
+            <p class="text-[11px] text-slate-500 tabular-nums">${balance?.sick?.allocation?.toFixed(3) || '7.0'} alloc &bull; ${balance?.sick?.used?.toFixed(3) || '0.0'} used</p>
           </div>
-          <div class="mt-4">
+          <div class="mt-3 pt-2.5 border-t border-slate-100">
             <div class="h-1.5 bg-slate-100 rounded-full overflow-hidden">
               <div class="h-full bg-blue-500 rounded-full transition-all" style="width: ${balance?.sick?.percentage || 0}%"></div>
             </div>
-            <div class="flex justify-between items-center text-xs text-slate-500 mt-1.5">
-              <span class="tabular-nums">${balance?.sick?.percentage || 0}% used</span>
-              <span class="text-blue-700 font-medium bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100 text-[11px]">${balance?.sick?.balance ? balance.sick.balance.toFixed(3) + ' left' : '7.0 left'}</span>
+            <div class="flex justify-between items-center text-[11px] text-slate-500 mt-1.5">
+              <span class="tabular-nums font-medium">${balance?.sick?.percentage || 0}% used</span>
+              <span class="text-blue-700 font-semibold bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100/80">${balance?.sick?.balance ? balance.sick.balance.toFixed(3) + ' left' : '7.0 left'}</span>
             </div>
           </div>
         </div>
 
-        <!-- Dashboard Compensation Days Card -->
-        <div class="bg-white rounded-xl shadow-xs border border-slate-200/90 p-5 hover:border-slate-300 transition-all">
-          <div class="flex items-center">
-            <div class="h-10 w-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center mr-3 border border-indigo-100 flex-shrink-0">
-              <i class="fas fa-star text-base"></i>
+        <!-- Compensation Days (TOIL) Card -->
+        <div class="stat-card stat-card-elevated bg-white rounded-2xl border border-slate-200/90 p-4 hover:border-indigo-300 transition-all flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Compensation</span>
+              <div class="h-8 w-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 flex-shrink-0">
+                <i class="fas fa-star text-sm"></i>
+              </div>
             </div>
-            <div>
-              <p class="text-xs font-medium text-slate-500">Compensation Days</p>
-              <p class="text-2xl font-semibold text-slate-900 tabular-nums tracking-tight">${(balance?.compensation?.balance ?? balance?.compensationBalance ?? 0).toFixed(3)}</p>
-              <p class="text-[11px] text-slate-400 tabular-nums">${(balance?.compensation?.used ?? 0).toFixed(3)} used • ${(balance?.compensation?.total ?? ((balance?.compensation?.balance || 0) + (balance?.compensation?.used || 0))).toFixed(3)} total</p>
-            </div>
+            <p class="text-2xl font-bold text-slate-900 tabular-nums tracking-tight mb-0.5">${(balance?.compensation?.balance ?? balance?.compensationBalance ?? 0).toFixed(3)}</p>
+            <p class="text-[11px] text-slate-500 tabular-nums">${(balance?.compensation?.used ?? 0).toFixed(3)} used &bull; ${(balance?.compensation?.total ?? ((balance?.compensation?.balance || 0) + (balance?.compensation?.used || 0))).toFixed(3)} total</p>
           </div>
-          <div class="mt-4">
+          <div class="mt-3 pt-2.5 border-t border-slate-100">
             <div class="h-1.5 bg-slate-100 rounded-full overflow-hidden">
               <div class="h-full bg-indigo-500 rounded-full transition-all" style="width: ${(((balance?.compensation?.total || ((balance?.compensation?.balance || 0) + (balance?.compensation?.used || 0))) > 0) ? Math.min(100, Math.round(((balance?.compensation?.used || 0) / (balance?.compensation?.total || ((balance?.compensation?.balance || 0) + (balance?.compensation?.used || 0)))) * 100)) : 0)}%"></div>
             </div>
-            <div class="flex justify-between items-center text-xs text-slate-500 mt-1.5">
-              <span class="tabular-nums">${(((balance?.compensation?.total || ((balance?.compensation?.balance || 0) + (balance?.compensation?.used || 0))) > 0) ? Math.min(100, Math.round(((balance?.compensation?.used || 0) / (balance?.compensation?.total || ((balance?.compensation?.balance || 0) + (balance?.compensation?.used || 0)))) * 100)) : 0)}% used</span>
-              <span class="text-indigo-600 font-medium bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100 text-[11px]">Never expires</span>
+            <div class="flex justify-between items-center text-[11px] text-slate-500 mt-1.5">
+              <span class="tabular-nums font-medium">${(((balance?.compensation?.total || ((balance?.compensation?.balance || 0) + (balance?.compensation?.used || 0))) > 0) ? Math.min(100, Math.round(((balance?.compensation?.used || 0) / (balance?.compensation?.total || ((balance?.compensation?.balance || 0) + (balance?.compensation?.used || 0)))) * 100)) : 0)}% used</span>
+              <span class="text-indigo-600 font-semibold bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100/80">Never expires</span>
             </div>
           </div>
         </div>
 
-        <!-- Dashboard Monthly Accrual Card -->
-        <div class="bg-white rounded-xl shadow-xs border border-slate-200/90 p-5 hover:border-slate-300 transition-all">
-          <div class="flex items-center">
-            <div class="h-10 w-10 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center mr-3 border border-teal-100 flex-shrink-0">
-              <i class="fas fa-chart-line text-base"></i>
+        <!-- Monthly Accrual Card -->
+        <div class="stat-card stat-card-elevated bg-white rounded-2xl border border-slate-200/90 p-4 hover:border-teal-300 transition-all flex flex-col justify-between col-span-2 sm:col-span-1">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Monthly Accrual</span>
+              <div class="h-8 w-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center border border-teal-100 flex-shrink-0">
+                <i class="fas fa-chart-line text-sm"></i>
+              </div>
             </div>
-            <div>
-              <p class="text-xs font-medium text-slate-500">Monthly Accrual</p>
-              <p class="text-2xl font-semibold text-slate-900 tabular-nums tracking-tight">${balance?.annual?.monthlyRate || '1.75'}</p>
-              <p class="text-[11px] text-slate-400" id="nextAccrualInfo">Next: ${balance?.annual?.nextAccrualDate ? formatDate(balance.annual.nextAccrualDate) : 'Calculating...'}</p>
-            </div>
+            <p class="text-2xl font-bold text-slate-900 tabular-nums tracking-tight mb-0.5">${balance?.annual?.monthlyRate || '1.75'}<span class="text-sm font-normal text-slate-500"> d/mo</span></p>
+            <p class="text-[11px] text-slate-500" id="nextAccrualInfo">Next: ${balance?.annual?.nextAccrualDate ? formatDate(balance.annual.nextAccrualDate) : '01 Next Month'}</p>
           </div>
-          <div class="mt-4">
+          <div class="mt-3 pt-2.5 border-t border-slate-100">
             <div class="h-1.5 bg-slate-100 rounded-full overflow-hidden">
               <div class="h-full bg-teal-500 rounded-full transition-all" style="width: 100%"></div>
             </div>
-            <div class="flex justify-between items-center text-xs text-slate-500 mt-1.5">
-              <span class="text-teal-700 font-medium flex items-center"><i class="fas fa-check-circle mr-1 text-teal-500"></i> Active</span>
-              <span class="text-teal-700 font-medium bg-teal-50 px-2 py-0.5 rounded-full border border-teal-100 text-[11px]">1.75d / month</span>
+            <div class="flex justify-between items-center text-[11px] text-slate-500 mt-1.5">
+              <span class="text-teal-700 font-semibold flex items-center"><i class="fas fa-check-circle mr-1 text-teal-500"></i> Active</span>
+              <span class="text-teal-700 font-semibold bg-teal-50 px-2 py-0.5 rounded-full border border-teal-100/80">21d / year</span>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Handover Coverage Alert Banner -->
-      <div id="handoverAlertBanner" class="hidden bg-emerald-800 text-white rounded-xl p-4 shadow-xs flex flex-wrap items-center justify-between gap-3 mb-6 border border-emerald-700/60">
+      <!-- 2. Horizontal Bento Quick Actions Toolbar -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
+        <button id="quickApplyLeave" class="stat-card-elevated flex items-center p-3 rounded-xl border border-slate-200/90 hover:border-emerald-300 hover:shadow-xs active:scale-[0.98] transition-all cursor-pointer group text-left outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+          <div class="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center mr-2.5 border border-emerald-100/80 flex-shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition-all">
+            <i class="fas fa-calendar-plus text-sm"></i>
+          </div>
+          <div class="min-w-0 flex-1">
+            <p class="font-bold text-slate-900 text-xs group-hover:text-emerald-700 transition-colors">Apply Leave</p>
+            <p class="text-[10px] text-slate-500">New request</p>
+          </div>
+          <i class="fas fa-chevron-right text-slate-300 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition-all text-[10px] ml-1"></i>
+        </button>
+
+        <button id="quickCheckBalance" class="stat-card-elevated flex items-center p-3 rounded-xl border border-slate-200/90 hover:border-blue-300 hover:shadow-xs active:scale-[0.98] transition-all cursor-pointer group text-left outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
+          <div class="h-9 w-9 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center mr-2.5 border border-blue-100/80 flex-shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-all">
+            <i class="fas fa-chart-pie text-sm"></i>
+          </div>
+          <div class="min-w-0 flex-1">
+            <p class="font-bold text-slate-900 text-xs group-hover:text-blue-700 transition-colors">Check Balance</p>
+            <p class="text-[10px] text-slate-500">Entitlements</p>
+          </div>
+          <i class="fas fa-chevron-right text-slate-300 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all text-[10px] ml-1"></i>
+        </button>
+
+        <button id="quickClaimToil" onclick="openTOILClaimModal()" class="stat-card-elevated flex items-center p-3 rounded-xl border border-slate-200/90 hover:border-amber-300 hover:shadow-xs active:scale-[0.98] transition-all cursor-pointer group text-left outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
+          <div class="h-9 w-9 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center mr-2.5 border border-amber-100/80 flex-shrink-0 group-hover:bg-amber-600 group-hover:text-white transition-all">
+            <i class="fas fa-business-time text-sm"></i>
+          </div>
+          <div class="min-w-0 flex-1">
+            <p class="font-bold text-slate-900 text-xs group-hover:text-amber-700 transition-colors">Claim TOIL</p>
+            <p class="text-[10px] text-slate-500">Overtime duty</p>
+          </div>
+          <i class="fas fa-chevron-right text-slate-300 group-hover:text-amber-600 group-hover:translate-x-0.5 transition-all text-[10px] ml-1"></i>
+        </button>
+
+        <button id="quickHandoverRequests" onclick="openHandoverRequestsModal()" class="review-handover-btn stat-card-elevated flex items-center p-3 rounded-xl border border-slate-200/90 hover:border-emerald-300 hover:shadow-xs active:scale-[0.98] transition-all cursor-pointer group text-left outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+          <div class="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center mr-2.5 border border-emerald-100/80 flex-shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition-all">
+            <i class="fas fa-user-friends text-sm"></i>
+          </div>
+          <div class="min-w-0 flex-1">
+            <p class="font-bold text-slate-900 text-xs group-hover:text-emerald-700 transition-colors flex items-center gap-1.5">
+              <span>Handover</span>
+              <span id="handoverBadgeCount" class="hidden px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500 text-white">0</span>
+            </p>
+            <p class="text-[10px] text-slate-500">Delegations</p>
+          </div>
+          <i class="fas fa-chevron-right text-slate-300 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition-all text-[10px] ml-1"></i>
+        </button>
+
+        <button id="quickViewApplications" class="stat-card-elevated flex items-center p-3 rounded-xl border border-slate-200/90 hover:border-slate-400 hover:shadow-xs active:scale-[0.98] transition-all cursor-pointer group text-left outline-none focus-visible:ring-2 focus-visible:ring-slate-400 col-span-2 sm:col-span-1">
+          <div class="h-9 w-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center mr-2.5 border border-slate-200/80 flex-shrink-0 group-hover:bg-slate-700 group-hover:text-white transition-all">
+            <i class="fas fa-file-alt text-sm"></i>
+          </div>
+          <div class="min-w-0 flex-1">
+            <p class="font-bold text-slate-900 text-xs group-hover:text-slate-800 transition-colors">Applications</p>
+            <p class="text-[10px] text-slate-500">Leave history</p>
+          </div>
+          <i class="fas fa-chevron-right text-slate-300 group-hover:text-slate-600 group-hover:translate-x-0.5 transition-all text-[10px] ml-1"></i>
+        </button>
+      </div>
+
+      <!-- Handover Coverage Alert Banner (Conditional) -->
+      <div id="handoverAlertBanner" class="hidden bg-emerald-800 text-white rounded-2xl p-4 shadow-sm flex flex-wrap items-center justify-between gap-3 mb-4 border border-emerald-700/60">
         <div class="flex items-center gap-3">
-          <div class="h-10 w-10 rounded-lg bg-white/20 flex items-center justify-center">
+          <div class="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
             <i class="fas fa-user-friends text-lg"></i>
           </div>
           <div>
-            <h4 class="font-bold text-sm">Colleague Handover Coverage Request</h4>
-            <p class="text-xs text-emerald-100">You have <span id="handoverAlertCount" class="font-bold underline">0</span> pending coverage request(s) awaiting your acceptance.</p>
+            <h4 class="font-bold text-sm leading-tight">Colleague Handover Coverage Request</h4>
+            <p class="text-xs text-emerald-100 mt-0.5">You have <span id="handoverAlertCount" class="font-bold underline">0</span> pending coverage request(s) awaiting your acceptance.</p>
           </div>
         </div>
         <button type="button" id="reviewHandoversBannerBtn" onclick="openHandoverRequestsModal()" class="review-handover-btn px-4 py-2 bg-white text-emerald-800 rounded-xl text-xs font-bold hover:bg-emerald-50 active:scale-97 transition-all shadow-sm cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-white">
@@ -4411,192 +4474,94 @@
         </button>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div class="lg:col-span-1">
-          <div class="bg-white rounded-xl shadow-xs border border-gray-200/90 p-5 mb-6">
-            <h3 class="text-base font-bold text-gray-900 mb-3.5">Quick Actions</h3>
-            <div class="space-y-2.5">
-              <button id="quickApplyLeave" class="w-full flex items-center justify-between p-3.5 border border-gray-200/90 rounded-xl hover:bg-emerald-50/30 hover:border-emerald-300/80 active:scale-[0.98] transition-all cursor-pointer shadow-2xs group outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
-                <div class="flex items-center">
-                  <div class="h-10 w-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center mr-3 border border-emerald-100 flex-shrink-0">
-                    <i class="fas fa-calendar-plus text-emerald-600"></i>
-                  </div>
-                  <div class="text-left">
-                    <p class="font-semibold text-gray-900 text-sm group-hover:text-emerald-700 transition-colors">Apply for Leave</p>
-                    <p class="text-xs text-gray-500">Submit a new leave request</p>
-                  </div>
+      <!-- 3. Main Bento Workspace: Balanced Two-Column Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 mb-5 items-start">
+        <!-- Left / Primary Workspace Column (col-span-7 or col-span-8) -->
+        <div class="lg:col-span-7 xl:col-span-8 flex flex-col gap-4">
+          <!-- Pending Approvals Banner (for Supervisor/Admin) -->
+          ${(AppState.userRole === 'supervisor' || AppState.userRole === 'admin') && supervisedData && supervisedData.pendingCount > 0 ? `
+          <div class="bg-gradient-to-r from-amber-50 to-orange-50/80 rounded-2xl border border-amber-200/90 p-4 shadow-2xs flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="h-10 w-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0 border border-amber-200">
+                <i class="fas fa-clock text-amber-600 text-base animate-pulse"></i>
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <h4 class="text-sm font-bold text-slate-900 leading-tight">Pending Team Approvals</h4>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200/80 text-amber-900 border border-amber-300/80">${supervisedData.pendingCount} Action Needed</span>
                 </div>
-                <i class="fas fa-chevron-right text-gray-400 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition-all text-xs"></i>
-              </button>
-
-              <button id="quickCheckBalance" class="w-full flex items-center justify-between p-3.5 border border-gray-200/90 rounded-xl hover:bg-blue-50/30 hover:border-blue-300/80 active:scale-[0.98] transition-all cursor-pointer shadow-2xs group outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
-                <div class="flex items-center">
-                  <div class="h-10 w-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center mr-3 border border-blue-100 flex-shrink-0">
-                    <i class="fas fa-chart-pie text-blue-600"></i>
-                  </div>
-                  <div class="text-left">
-                    <p class="font-semibold text-gray-900 text-sm group-hover:text-blue-700 transition-colors">Check Balance</p>
-                    <p class="text-xs text-gray-500">View detailed leave balance</p>
-                  </div>
-                </div>
-                <i class="fas fa-chevron-right text-gray-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all text-xs"></i>
-              </button>
-
-              <button id="quickClaimToil" onclick="openTOILClaimModal()" class="w-full flex items-center justify-between p-3.5 border border-gray-200/90 rounded-xl hover:bg-amber-50/30 hover:border-amber-300/80 active:scale-[0.98] transition-all cursor-pointer shadow-2xs group outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
-                <div class="flex items-center">
-                  <div class="h-10 w-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center mr-3 border border-amber-100 flex-shrink-0">
-                    <i class="fas fa-business-time text-amber-600"></i>
-                  </div>
-                  <div class="text-left">
-                    <p class="font-semibold text-gray-900 text-sm group-hover:text-amber-700 transition-colors">Claim TOIL</p>
-                    <p class="text-xs text-gray-500">Claim time-off in lieu for extra hours</p>
-                  </div>
-                </div>
-                <i class="fas fa-chevron-right text-gray-400 group-hover:text-amber-600 group-hover:translate-x-0.5 transition-all text-xs"></i>
-              </button>
-
-              <button id="quickHandoverRequests" onclick="openHandoverRequestsModal()" class="review-handover-btn w-full flex items-center justify-between p-3.5 border border-gray-200/90 rounded-xl hover:bg-emerald-50/30 hover:border-emerald-300/80 active:scale-[0.98] transition-all cursor-pointer shadow-2xs group outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
-                <div class="flex items-center">
-                  <div class="h-10 w-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center mr-3 border border-emerald-100 flex-shrink-0">
-                    <i class="fas fa-user-friends text-emerald-600"></i>
-                  </div>
-                  <div class="text-left">
-                    <p class="font-semibold text-gray-900 text-sm group-hover:text-emerald-700 transition-colors flex items-center gap-2">
-                      Handover Coverage
-                      <span id="handoverBadgeCount" class="hidden px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white">0</span>
-                    </p>
-                    <p class="text-xs text-gray-500">Review coverage delegations & tasks</p>
-                  </div>
-                </div>
-                <i class="fas fa-chevron-right text-gray-400 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition-all text-xs"></i>
-              </button>
-
-              <button id="quickViewApplications" class="w-full flex items-center justify-between p-3.5 border border-gray-200/90 rounded-xl hover:bg-slate-50/80 hover:border-slate-300/80 active:scale-[0.98] transition-all cursor-pointer shadow-2xs group outline-none focus-visible:ring-2 focus-visible:ring-slate-400">
-                <div class="flex items-center">
-                  <div class="h-10 w-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center mr-3 border border-slate-200 flex-shrink-0">
-                    <i class="fas fa-file-alt text-slate-600"></i>
-                  </div>
-                  <div class="text-left">
-                    <p class="font-semibold text-gray-900 text-sm group-hover:text-slate-800 transition-colors">My Applications</p>
-                    <p class="text-xs text-gray-500">View all your applications</p>
-                  </div>
-                </div>
-                <i class="fas fa-chevron-right text-gray-400 group-hover:text-slate-600 group-hover:translate-x-0.5 transition-all text-xs"></i>
-              </button>
+                <p class="text-xs text-slate-600 mt-0.5 truncate">${supervisedData.pendingCount} leave application(s) awaiting your decision.</p>
+              </div>
             </div>
+            <button id="reviewPendingApplications" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white rounded-xl text-xs font-semibold shadow-xs transition-all flex-shrink-0 flex items-center gap-1.5 cursor-pointer">
+              <i class="fas fa-tasks text-xs"></i>
+              <span>Review Now</span>
+            </button>
           </div>
+          ` : ''}
 
-          <!-- Today's Team Presence Widget -->
-          <div class="bg-white rounded-xl shadow-sm border border-emerald-100 p-5 mb-6">
-            <div class="flex items-center justify-between mb-3">
+          <!-- Recent Applications Table Card -->
+          <div class="stat-card stat-card-elevated bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs flex-1 flex flex-col">
+            <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-100">
               <div class="flex items-center gap-2.5">
-                <div class="h-9 w-9 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-sm font-bold shadow-sm">
-                  <i class="fas fa-users"></i>
+                <div class="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 flex-shrink-0">
+                  <i class="fas fa-history text-sm"></i>
                 </div>
                 <div>
-                  <h4 class="text-sm font-bold text-gray-900">Today's Team Presence</h4>
-                  <p class="text-[11px] text-gray-500" id="presenceDateText">Out-of-office digest</p>
+                  <h3 class="text-sm font-bold text-slate-900 leading-tight">Recent Applications</h3>
+                  <p class="text-[11px] text-slate-500">Your recent leave submissions and outcomes</p>
                 </div>
               </div>
-              <button type="button" onclick="triggerAbsenceDigestDispatch()" class="text-xs text-gray-400 hover:text-emerald-700 p-1.5 rounded-lg border border-gray-200 hover:border-emerald-300 transition-colors" title="Dispatch today's absence digest to Google Chat & Email">
-                <i class="fas fa-paper-plane"></i>
+              <button id="viewAllApplications" class="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 px-2.5 py-1.5 rounded-lg hover:bg-emerald-50 transition-colors cursor-pointer">
+                <span>View All</span>
+                <i class="fas fa-arrow-right text-[10px]"></i>
               </button>
-            </div>
-            <div id="todayAbsencesWidget" class="space-y-2">
-              <div class="text-xs text-gray-400 py-3 text-center"><i class="fas fa-spinner fa-spin mr-1"></i> Checking team presence...</div>
-            </div>
-          </div>
-          <!-- Professional Disclaimer Card -->
-              <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-5 mb-8 flex items-start shadow-sm">
-                <div class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center mr-4 flex-shrink-0">
-                  <i class="fas fa-exclamation-circle text-blue-600 text-lg"></i>
-                </div>
-                <div class="flex-1">
-                  <h4 class="font-semibold text-blue-900 mb-1">Leave Decision Timeline</h4>
-                  <p class="text-sm text-blue-800">
-                    Leave applications are typically processed within 48 hours. 
-                    If you haven't received a decision within this timeframe, 
-                    please reach out to your supervisor directly for follow-up.
-                  </p>
-                </div>
-              </div>
-
-          <div class="bg-gradient-to-r from-primary-50 to-secondary-50 rounded-xl shadow-sm border border-primary-100 p-6">
-            <h3 class="text-lg font-bold text-gray-900 mb-3">Accrual System</h3>
-            <div class="space-y-3">
-              <div class="flex justify-between">
-                <span class="text-sm text-gray-700">Monthly Rate</span>
-                <span class="text-sm font-medium text-gray-900">1.75 days</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-sm text-gray-700">Annual Equivalent</span>
-                <span class="text-sm font-medium text-gray-900">21 days</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-sm text-gray-700">Next Accrual</span>
-                <span class="text-sm font-medium text-gray-900">${balance?.annual?.nextAccrualDate ? formatDate(balance.annual.nextAccrualDate) : 'Calculating...'}</span>
-              </div>
-            </div>
-
-            <div class="mt-6 p-4 bg-white rounded-lg border border-gray-200">
-              <p class="text-xs font-medium text-gray-900 mb-1">Your Accrual Progress</p>
-              <div class="flex items-center justify-between text-xs text-gray-600 mb-2">
-                <span>Accrued: ${balance?.annual?.accrued?.toFixed(3) || '0.0'} days</span>
-                <span>Used: ${balance?.annual?.used?.toFixed(3) || '0.0'} days</span>
-              </div>
-              <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div class="h-full bg-gradient-to-r from-primary-500 to-secondary-500 rounded-full" style="width: ${balance?.annual?.percentage || 0}%"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="lg:col-span-2">
-          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div class="flex justify-between items-center mb-6">
-              <h3 class="text-lg font-bold text-gray-900">Recent Applications</h3>
-              <button id="viewAllApplications" class="text-sm font-medium text-primary-600 hover:text-primary-800">View All</button>
             </div>
 
             ${applications && applications.length > 0 ? `
-            <div class="overflow-hidden">
-              <table class="min-w-full divide-y divide-gray-200">
+            <div class="overflow-x-auto -mx-5 px-5 flex-1">
+              <table class="min-w-full divide-y divide-slate-100">
                 <thead>
-                  <tr>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
+                  <tr class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <th class="py-2.5 text-left">Date Applied</th>
+                    <th class="py-2.5 text-left">Leave Type</th>
+                    <th class="py-2.5 text-left">Duration</th>
+                    <th class="py-2.5 text-left">Status</th>
+                    <th class="py-2.5 text-right">Action</th>
                   </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-200">
+                <tbody class="divide-y divide-slate-100 text-xs">
                   ${applications.slice(0, 5).map(app => `
-                  <tr class="hover:bg-gray-50">
-                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900">${formatDate(app.DateApplied)}</td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                      <span class="leave-type-badge ${(app.LeaveType || '').replace(/\s+/g, '-').toLowerCase()} px-3 py-1 rounded-full text-xs font-medium">
+                  <tr class="hover:bg-slate-50/70 transition-colors group">
+                    <td class="py-3 whitespace-nowrap font-medium text-slate-700">${formatDate(app.DateApplied)}</td>
+                    <td class="py-3 whitespace-nowrap">
+                      <span class="leave-type-badge ${(app.LeaveType || '').replace(/\s+/g, '-').toLowerCase()} px-2.5 py-0.5 rounded-full text-[11px] font-semibold">
                         ${escapeHtml(app.LeaveType || 'Unknown')}
                       </span>
                     </td>
-                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                      ${app.LeaveMode === 'Hourly'
+                    <td class="py-3 whitespace-nowrap text-slate-700">
+                      <span class="font-medium">
+                        ${app.LeaveMode === 'Hourly'
                             ? `${app.Hours} hours`
                             : `${(app.Status === 'Pending' && app.StartDate && app.EndDate) ? calculateBusinessDays(app.StartDate, app.EndDate) : (app.Duration || 0)} days`
                         }
+                      </span>
                       ${app.LeaveMode === 'Hourly' && app.Duration
-                            ? ` (${app.Duration.toFixed(3)} days)`
+                            ? `<span class="text-slate-400 text-[10px]"> (${app.Duration.toFixed(3)}d)</span>`
                             : app.CalendarDays && app.CalendarDays !== app.Duration
-                                ? ` (${app.CalendarDays} cal days)`
+                                ? `<span class="text-slate-400 text-[10px]"> (${app.CalendarDays} cal)</span>`
                                 : ''
                         }
                       ${renderLeaveRowHolidayBadge(app)}
                     </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                      <span class="status-badge ${(app.Status || 'pending').toLowerCase()} px-3 py-1 rounded-full text-xs font-medium">${escapeHtml(app.Status || 'Pending')}</span>
+                    <td class="py-3 whitespace-nowrap">
+                      <span class="status-badge ${(app.Status || 'pending').toLowerCase()} px-2.5 py-0.5 rounded-full text-[11px] font-semibold">${escapeHtml(app.Status || 'Pending')}</span>
                     </td>
-                    <td class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button class="text-primary-600 hover:text-primary-900 view-application-details" data-id="${app.ID || ''}">View</button>
+                    <td class="py-3 whitespace-nowrap text-right">
+                      <button class="text-emerald-700 hover:text-emerald-900 font-semibold text-xs view-application-details hover:underline inline-flex items-center gap-1 cursor-pointer" data-id="${app.ID || ''}">
+                        <span>View</span>
+                        <i class="fas fa-chevron-right text-[9px]"></i>
+                      </button>
                     </td>
                   </tr>
                   `).join('')}
@@ -4604,41 +4569,106 @@
               </table>
             </div>
             ` : `
-            <div class="text-center py-12">
-              <div class="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <i class="fas fa-file-alt text-gray-400 text-2xl"></i>
+            <div class="text-center py-8 my-auto">
+              <div class="h-12 w-12 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-3 text-slate-400">
+                <i class="fas fa-file-alt text-xl"></i>
               </div>
-              <h3 class="text-lg font-medium text-gray-900 mb-2">No Applications Yet</h3>
-              <p class="text-gray-600 mb-6">You haven't submitted any leave applications yet.</p>
-              <button id="applyFirstLeave" class="btn-primary px-6 py-3 rounded-lg font-medium">Apply for Leave</button>
+              <h4 class="text-sm font-bold text-slate-900 mb-1">No Applications Recorded</h4>
+              <p class="text-xs text-slate-500 mb-4 max-w-xs mx-auto">You haven't submitted any leave applications yet for this period.</p>
+              <button id="applyFirstLeave" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white rounded-xl text-xs font-semibold shadow-xs transition-all inline-flex items-center gap-1.5 cursor-pointer">
+                <i class="fas fa-calendar-plus text-xs"></i>
+                <span>Apply for Leave</span>
+              </button>
             </div>
             `}
           </div>
+        </div>
 
-          ${(AppState.userRole === 'supervisor' || AppState.userRole === 'admin') && supervisedData && supervisedData.pendingCount > 0 ? `
-          <div class="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl shadow-sm border border-amber-200 p-6 mt-6">
-            <div class="flex items-center justify-between mb-4">
-              <div class="flex items-center">
-                <div class="h-10 w-10 rounded-lg bg-amber-100 flex items-center justify-center mr-3">
-                  <i class="fas fa-clock text-amber-600 text-lg"></i>
+        <!-- Right / Intelligence Column (col-span-5 or col-span-4) -->
+        <div class="lg:col-span-5 xl:col-span-4 flex flex-col gap-4">
+          <!-- Today's Team Presence Widget -->
+          <div class="stat-card stat-card-elevated bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs">
+            <div class="flex items-center justify-between mb-3 pb-2.5 border-b border-slate-100">
+              <div class="flex items-center gap-2.5">
+                <div class="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-sm font-bold border border-emerald-100 flex-shrink-0">
+                  <i class="fas fa-users text-sm"></i>
                 </div>
                 <div>
-                  <h3 class="text-lg font-bold text-gray-900">Pending Team Approvals</h3>
-                  <p class="text-sm text-gray-600">${supervisedData.pendingCount} applications need your attention</p>
+                  <h4 class="text-sm font-bold text-slate-900 leading-tight">Today's Team Presence</h4>
+                  <p class="text-[11px] text-slate-500 mt-0.5" id="presenceDateText">Out-of-office digest</p>
                 </div>
               </div>
-              <button id="reviewPendingApplications" class="btn-primary px-4 py-2 rounded-lg text-sm font-medium">Review Now</button>
+              <button type="button" onclick="triggerAbsenceDigestDispatch()" class="text-xs text-slate-400 hover:text-emerald-700 p-1.5 rounded-lg border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50 transition-colors cursor-pointer" title="Dispatch today's absence digest to Google Chat & Email">
+                <i class="fas fa-paper-plane"></i>
+              </button>
+            </div>
+            <div id="todayAbsencesWidget" class="space-y-2">
+              <div class="text-xs text-slate-400 py-3 text-center"><i class="fas fa-spinner fa-spin mr-1"></i> Checking team presence...</div>
             </div>
           </div>
-          ` : ''}
+
+          <!-- Leave Policy & SLA Standards Bento Card -->
+          <div class="stat-card stat-card-elevated bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs flex-1 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center gap-2.5 mb-3 pb-2.5 border-b border-slate-100">
+                <div class="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100 flex-shrink-0">
+                  <i class="fas fa-shield-alt text-sm"></i>
+                </div>
+                <div>
+                  <h4 class="text-sm font-bold text-slate-900 leading-tight">Policy & SLA Standards</h4>
+                  <p class="text-[11px] text-slate-500 mt-0.5">Agri Experience leave governance</p>
+                </div>
+              </div>
+
+              <div class="space-y-2.5 text-xs text-slate-600">
+                <div class="flex items-start gap-2.5 p-2 rounded-xl bg-slate-50/80 border border-slate-100">
+                  <i class="fas fa-clock text-blue-600 text-xs mt-0.5 flex-shrink-0"></i>
+                  <div>
+                    <span class="font-bold text-slate-900 text-[11px]">48-Hour Decision SLA:</span>
+                    <p class="text-[11px] text-slate-500 leading-snug">Applications are typically processed within 48 business hours by assigned supervisors.</p>
+                  </div>
+                </div>
+
+                <div class="flex items-start gap-2.5 p-2 rounded-xl bg-slate-50/80 border border-slate-100">
+                  <i class="fas fa-calendar-check text-emerald-600 text-xs mt-0.5 flex-shrink-0"></i>
+                  <div>
+                    <span class="font-bold text-slate-900 text-[11px]">1.75d / Month Accrual:</span>
+                    <p class="text-[11px] text-slate-500 leading-snug">Annual entitlement is 21 working days per year, credited on the 1st of each calendar month.</p>
+                  </div>
+                </div>
+
+                <div class="flex items-start gap-2.5 p-2 rounded-xl bg-slate-50/80 border border-slate-100">
+                  <i class="fas fa-hourglass-end text-amber-600 text-xs mt-0.5 flex-shrink-0"></i>
+                  <div>
+                    <span class="font-bold text-slate-900 text-[11px]">Easter Carryover Cutoff:</span>
+                    <p class="text-[11px] text-slate-500 leading-snug">Brought-forward leave days are strictly valid until Easter Sunday and forfeited thereafter.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Accrual Progression Mini Bar -->
+            <div class="mt-3.5 pt-3 border-t border-slate-100">
+              <div class="flex items-center justify-between text-[11px] text-slate-500 mb-1.5">
+                <span class="font-semibold text-slate-700">YTD Accrual Progress</span>
+                <span class="tabular-nums font-semibold text-emerald-700">${balance?.annual?.accrued?.toFixed(2) || '0.00'} / 21.00 days</span>
+              </div>
+              <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div class="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full" style="width: ${balance?.annual?.percentage || Math.min(100, Math.round(((balance?.annual?.used || 0) / 21) * 100))}%"></div>
+              </div>
+              <div class="flex justify-between items-center text-[10px] text-slate-400 mt-1">
+                <span>Used: ${balance?.annual?.used?.toFixed(2) || '0.00'}d</span>
+                <span>Next: ${balance?.annual?.nextAccrualDate ? formatDate(balance.annual.nextAccrualDate) : '01 Nov'}</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- Upcoming Public Holidays & Long Weekend Planner Widget -->
-      <div id="upcomingHolidaysDashboardWidget" class="mt-8"></div>
+      <!-- 4. Upcoming Public Holidays & Long Weekend Planner Widget (Full Width) -->
+      <div id="upcomingHolidaysDashboardWidget"></div>
     `;
                 }
-
                 dashboardPage.innerHTML = dashboardHTML;
                 loadUpcomingHolidaysWidget();
                 renderTodayAbsenceWidget('todayAbsencesWidget');
@@ -4852,6 +4882,8 @@
             }
 
             // Load balance page - FIXED null checking
+            // Load balance page - FIXED null checking & Bento Grid Redesign
+            // Load balance page - FIXED null checking & Bento Grid Redesign
             async function loadBalancePage() {
                 const pageElement = document.getElementById('myBalancePage');
 
@@ -4862,24 +4894,24 @@
                         const balance = result.data;
 
                         // Safely access brought forward data with complete information
-                        const bfTotal = balance.broughtForward?.total?.toFixed(3) || '0.0';
-                        const bfRemaining = balance.broughtForward?.remaining?.toFixed(3) || '0.0';
-                        const bfUsed = balance.broughtForward?.used?.toFixed(3) || '0.0';
+                        const bfTotal = balance.broughtForward?.total?.toFixed(3) || '0.000';
+                        const bfRemaining = balance.broughtForward?.remaining?.toFixed(3) || '0.000';
+                        const bfUsed = balance.broughtForward?.used?.toFixed(3) || '0.000';
                         const bfPercentage = balance.broughtForward?.percentage || 0;
                         const bfExpiryDate = balance.broughtForward?.expiryDate;
                         const bfIsExpired = balance.broughtForward?.isExpired || false;
                         const hasBroughtForward = balance.broughtForward !== null;
 
                         // Safely access sick data
-                        const sickBalance = balance.sick?.balance?.toFixed(3) || '0.0';
-                        const sickAllocation = balance.sick?.allocation?.toFixed(3) || '7.0';
-                        const sickUsed = balance.sick?.used?.toFixed(3) || '0.0';
+                        const sickBalance = balance.sick?.balance?.toFixed(3) || '0.000';
+                        const sickAllocation = balance.sick?.allocation?.toFixed(3) || '7.000';
+                        const sickUsed = balance.sick?.used?.toFixed(3) || '0.000';
                         const sickPercentage = balance.sick?.percentage || 0;
 
                         // Safely access annual data
-                        const annualAvailable = balance.annual?.available?.toFixed(3) || '0.0';
-                        const annualAccrued = balance.annual?.accrued?.toFixed(3) || '0.0';
-                        const annualUsed = balance.annual?.used?.toFixed(3) || '0.0';
+                        const annualAvailable = balance.annual?.available?.toFixed(3) || '0.000';
+                        const annualAccrued = balance.annual?.accrued?.toFixed(3) || '0.000';
+                        const annualUsed = balance.annual?.used?.toFixed(3) || '0.000';
                         const annualMonthlyRate = balance.annual?.monthlyRate || 1.75;
                         const annualPercentage = balance.annual?.percentage || 0;
                         const annualHasDeficit = balance.annual?.hasDeficit || false;
@@ -4898,232 +4930,332 @@
                             : 0;
 
                         // Safely access total data
-                        const totalAvailable = balance.total?.available?.toFixed(3) || '0.0';
+                        const totalAvailable = balance.total?.available?.toFixed(3) || (parseFloat(annualAvailable) + parseFloat(bfRemaining) + parseFloat(compBalance)).toFixed(3);
 
                         let pageHTML = `
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-          <div class="lg:col-span-2">
-            <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-emerald-100 p-6 hover:border-emerald-200 transition-all">
-              <div class="flex justify-between items-center mb-6">
-                <div>
-                  <h3 class="text-lg font-bold text-gray-900">Annual Leave (Accrual System)</h3>
-                  <p class="text-sm text-gray-600">Monthly accrual: ${annualMonthlyRate} days/month</p>
-                </div>
-                <div class="text-right">
-                  <p class="text-3xl font-bold text-gray-900">${annualAvailable}</p>
-                  <p class="text-xs text-gray-500">days available</p>
+        <div class="space-y-4">
+          <!-- ROW 1: TOP BENTO ENTITLEMENTS STRIP -->
+          <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            <!-- Card 1: Total Available Leave -->
+            <div class="stat-card stat-card-elevated bg-white rounded-2xl p-4 shadow-sm border border-emerald-100/80 hover:border-emerald-300 transition-all flex flex-col justify-between">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total Available Leave</span>
+                <div class="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-xs">
+                  <i class="fas fa-wallet"></i>
                 </div>
               </div>
+              <div class="my-2">
+                <p class="text-3xl font-extrabold text-slate-900 tracking-tight tabular-nums">${totalAvailable}</p>
+                <p class="text-[11px] text-slate-500 mt-0.5">Total spendable leave across all pools</p>
+              </div>
+              <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                <span class="text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full">Ready to Use</span>
+                <span class="text-slate-400">YTD 2026</span>
+              </div>
+            </div>
 
-              <div class="space-y-4">
-                <div>
-                  <div class="flex justify-between text-sm text-gray-700 mb-1">
-                    <span>Accrued Year to Date</span>
-                    <span class="font-medium">${annualAccrued} days</span>
+            <!-- Card 2: Annual Accrual Rate -->
+            <div class="stat-card stat-card-elevated bg-white rounded-2xl p-4 shadow-sm border border-teal-100/80 hover:border-teal-300 transition-all flex flex-col justify-between">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Annual Accrual</span>
+                <div class="h-8 w-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center text-xs">
+                  <i class="fas fa-calendar-check"></i>
+                </div>
+              </div>
+              <div class="my-2">
+                <p class="text-3xl font-extrabold text-slate-900 tracking-tight tabular-nums">${annualAvailable}</p>
+                <p class="text-[11px] text-slate-500 mt-0.5">${annualAccrued} accrued • ${annualUsed} used</p>
+              </div>
+              <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                <span class="text-teal-700 font-semibold bg-teal-50 px-2 py-0.5 rounded-full">+${annualMonthlyRate} d/mo</span>
+                <span class="text-slate-500">21d annual cap</span>
+              </div>
+            </div>
+
+            <!-- Card 3: Brought Forward -->
+            <div class="stat-card stat-card-elevated bg-white rounded-2xl p-4 shadow-sm border border-amber-100/80 hover:border-amber-300 transition-all flex flex-col justify-between">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Brought Forward</span>
+                <div class="h-8 w-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center text-xs">
+                  <i class="fas fa-forward"></i>
+                </div>
+              </div>
+              <div class="my-2">
+                <p class="text-3xl font-extrabold text-slate-900 tracking-tight tabular-nums">${bfRemaining}</p>
+                <p class="text-[11px] text-slate-500 mt-0.5">${bfTotal} total • ${bfUsed} used</p>
+              </div>
+              <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                <span class="${bfIsExpired ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'} font-semibold px-2 py-0.5 rounded-full">
+                  ${bfIsExpired ? 'Forfeited' : 'Active Pool'}
+                </span>
+                <span class="text-slate-400">Expires Easter</span>
+              </div>
+            </div>
+
+            <!-- Card 4: TOIL & Sick Pool -->
+            <div class="stat-card stat-card-elevated bg-white rounded-2xl p-4 shadow-sm border border-indigo-100/80 hover:border-indigo-300 transition-all flex flex-col justify-between">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">TOIL & Sick Pools</span>
+                <div class="h-8 w-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs">
+                  <i class="fas fa-shield-heart"></i>
+                </div>
+              </div>
+              <div class="my-2">
+                <div class="flex items-baseline gap-2">
+                  <p class="text-3xl font-extrabold text-indigo-700 tracking-tight tabular-nums">${compBalance}</p>
+                  <span class="text-xs text-indigo-600 font-bold">TOIL</span>
+                  <span class="text-slate-300">|</span>
+                  <p class="text-2xl font-bold text-slate-800 tracking-tight tabular-nums">${sickBalance}</p>
+                  <span class="text-xs text-slate-500 font-medium">Sick</span>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-0.5">Priority 1 TOIL • Statutory Sick (7d)</p>
+              </div>
+              <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                <span class="text-indigo-700 font-semibold bg-indigo-50 px-2 py-0.5 rounded-full">Never expires</span>
+                <button type="button" onclick="openTOILClaimModal()" class="text-indigo-600 hover:text-indigo-800 font-bold hover:underline">Claim TOIL &rarr;</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ROW 2: BALANCED TWO-COLUMN WORKSPACE (7 : 5) -->
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            <!-- LEFT COLUMN: ANNUAL ACCRUAL ENGINE & RECENT DEDUCTIONS (7 cols) -->
+            <div class="lg:col-span-7 space-y-4">
+              <!-- Annual Leave Accrual Deep Dive Card -->
+              <div class="stat-card stat-card-elevated bg-white rounded-2xl p-5 shadow-sm border border-slate-200/90">
+                <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+                  <div>
+                    <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                      <i class="fas fa-calendar-alt text-emerald-600"></i>
+                      Annual Leave Accrual Engine
+                    </h3>
+                    <p class="text-xs text-slate-500 mt-0.5">Credited at ${annualMonthlyRate} working days per completed month (21 days/year)</p>
                   </div>
-                  <div class="h-2.5 bg-emerald-100 rounded-full overflow-hidden">
-                    <div class="h-full bg-emerald-500 rounded-full" style="width: ${Math.min(100, (parseFloat(annualAccrued) / 21) * 100)}%"></div>
+                  <div class="text-right">
+                    <span class="text-2xl font-extrabold text-slate-900 tracking-tight tabular-nums">${annualAvailable}</span>
+                    <span class="text-xs text-slate-500 block">days available</span>
                   </div>
                 </div>
 
-                <div>
-                  <div class="flex justify-between text-sm text-gray-700 mb-1">
-                    <span>Used Year to Date</span>
-                    <span class="font-medium">${annualUsed} days</span>
-                  </div>
-                  <div class="h-2.5 bg-blue-100 rounded-full overflow-hidden">
-                    <div class="h-full bg-blue-500 rounded-full" style="width: ${annualPercentage}%"></div>
-                  </div>
-                </div>
-
-                ${annualHasDeficit ? `
-                <div class="p-4 bg-red-50 border border-red-100 rounded-xl">
-                  <div class="flex items-center">
-                    <div class="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center mr-3 flex-shrink-0">
-                      <i class="fas fa-exclamation-triangle text-red-600"></i>
+                <div class="space-y-4 my-4">
+                  <!-- Accrued YTD Progress -->
+                  <div>
+                    <div class="flex justify-between text-xs text-slate-700 mb-1.5 font-medium">
+                      <span class="flex items-center gap-1.5"><i class="fas fa-chart-line text-emerald-500 text-[10px]"></i> Accrued Year to Date</span>
+                      <span class="font-bold text-slate-900 tabular-nums">${annualAccrued} / 21.000 days (${Math.min(100, Math.round((parseFloat(annualAccrued) / 21) * 100))}%)</span>
                     </div>
+                    <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div class="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500" style="width: ${Math.min(100, (parseFloat(annualAccrued) / 21) * 100)}%"></div>
+                    </div>
+                  </div>
+
+                  <!-- Used YTD Progress -->
+                  <div>
+                    <div class="flex justify-between text-xs text-slate-700 mb-1.5 font-medium">
+                      <span class="flex items-center gap-1.5"><i class="fas fa-calendar-minus text-blue-500 text-[10px]"></i> Consumed Year to Date</span>
+                      <span class="font-bold text-slate-900 tabular-nums">${annualUsed} days (${annualPercentage}%)</span>
+                    </div>
+                    <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div class="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-500" style="width: ${annualPercentage}%"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Deficit alert if any -->
+                ${annualHasDeficit ? `
+                <div class="p-3.5 bg-rose-50 border border-rose-200 rounded-xl mb-4">
+                  <div class="flex items-start gap-2.5">
+                    <i class="fas fa-exclamation-triangle text-rose-600 mt-0.5"></i>
                     <div>
-                      <p class="font-bold text-red-800 text-sm">Annual Deficit</p>
-                      <p class="text-xs text-red-700">You have a deficit of ${Math.abs(annualDeficit).toFixed(3)} days from previous year(s)</p>
-                      <p class="text-[11px] text-red-600 mt-1">This deficit will be recovered from future accruals</p>
+                      <p class="font-bold text-rose-900 text-xs">Annual Leave Deficit: ${Math.abs(annualDeficit).toFixed(3)} days</p>
+                      <p class="text-[11px] text-rose-700 mt-0.5">Future monthly accruals will automatically offset this balance before days become spendable.</p>
                     </div>
                   </div>
                 </div>
                 ` : ''}
 
-                <div class="p-4 bg-emerald-50/70 border border-emerald-100 rounded-xl">
-                  <div class="flex items-center justify-between">
-                    <div>
-                      <p class="font-bold text-emerald-900 text-sm">Next Accrual</p>
-                      <p class="text-xs text-emerald-700">${annualNextAccrualDate ? formatDate(annualNextAccrualDate) : 'Calculating...'}</p>
+                <!-- Next Accrual Banner -->
+                <div class="p-3.5 bg-gradient-to-r from-emerald-50/80 to-teal-50/80 border border-emerald-100 rounded-xl flex items-center justify-between">
+                  <div class="flex items-center gap-3">
+                    <div class="h-9 w-9 rounded-lg bg-emerald-500 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                      <i class="fas fa-plus"></i>
                     </div>
-                    <div class="text-right">
-                      <p class="text-lg font-bold text-emerald-900">+${annualMonthlyRate}</p>
-                      <p class="text-xs text-emerald-700">days</p>
+                    <div>
+                      <p class="text-xs font-bold text-emerald-950">Next Scheduled Accrual</p>
+                      <p class="text-[11px] text-emerald-700">${annualNextAccrualDate ? formatDate(annualNextAccrualDate) : '01 of next month'}</p>
                     </div>
                   </div>
+                  <div class="text-right">
+                    <p class="text-lg font-extrabold text-emerald-950 tabular-nums">+${annualMonthlyRate}</p>
+                    <p class="text-[10px] text-emerald-700 uppercase tracking-wider font-semibold">working days</p>
+                  </div>
+                </div>
+
+                <!-- Accrual Projection Forecast (if present) -->
+                ${projection ? `
+                <div class="mt-4 pt-4 border-t border-slate-100 grid grid-cols-3 gap-3 text-center">
+                  <div class="p-2.5 bg-slate-50/80 rounded-xl border border-slate-100">
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Months Left</p>
+                    <p class="text-base font-bold text-slate-900 mt-1 tabular-nums">${projection.monthsRemaining}</p>
+                  </div>
+                  <div class="p-2.5 bg-slate-50/80 rounded-xl border border-slate-100">
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Future Accrual</p>
+                    <p class="text-base font-bold text-emerald-700 mt-1 tabular-nums">+${(projection.futureAccrual || 0).toFixed(3)}d</p>
+                  </div>
+                  <div class="p-2.5 bg-slate-50/80 rounded-xl border border-slate-100">
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Year-End Forecast</p>
+                    <p class="text-base font-bold text-slate-900 mt-1 tabular-nums">${(projection.projectedYearEnd || 0).toFixed(3)}d</p>
+                  </div>
+                </div>
+                ` : ''}
+              </div>
+
+              <!-- Recent Leave Deductions Ledger Card -->
+              <div class="stat-card stat-card-elevated bg-white rounded-2xl p-5 shadow-sm border border-slate-200/90">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <div>
+                    <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                      <i class="fas fa-receipt text-slate-500"></i>
+                      Recent Leave Deductions Ledger
+                    </h3>
+                    <p class="text-xs text-slate-500 mt-0.5">Breakdown of days debited from your leave pools</p>
+                  </div>
+                  <button onclick="navigateToPage('myApplications')" class="text-xs font-semibold text-emerald-600 hover:text-emerald-800 hover:underline">
+                    View All &rarr;
+                  </button>
+                </div>
+
+                <div class="mt-3">
+                  ${(AppState.applications && AppState.applications.filter(app => app.Status === 'Approved').length > 0) ? `
+                  <div class="space-y-2.5">
+                    ${AppState.applications.filter(app => app.Status === 'Approved').slice(0, 4).map(app => `
+                      <div class="p-3 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 flex items-center justify-between transition-all">
+                        <div>
+                          <div class="flex items-center gap-2">
+                            <span class="font-bold text-xs text-slate-900">${formatDate(app.StartDate)}${app.EndDate && app.StartDate !== app.EndDate ? ' - ' + formatDate(app.EndDate) : ''}</span>
+                            <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">${escapeHtml(app.LeaveType)}</span>
+                          </div>
+                          <p class="text-[11px] text-slate-500 mt-1 truncate max-w-xs">${escapeHtml(app.Reason || 'Leave taken')}</p>
+                        </div>
+                        <div class="text-right flex-shrink-0">
+                          <p class="text-xs font-extrabold text-slate-900">${app.Duration || 0} days</p>
+                          <div class="flex items-center gap-1 mt-1 justify-end">
+                            ${app.DeductFromCompensation > 0 ? `<span class="text-[10px] text-indigo-700 bg-indigo-50 font-bold px-1.5 py-0.5 rounded">TOIL: ${app.DeductFromCompensation}d</span>` : ''}
+                            ${app.DeductFromBroughtForward > 0 ? `<span class="text-[10px] text-amber-700 bg-amber-50 font-bold px-1.5 py-0.5 rounded">BF: ${app.DeductFromBroughtForward}d</span>` : ''}
+                            ${app.DeductFromAnnual > 0 ? `<span class="text-[10px] text-emerald-700 bg-emerald-50 font-bold px-1.5 py-0.5 rounded">Annual: ${app.DeductFromAnnual}d</span>` : ''}
+                            ${app.DeductFromSick > 0 ? `<span class="text-[10px] text-blue-700 bg-blue-50 font-bold px-1.5 py-0.5 rounded">Sick: ${app.DeductFromSick}d</span>` : ''}
+                          </div>
+                        </div>
+                      </div>
+                    `).join('')}
+                  </div>
+                  ` : `
+                  <div class="py-8 text-center text-slate-400">
+                    <i class="fas fa-calendar-check text-2xl text-slate-300 mb-1"></i>
+                    <p class="text-xs text-slate-500">No leave deductions recorded for 2026</p>
+                  </div>
+                  `}
                 </div>
               </div>
             </div>
-          </div>
 
-          <div class="space-y-6">
-            <!-- BROUGHT FORWARD CARD - WITH NULL CHECK -->
-            ${hasBroughtForward ? `
-            <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-amber-100 p-6 hover:border-amber-200 transition-all">
-              <div class="flex justify-between items-start mb-4">
-                <div>
-                  <h4 class="font-bold text-gray-900">Brought Forward</h4>
-                  <p class="text-sm text-gray-600">From previous year</p>
-                </div>
-                <div class="text-right">
-                  <span class="text-2xl font-bold text-gray-900">${bfTotal}</span>
-                  <span class="text-xs text-gray-500 ml-1">total</span>
-                </div>
-              </div>
-
-              <div class="space-y-4">
-                <!-- Balance and Used row -->
-                <div class="flex justify-between items-center">
+            <!-- RIGHT COLUMN: BROUGHT FORWARD, TOIL & SICK POOLS (5 cols) -->
+            <div class="lg:col-span-5 space-y-4">
+              <!-- Brought Forward Bento Card -->
+              <div class="stat-card stat-card-elevated bg-white rounded-2xl p-5 shadow-sm border border-slate-200/90">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
                   <div>
-                    <p class="text-xs text-gray-500">Balance</p>
-                    <p class="text-xl font-semibold text-gray-900">${bfRemaining}</p>
+                    <h4 class="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                      <i class="fas fa-forward text-amber-500"></i> Brought Forward Leave
+                    </h4>
+                    <p class="text-xs text-slate-500">Carryover entitlement from 2025</p>
                   </div>
-                  <div class="text-right">
-                    <p class="text-xs text-gray-500">Used</p>
-                    <p class="text-xl font-semibold text-amber-600">${bfUsed}</p>
-                  </div>
-                </div>
-
-                <!-- Usage bar -->
-                <div>
-                  <div class="flex justify-between text-xs mb-1">
-                    <span class="text-gray-600">Usage</span>
-                    <span class="text-gray-600">${bfPercentage}%</span>
-                  </div>
-                  <div class="w-full bg-amber-100 rounded-full h-2 overflow-hidden">
-                    <div class="bg-amber-500 rounded-full h-2" style="width: ${bfPercentage}%"></div>
-                  </div>
-                </div>
-
-                <!-- Status and Expiry -->
-                <div class="flex justify-between items-center pt-2 border-t border-gray-100">
-                  <div class="flex items-center">
-                    <i class="far fa-calendar-alt text-gray-400 mr-1"></i>
-                    <span class="text-xs text-gray-600">
-                      Expires: ${bfExpiryDate ? formatDate(bfExpiryDate) : 'N/A'}
-                    </span>
-                  </div>
-                  <span class="text-xs font-medium px-2 py-0.5 rounded-full ${bfIsExpired ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-green-100 text-green-700 border border-green-200'}">
+                  <span class="text-xs font-semibold px-2 py-0.5 rounded-full ${bfIsExpired ? 'bg-rose-50 text-rose-700 border border-rose-100' : 'bg-amber-50 text-amber-700 border border-amber-100'}">
                     ${bfIsExpired ? 'Forfeited' : 'Active'}
                   </span>
                 </div>
 
-                <!-- Dynamic note -->
-                <div class="mt-2 p-2.5 ${bfIsExpired ? 'bg-red-50/70 border-red-200 text-red-800' : 'bg-amber-50/60 border-amber-100 text-amber-800'} border rounded-lg text-xs">
-                  <i class="fas ${bfIsExpired ? 'fa-exclamation-triangle text-red-500' : 'fa-info-circle text-amber-500'} mr-1"></i>
-                  ${bfIsExpired ? `Carried forward days beyond Easter were forfeited. (${bfRemaining} remaining, ${bfUsed} used)` : `${bfRemaining} days remaining, ${bfUsed} used`}
+                <div class="grid grid-cols-2 gap-3 my-3">
+                  <div class="p-3 bg-amber-50/50 rounded-xl border border-amber-100/60">
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-amber-700">Remaining</p>
+                    <p class="text-2xl font-extrabold text-amber-900 mt-0.5 tabular-nums">${bfRemaining}</p>
+                    <p class="text-[10px] text-amber-600">days available</p>
+                  </div>
+                  <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Consumed</p>
+                    <p class="text-2xl font-extrabold text-slate-700 mt-0.5 tabular-nums">${bfUsed}</p>
+                    <p class="text-[10px] text-slate-400">of ${bfTotal} carried</p>
+                  </div>
                 </div>
-              </div>
-            </div>
-            ` : `
-            <!-- No Brought Forward Card -->
-            <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <div class="text-center py-4">
-                <i class="fas fa-forward text-gray-300 text-3xl mb-2"></i>
-                <p class="text-gray-500 text-sm">No brought forward leave</p>
-              </div>
-            </div>
-            `}
 
-            <!-- Sick Leave Card -->
-            <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-blue-100 p-6 hover:border-blue-200 transition-all">
-              <div class="flex justify-between items-start mb-4">
                 <div>
-                  <h4 class="font-bold text-gray-900">Sick Leave</h4>
-                  <p class="text-sm text-gray-600">Annual allocation</p>
+                  <div class="flex justify-between text-[11px] text-slate-600 mb-1">
+                    <span>Carryover Utilized</span>
+                    <span class="font-bold">${bfPercentage}%</span>
+                  </div>
+                  <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div class="h-full bg-amber-500 rounded-full transition-all duration-500" style="width: ${bfPercentage}%"></div>
+                  </div>
                 </div>
-                <span class="text-2xl font-bold text-gray-900">${sickBalance}</span>
-              </div>
 
-              <div class="space-y-2">
-                <div class="flex justify-between text-sm">
-                  <span class="text-gray-600">Allocation</span>
-                  <span class="font-medium">${sickAllocation} days</span>
-                </div>
-                <div class="flex justify-between text-sm">
-                  <span class="text-gray-600">Used</span>
-                  <span class="font-medium">${sickUsed} days</span>
-                </div>
-              </div>
-
-              <div class="mt-4">
-                <div class="flex justify-between text-xs mb-1">
-                  <span class="text-gray-600">Used</span>
-                  <span class="text-gray-600">${sickPercentage}%</span>
-                </div>
-                <div class="h-2 bg-blue-100 rounded-full overflow-hidden">
-                  <div class="h-full bg-blue-500 rounded-full" style="width: ${sickPercentage}%"></div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Compensation Days Card -->
-            <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-indigo-100 p-6 hover:border-indigo-200 transition-all">
-              <div class="flex justify-between items-start mb-4">
-                <div>
-                  <h4 class="font-bold text-gray-900">Compensation Days</h4>
-                  <p class="text-sm text-gray-600">Awarded for extra work</p>
-                </div>
-                <span class="text-2xl font-bold text-indigo-700">${compBalance}</span>
-              </div>
-
-              <div class="space-y-2">
-                <div class="flex justify-between text-sm">
-                  <span class="text-gray-600">Total Awarded</span>
-                  <span class="font-medium">${compTotal} days</span>
-                </div>
-                <div class="flex justify-between text-sm">
-                  <span class="text-gray-600">Used</span>
-                  <span class="font-medium">${compUsed} days</span>
+                <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
+                  <span class="flex items-center gap-1.5">
+                    <i class="far fa-calendar-alt text-amber-500"></i>
+                    Expiry: ${bfExpiryDate ? formatDate(bfExpiryDate) : 'Easter 2026'}
+                  </span>
+                  <span class="text-[11px] text-amber-700 font-medium">Auto-deducted Priority 2</span>
                 </div>
               </div>
 
-              <div class="mt-4">
-                <div class="flex justify-between text-xs mb-1">
-                  <span class="text-gray-600">Used</span>
-                  <span class="text-gray-600">${compPercentage}%</span>
+              <!-- Compensation Days / TOIL Bento Card -->
+              <div class="stat-card stat-card-elevated bg-white rounded-2xl p-5 shadow-sm border border-slate-200/90">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <div>
+                    <h4 class="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                      <i class="fas fa-business-time text-indigo-600"></i> Time Off In Lieu (TOIL)
+                    </h4>
+                    <p class="text-xs text-slate-500">Earned via weekend & field overtime</p>
+                  </div>
+                  <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
+                    Priority 1 Pool
+                  </span>
                 </div>
-                <div class="h-2 bg-indigo-100 rounded-full overflow-hidden">
-                  <div class="h-full bg-indigo-500 rounded-full" style="width: ${compPercentage}%"></div>
-                </div>
-              </div>
 
-              <div class="mt-3 pt-3 border-t border-gray-100">
-                <p class="text-xs text-indigo-600 flex items-center justify-between">
-                  <span><i class="fas fa-info-circle mr-1"></i> Compensation days never expire</span>
-                  <span class="font-medium text-indigo-800">Priority 1 Pool</span>
-                </p>
-                <div class="mt-3 pt-2.5 border-t border-indigo-50 flex items-center justify-between">
-                  <span class="text-xs text-indigo-700 font-medium">Extra hours or weekend field work?</span>
-                  <button type="button" onclick="openTOILClaimModal()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5">
-                    <i class="fas fa-plus-circle text-xs"></i> Claim TOIL
+                <div class="grid grid-cols-2 gap-3 my-3">
+                  <div class="p-3 bg-indigo-50/50 rounded-xl border border-indigo-100/60">
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-indigo-700">Available</p>
+                    <p class="text-2xl font-extrabold text-indigo-900 mt-0.5 tabular-nums">${compBalance}</p>
+                    <p class="text-[10px] text-indigo-600">days ready to use</p>
+                  </div>
+                  <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Awarded</p>
+                    <p class="text-2xl font-extrabold text-slate-700 mt-0.5 tabular-nums">${compTotal}</p>
+                    <p class="text-[10px] text-slate-400">${compUsed} used</p>
+                  </div>
+                </div>
+
+                <div class="p-3 bg-gradient-to-r from-indigo-50/70 to-purple-50/70 rounded-xl border border-indigo-100/60 flex items-center justify-between">
+                  <div class="text-[11px] text-indigo-900 font-medium">
+                    <i class="fas fa-shield-halved text-indigo-500 mr-1"></i> Never expires • Deducted first
+                  </div>
+                  <button type="button" onclick="openTOILClaimModal()" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1 active:scale-95 transition-all">
+                    <i class="fas fa-plus text-[10px]"></i> Claim TOIL
                   </button>
                 </div>
+
+                <!-- Award history if present -->
                 ${(balance.compensation?.awards && balance.compensation.awards.length > 0) ? `
-                <div class="mt-3 pt-2 border-t border-indigo-100">
-                  <p class="text-xs font-semibold text-gray-700 mb-1.5 flex items-center">
-                    <i class="fas fa-history mr-1 text-indigo-500"></i> Award History
-                  </p>
-                  <div class="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                <div class="mt-3 pt-3 border-t border-slate-100">
+                  <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">Award History</p>
+                  <div class="space-y-1.5 max-h-32 overflow-y-auto pr-1">
                     ${balance.compensation.awards.map(a => `
-                      <div class="flex justify-between items-center text-xs p-1.5 rounded ${a.revoked ? 'bg-red-50 text-red-600 line-through' : 'bg-indigo-50/70 text-indigo-900'}">
+                      <div class="flex justify-between items-center text-xs p-1.5 rounded-lg ${a.revoked ? 'bg-red-50 text-red-700' : 'bg-slate-50 text-slate-700'}">
                         <div class="truncate mr-2">
                           <span class="font-bold">+${a.days}d</span>
-                          <span class="text-gray-500 text-[11px] ml-1">(${formatDate(a.date)})</span>
-                          <p class="text-[11px] text-gray-500 truncate" title="${escapeHtml(a.reason || '')}">${escapeHtml(a.reason || 'Extra work')}</p>
+                          <span class="text-slate-400 text-[10px] ml-1">(${formatDate(a.date)})</span>
+                          <p class="text-[10px] text-slate-500 truncate">${escapeHtml(a.reason || 'Overtime assignment')}</p>
                         </div>
-                        <span class="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 ${a.revoked ? 'bg-red-100 text-red-700' : 'bg-indigo-100 text-indigo-700 font-medium'}">
+                        <span class="text-[10px] px-1.5 py-0.5 rounded font-semibold ${a.revoked ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-800'}">
                           ${a.revoked ? 'Revoked' : 'Active'}
                         </span>
                       </div>
@@ -5132,112 +5264,65 @@
                 </div>
                 ` : ''}
               </div>
-            </div>
 
-            ${projection ? `
-            <div class="bg-gradient-to-r from-primary-50 to-secondary-50 rounded-xl shadow-sm border border-primary-100 p-6">
-              <h4 class="font-bold text-gray-900 mb-3">Accrual Projection</h4>
-              <div class="space-y-3">
-                <div class="flex justify-between text-sm">
-                  <span class="text-gray-700">Months Remaining</span>
-                  <span class="font-medium">${projection.monthsRemaining}</span>
-                </div>
-                <div class="flex justify-between text-sm">
-                  <span class="text-gray-700">Future Accrual</span>
-                  <span class="font-medium">${projection.futureAccrual?.toFixed(3) || '0.0'} days</span>
-                </div>
-                <div class="flex justify-between text-sm">
-                  <span class="text-gray-700">Projected Year-End</span>
-                  <span class="font-medium">${projection.projectedYearEnd?.toFixed(3) || '0.0'} days</span>
-                </div>
-              </div>
-            </div>
-            ` : ''}
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 class="text-lg font-bold text-gray-900 mb-4">Recent Leave Deductions</h3>
-
-            ${AppState.applications && AppState.applications.filter(app => app.Status === 'Approved').length > 0 ? `
-            <div class="space-y-4">
-              ${AppState.applications
-                                    .filter(app => app.Status === 'Approved')
-                                    .slice(0, 5)
-                                    .map(app => `
-                <div class="flex items-center justify-between p-3 border border-gray-100 rounded-lg">
+              <!-- Statutory Sick Leave Bento Card -->
+              <div class="stat-card stat-card-elevated bg-white rounded-2xl p-5 shadow-sm border border-slate-200/90">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
                   <div>
-                    <p class="font-medium text-gray-900">${app.LeaveType}</p>
-                    <p class="text-sm text-gray-600">${formatDate(app.StartDate)} • ${app.Duration} ${app.LeaveMode === 'Hourly' ? 'hours' : 'days'}</p>
+                    <h4 class="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                      <i class="fas fa-heart-pulse text-blue-500"></i> Statutory Sick Leave
+                    </h4>
+                    <p class="text-xs text-slate-500">Annual statutory entitlement</p>
+                  </div>
+                  <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
+                    7 Days / Year
+                  </span>
+                </div>
+
+                <div class="flex items-baseline justify-between my-3">
+                  <div>
+                    <p class="text-2xl font-extrabold text-slate-900 tracking-tight tabular-nums">${sickBalance}</p>
+                    <p class="text-[10px] text-slate-500">days available</p>
                   </div>
                   <div class="text-right">
-                    <p class="font-medium text-gray-900 text-xs space-x-1">
-                      ${app.DeductFromCompensation > 0 ? `<span class="text-indigo-600 font-bold bg-indigo-50 px-1.5 py-0.5 rounded">Comp: ${app.DeductFromCompensation}</span>` : ''}
-                      ${app.DeductFromBroughtForward > 0 ? `<span class="text-amber-600 font-bold bg-amber-50 px-1.5 py-0.5 rounded">BF: ${app.DeductFromBroughtForward}</span>` : ''}
-                      ${app.DeductFromAnnual > 0 ? `<span class="text-primary-600 font-bold bg-primary-50 px-1.5 py-0.5 rounded">Annual: ${app.DeductFromAnnual}</span>` : ''}
-                      ${app.DeductFromSick > 0 ? `<span class="text-blue-600 font-bold bg-blue-50 px-1.5 py-0.5 rounded">Sick: ${app.DeductFromSick}</span>` : ''}
-                    </p>
-                    <p class="text-xs text-gray-600 mt-1">${formatDate(app.DateApplied)}</p>
+                    <p class="text-xs font-semibold text-slate-600">${sickUsed} used of ${sickAllocation} allocated</p>
+                    <p class="text-[10px] text-slate-400 mt-0.5">${sickPercentage}% consumed</p>
                   </div>
                 </div>
-                `).join('')}
-            </div>
-            ` : `
-            <div class="text-center py-8">
-              <div class="h-12 w-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <i class="fas fa-check-circle text-gray-400"></i>
+
+                <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div class="h-full bg-blue-500 rounded-full transition-all duration-500" style="width: ${sickPercentage}%"></div>
+                </div>
+
+                <p class="text-[11px] text-slate-500 mt-3 pt-3 border-t border-slate-100 flex items-center gap-1.5">
+                  <i class="fas fa-file-medical text-blue-500"></i>
+                  Medical certificate mandatory for sick leave exceeding 2 consecutive days.
+                </p>
               </div>
-              <p class="text-gray-600">No leave deductions yet</p>
             </div>
-            `}
           </div>
 
-          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 class="text-lg font-bold text-gray-900 mb-4">Accrual Timeline</h3>
-
-            <div class="space-y-4">
-              <div class="flex items-center">
-                <div class="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center mr-3 flex-shrink-0">
-                  <i class="fas fa-calendar-alt text-primary-600"></i>
+          <!-- ROW 3: POLICY & ACCRUAL COMPLIANCE BANNER -->
+          <div class="bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-2xl p-5 shadow-lg border border-slate-700">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div class="flex items-start gap-3">
+                <div class="h-10 w-10 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-lg flex-shrink-0">
+                  <i class="fas fa-scale-balanced"></i>
                 </div>
-                <div class="flex-1">
-                  <p class="font-medium text-gray-900">Monthly Accrual System</p>
-                  <p class="text-sm text-gray-600">Earn ${annualMonthlyRate} days per month worked</p>
+                <div>
+                  <h4 class="text-sm font-bold text-white flex items-center gap-2">
+                    Agri Experience Leave Policy & Statutory Compliance
+                    <span class="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-medium">Kenyan Employment Act 2007</span>
+                  </h4>
+                  <p class="text-xs text-slate-300 mt-1 max-w-3xl leading-relaxed">
+                    Leave is automatically debited in statutory priority order: <strong>(1) Compensation / TOIL</strong> &rarr; <strong>(2) Brought Forward (expires Easter Sunday)</strong> &rarr; <strong>(3) Annual Accrual</strong>. Minimum statutory annual leave is 21 working days per calendar year.
+                  </p>
                 </div>
               </div>
-
-              <div class="flex items-center">
-                <div class="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center mr-3 flex-shrink-0">
-                  <i class="fas fa-chart-line text-green-600"></i>
-                </div>
-                <div class="flex-1">
-                  <p class="font-medium text-gray-900">Accrued to Date</p>
-                  <p class="text-sm text-gray-600">${annualAccrued} days accrued this year</p>
-                </div>
-                <span class="font-bold text-green-600">${annualAccrued}</span>
-              </div>
-
-              <div class="flex items-center">
-                <div class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center mr-3 flex-shrink-0">
-                  <i class="fas fa-sign-out-alt text-blue-600"></i>
-                </div>
-                <div class="flex-1">
-                  <p class="font-medium text-gray-900">Used to Date</p>
-                  <p class="text-sm text-gray-600">${annualUsed} days used this year</p>
-                </div>
-                <span class="font-bold text-blue-600">${annualUsed}</span>
-              </div>
-
-              <div class="flex items-center">
-                <div class="h-10 w-10 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center mr-3 flex-shrink-0">
-                  <i class="fas fa-calculator text-emerald-600"></i>
-                </div>
-                <div class="flex-1">
-                  <p class="font-medium text-gray-900">Available Balance</p>
-                  <p class="text-sm text-gray-600">${totalAvailable} days available now</p>
-                </div>
-                <span class="text-xl font-bold text-gray-900">${totalAvailable}</span>
+              <div class="flex items-center gap-2 flex-shrink-0">
+                <button onclick="navigateToPage('applyLeave')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold transition-all shadow-md active:scale-95">
+                  <i class="fas fa-calendar-plus mr-1"></i> Apply for Leave
+                </button>
               </div>
             </div>
           </div>
@@ -5262,7 +5347,6 @@
     `;
                 }
             }
-            // Load my applications page - FIXED
             async function loadMyApplicationsPage() {
                 const pageElement = document.getElementById('myApplicationsPage');
 
@@ -5511,26 +5595,12 @@
                 }
             }
             // Load Team Applications Page - IMPROVED STYLING
+            // Load team applications page - Bento Grid & Supervisor Command Workspace Redesign
+            // Load team applications page - Bento Grid & Supervisor Command Workspace Redesign
             async function loadTeamApplicationsPage() {
                 const pageElement = document.getElementById('teamApplicationsPage');
 
-                if (AppState.userRole !== 'supervisor' && AppState.userRole !== 'admin') {
-                    pageElement.innerHTML = `
-      <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-12 text-center">
-        <div class="h-20 w-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
-          <i class="fas fa-ban text-red-500 text-3xl"></i>
-        </div>
-        <h3 class="text-xl font-bold text-gray-900 mb-3">Access Denied</h3>
-        <p class="text-gray-600 max-w-md mx-auto mb-8">You don't have permission to access team applications.</p>
-        <button onclick="navigateToPage('dashboard')" class="btn-primary px-6 py-3 rounded-lg font-medium inline-flex items-center">
-          <i class="fas fa-arrow-left mr-2"></i> Return to Dashboard
-        </button>
-      </div>
-    `;
-                    return;
-                }
-
-                // Show loading skeleton
+                // Show shimmer skeleton while loading
                 pageElement.innerHTML = `
     <div class="p-8 text-center">
       <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto mb-3"></div>
@@ -5554,7 +5624,6 @@
                     updateTeamPendingBadge();
 
                     // All team apps for the full view
-                    // Fall back to pending-only if apiGetTeamApplications failed
                     let allTeamApps = [];
                     if (allResult.success && allResult.data?.data?.length > 0) {
                         allTeamApps = allResult.data.data;
@@ -5568,237 +5637,403 @@
                     // Sort newest first
                     allTeamApps.sort((a, b) => new Date(b.DateApplied || 0) - new Date(a.DateApplied || 0));
 
-                    // Count by status
+                    // Count by status (case-insensitive)
                     const counts = {
                         all: allTeamApps.length,
-                        pending: allTeamApps.filter(a => a.Status === 'Pending').length,
-                        approved: allTeamApps.filter(a => a.Status === 'Approved').length,
-                        declined: allTeamApps.filter(a => a.Status === 'Declined').length,
-                        cancelled: allTeamApps.filter(a => a.Status === 'Cancelled').length,
+                        pending: allTeamApps.filter(a => (a.Status || '').toLowerCase() === 'pending').length,
+                        approved: allTeamApps.filter(a => (a.Status || '').toLowerCase() === 'approved').length,
+                        declined: allTeamApps.filter(a => (a.Status || '').toLowerCase() === 'declined').length,
+                        cancelled: allTeamApps.filter(a => (a.Status || '').toLowerCase() === 'cancelled').length,
                     };
 
-                    // ── Page header + search + summary cards ──────────────────────
+                    // ── Page layout: Bento Stats + Command Bar + 8:4 Two-Column Workspace ──
                     let pageHTML = `
-      <div class="mb-6 flex flex-wrap items-center justify-end gap-4">
-        <div class="flex items-center gap-3 flex-wrap">
-          <div class="relative w-64 md:w-80">
-            <i class="fas fa-search absolute left-3.5 top-3 text-gray-400 text-xs"></i>
-            <input type="text" id="teamSearchInput" placeholder="Search member, ID, type, reason..." class="w-full pl-9 pr-8 py-2 bg-white border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all placeholder-gray-400 shadow-sm" />
-            <button id="clearTeamSearchBtn" class="hidden absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 text-xs">
-              <i class="fas fa-times-circle"></i>
+      <div class="space-y-4">
+        <!-- ROW 1: BENTO SUPERVISOR KPI STRIP -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+          <!-- Total Requests -->
+          <div class="stat-card stat-card-elevated bg-white rounded-2xl p-4 shadow-sm border border-slate-200/90 hover:border-slate-300 transition-all">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">All Submissions</span>
+              <div class="h-7 w-7 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-xs">
+                <i class="fas fa-folder-open"></i>
+              </div>
+            </div>
+            <p class="text-2xl font-extrabold text-slate-900 mt-2 tracking-tight tabular-nums">${counts.all}</p>
+            <p class="text-[11px] text-slate-500 mt-0.5">Total requests logged</p>
+          </div>
+
+          <!-- Pending Approvals -->
+          <div class="stat-card stat-card-elevated bg-white rounded-2xl p-4 shadow-sm border border-amber-200/90 hover:border-amber-400 transition-all relative overflow-hidden">
+            ${counts.pending > 0 ? '<div class="absolute top-0 right-0 w-12 h-12 bg-amber-400/10 rounded-bl-full pointer-events-none"></div>' : ''}
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-bold uppercase tracking-wider text-amber-800">Pending Review</span>
+              <div class="h-7 w-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center text-xs">
+                <i class="fas fa-clock"></i>
+              </div>
+            </div>
+            <div class="flex items-baseline justify-between mt-2">
+              <p class="text-2xl font-extrabold text-amber-600 tracking-tight tabular-nums">${counts.pending}</p>
+              ${counts.pending > 0 ? '<span class="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">Action Needed</span>' : ''}
+            </div>
+            <p class="text-[11px] text-amber-700/80 mt-0.5">Awaiting supervisor decision</p>
+          </div>
+
+          <!-- Approved -->
+          <div class="stat-card stat-card-elevated bg-white rounded-2xl p-4 shadow-sm border border-emerald-200/90 hover:border-emerald-400 transition-all">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-800">Approved</span>
+              <div class="h-7 w-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-xs">
+                <i class="fas fa-check-circle"></i>
+              </div>
+            </div>
+            <p class="text-2xl font-extrabold text-emerald-600 mt-2 tracking-tight tabular-nums">${counts.approved}</p>
+            <p class="text-[11px] text-slate-500 mt-0.5">Confirmed & scheduled</p>
+          </div>
+
+          <!-- Declined -->
+          <div class="stat-card stat-card-elevated bg-white rounded-2xl p-4 shadow-sm border border-rose-200/90 hover:border-rose-400 transition-all">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-bold uppercase tracking-wider text-rose-800">Declined</span>
+              <div class="h-7 w-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-xs">
+                <i class="fas fa-times-circle"></i>
+              </div>
+            </div>
+            <p class="text-2xl font-extrabold text-rose-600 mt-2 tracking-tight tabular-nums">${counts.declined}</p>
+            <p class="text-[11px] text-slate-500 mt-0.5">Rejected with explanation</p>
+          </div>
+
+          <!-- Cancelled -->
+          <div class="stat-card stat-card-elevated bg-white rounded-2xl p-4 shadow-sm border border-slate-200/90 hover:border-slate-300 transition-all">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Cancelled</span>
+              <div class="h-7 w-7 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center text-xs">
+                <i class="fas fa-ban"></i>
+              </div>
+            </div>
+            <p class="text-2xl font-extrabold text-slate-600 mt-2 tracking-tight tabular-nums">${counts.cancelled}</p>
+            <p class="text-[11px] text-slate-500 mt-0.5">Withdrawn by applicant</p>
+          </div>
+        </div>
+
+        <!-- ROW 2: UNIFIED COMMAND TOOLBAR WITH PILL FILTERS & SEARCH -->
+        <div class="bg-white rounded-2xl p-3 shadow-sm border border-slate-200/90 flex flex-wrap items-center justify-between gap-3">
+          <!-- Status Pill Tabs -->
+          <div class="flex items-center gap-1.5 overflow-x-auto py-0.5">
+            ${[
+                { key: 'all', label: 'All', count: counts.all, color: 'slate' },
+                { key: 'pending', label: 'Pending', count: counts.pending, color: 'amber' },
+                { key: 'approved', label: 'Approved', count: counts.approved, color: 'emerald' },
+                { key: 'declined', label: 'Declined', count: counts.declined, color: 'rose' },
+                { key: 'cancelled', label: 'Cancelled', count: counts.cancelled, color: 'slate' },
+            ].map(t => `
+              <button class="team-filter-tab px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5
+                ${t.key === 'pending' && counts.pending > 0 
+                  ? 'bg-amber-500 text-white shadow-xs' 
+                  : (t.key === 'all' && counts.pending === 0 
+                    ? 'bg-slate-900 text-white shadow-xs' 
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200')}"
+                data-filter="${t.key}">
+                <span>${t.label}</span>
+                <span class="px-1.5 py-0.2 rounded-full text-[10px] font-bold tabular-nums
+                  ${t.key === 'pending' && counts.pending > 0 
+                    ? 'bg-amber-600 text-white' 
+                    : 'bg-white/80 text-slate-700'}">
+                  ${t.count}
+                </span>
+              </button>
+            `).join('')}
+          </div>
+
+          <!-- Search Input & Refresh Action -->
+          <div class="flex items-center gap-2 flex-grow sm:flex-grow-0 justify-end">
+            <div class="relative w-full sm:w-64">
+              <i class="fas fa-search absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+              <input type="text" id="teamSearchInput" placeholder="Search member, ID, type..."
+                class="w-full pl-8 pr-7 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all text-slate-800 placeholder-slate-400">
+              <button id="clearTeamSearchBtn" class="hidden absolute right-2.5 top-2 text-slate-400 hover:text-slate-600">
+                <i class="fas fa-times-circle text-xs"></i>
+              </button>
+            </div>
+            <button onclick="loadTeamApplicationsPage()" title="Refresh Queue" class="p-2 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 active:scale-95 transition-all text-xs flex items-center gap-1.5">
+              <i class="fas fa-sync-alt"></i>
             </button>
           </div>
-          <button onclick="loadTeamApplicationsPage()" class="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-all shadow-sm">
-            <i class="fas fa-sync-alt"></i> Refresh
-          </button>
         </div>
-      </div>
 
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-        <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center cursor-pointer hover:border-emerald-300 transition-all tab-summary-card" data-filter="all">
-          <p class="text-2xl font-bold text-gray-900">${counts.all}</p>
-          <p class="text-xs text-gray-500 mt-1">Total Requests</p>
-        </div>
-        <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-amber-200 p-4 text-center cursor-pointer hover:border-amber-400 transition-all tab-summary-card" data-filter="pending">
-          <p class="text-2xl font-bold text-amber-600">${counts.pending}</p>
-          <p class="text-xs text-gray-500 mt-1">Pending</p>
-        </div>
-        <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-emerald-200 p-4 text-center cursor-pointer hover:border-emerald-400 transition-all tab-summary-card" data-filter="approved">
-          <p class="text-2xl font-bold text-emerald-600">${counts.approved}</p>
-          <p class="text-xs text-gray-500 mt-1">Approved</p>
-        </div>
-        <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-red-200 p-4 text-center cursor-pointer hover:border-red-400 transition-all tab-summary-card" data-filter="declined">
-          <p class="text-2xl font-bold text-red-500">${counts.declined}</p>
-          <p class="text-xs text-gray-500 mt-1">Declined</p>
-        </div>
-        <div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-slate-200 p-4 text-center cursor-pointer hover:border-slate-400 transition-all tab-summary-card" data-filter="cancelled">
-          <p class="text-2xl font-bold text-slate-600">${counts.cancelled}</p>
-          <p class="text-xs text-gray-500 mt-1">Cancelled</p>
-        </div>
-      </div>
+        <!-- ROW 3: BALANCED 8:4 TWO-COLUMN WORKSPACE -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          <!-- LEFT COLUMN: APPLICATION QUEUE & BATCH CONTROLS (8 cols) -->
+          <div class="lg:col-span-8 space-y-3.5">
+            ${counts.pending > 0 ? `
+            <!-- Batch Selection Controls for Pending Requests -->
+            <div id="batchControlToolbar" class="flex items-center justify-between p-3.5 bg-gradient-to-r from-amber-50 to-amber-100/60 border border-amber-200 rounded-2xl shadow-xs">
+              <label class="flex items-center gap-2.5 cursor-pointer font-bold text-xs text-amber-950 select-none">
+                <input type="checkbox" id="selectAllPendingCheckbox" class="h-4 w-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500">
+                <span>Select All Pending (<span id="pendingSelectableCount">${counts.pending}</span>)</span>
+              </label>
+              <span class="text-amber-800 text-xs hidden sm:flex items-center gap-1.5">
+                <i class="fas fa-check-double text-amber-600"></i> Check requests below for bulk approval or decline
+              </span>
+            </div>
+            ` : ''}
 
-      <!-- Filter tabs -->
-      <div class="flex gap-2 mb-4 border-b border-gray-200 pb-0 overflow-x-auto">
-        ${[
-                            { key: 'all', label: 'All', count: counts.all },
-                            { key: 'pending', label: 'Pending', count: counts.pending },
-                            { key: 'approved', label: 'Approved', count: counts.approved },
-                            { key: 'declined', label: 'Declined', count: counts.declined },
-                            { key: 'cancelled', label: 'Cancelled', count: counts.cancelled },
-                        ].map(t => `
-          <button class="team-filter-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors
-            ${t.key === 'pending' && counts.pending > 0 ? 'border-amber-500 text-amber-600' : 'border-transparent text-gray-500 hover:text-gray-700'}"
-            data-filter="${t.key}">
-            ${t.label}
-            <span class="ml-1.5 px-1.5 py-0.5 rounded-full text-xs
-              ${t.key === 'pending' && counts.pending > 0 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}">
-              ${t.count}
-            </span>
-          </button>
-        `).join('')}
-      </div>
+            <!-- Application cards list container -->
+            ${allTeamApps.length === 0 ? `
+            <div class="bg-white rounded-2xl shadow-xs border border-slate-200/90 p-12 text-center">
+              <div class="h-14 w-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-xs">
+                <i class="fas fa-check-circle text-2xl"></i>
+              </div>
+              <h3 class="text-base font-bold text-slate-900 mb-1">Your approval queue is completely clear</h3>
+              <p class="text-slate-500 max-w-sm mx-auto mb-4 text-xs">All pending team leave requests have been processed. Great job staying within SLA!</p>
+              <button onclick="navigateToPage('teamWallchartPage')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-semibold text-slate-700 transition-all">
+                <i class="fas fa-calendar-alt text-slate-500 mr-1.5"></i> Open Team Wallchart
+              </button>
+            </div>
+            ` : `
+            <div id="teamAppsContainer" class="space-y-3">
+              ${allTeamApps.map(app => {
+                const statusLower = (app.Status || 'pending').toLowerCase();
+                const isPending = statusLower === 'pending';
+                const statusStyles = {
+                  pending: { badge: 'bg-amber-50 text-amber-800 border-amber-200', icon: 'fas fa-clock text-amber-500', label: 'Pending' },
+                  approved: { badge: 'bg-emerald-50 text-emerald-800 border-emerald-200', icon: 'fas fa-check-circle text-emerald-500', label: 'Approved' },
+                  declined: { badge: 'bg-rose-50 text-rose-800 border-rose-200', icon: 'fas fa-times-circle text-rose-500', label: 'Declined' },
+                  cancelled: { badge: 'bg-slate-50 text-slate-600 border-slate-200', icon: 'fas fa-ban text-slate-400', label: 'Cancelled' }
+                };
+                const sc = statusStyles[statusLower] || statusStyles.pending;
+                const searchData = [app.Name, app.Department, app.LeaveType, app.ID, app.Reason].join(' ').toLowerCase();
 
-      ${counts.pending > 0 ? `
-      <!-- Batch Selection Controls for Pending Requests -->
-      <div id="batchControlToolbar" class="flex items-center justify-between p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl mb-4 text-xs">
-        <label class="flex items-center gap-2 cursor-pointer font-medium text-amber-900 select-none">
-          <input type="checkbox" id="selectAllPendingCheckbox" class="h-4 w-4 rounded border-amber-300 text-primary-600 focus:ring-primary-500 cursor-pointer">
-          <span>Select All Pending (<span id="pendingSelectableCount">${counts.pending}</span>)</span>
-        </label>
-        <span class="text-amber-700 hidden sm:inline"><i class="fas fa-check-double mr-1"></i>Select requests below for batch approval or decline</span>
-      </div>
-      ` : ''}
-    `;
+                return `
+                <div class="team-app-card stat-card stat-card-elevated bg-white rounded-2xl p-4 shadow-sm border border-slate-200/90 hover:border-slate-300 transition-all ${isPending ? 'border-l-4 border-l-amber-500' : ''}"
+                     data-id="${app.ID}"
+                     data-status="${statusLower}"
+                     data-search="${escapeHtml(searchData)}">
+                  <!-- Header Row: Checkbox + Avatar + Name + Badges -->
+                  <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div class="flex items-center gap-2.5">
+                      ${isPending ? `
+                        <input type="checkbox" class="team-app-checkbox h-4 w-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500" data-id="${app.ID}">
+                      ` : ''}
+                      <div class="h-9 w-9 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs">
+                        ${app.Name ? app.Name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) : 'EM'}
+                      </div>
+                      <div>
+                        <div class="flex items-center gap-1.5">
+                          <p class="font-bold text-slate-900 text-sm leading-tight">${escapeHtml(app.Name || 'Unknown')}</p>
+                          <span class="text-[10px] text-slate-400 font-mono">#${escapeHtml(app.ID || '')}</span>
+                        </div>
+                        <p class="text-[11px] text-slate-500">${escapeHtml(app.Department || 'Operations')}${app.Role ? ' • ' + escapeHtml(app.Role) : ''}</p>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                      <span class="leave-type-badge text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${(app.LeaveType || '').replace(/\\s+/g, '-').toLowerCase()}">
+                        ${escapeHtml(app.LeaveType || 'Annual Leave')}
+                      </span>
+                      <span class="${sc.badge} border px-2.5 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1">
+                        <i class="${sc.icon} text-[10px]"></i> ${sc.label}
+                      </span>
+                    </div>
+                  </div>
 
-                    // ── Application cards ─────────────────────────────────────────
-                    if (allTeamApps.length === 0) {
-                        pageHTML += `
-        <div class="bg-white rounded-xl shadow-xs border border-slate-200/90 p-12 text-center">
-          <div class="h-14 w-14 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center mx-auto mb-4 border border-emerald-100">
-            <i class="fas fa-check-circle text-2xl text-emerald-600"></i>
-          </div>
-          <h3 class="text-base font-semibold text-slate-900 mb-1.5">Your approval queue is clear</h3>
-          <p class="text-slate-500 max-w-sm mx-auto mb-5 text-xs">All pending team leave requests have been reviewed. New applications from your direct reports will show up here.</p>
-          <button onclick="navigateToPage('teamWallchartPage')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-700 rounded-xl text-xs font-semibold border border-slate-300/80 transition-all inline-flex items-center gap-1.5 shadow-2xs">
-            <i class="fas fa-calendar-alt text-slate-500 text-xs"></i> View Team Wallchart
-          </button>
-        </div>`;
-                    } else {
-                        pageHTML += `<div id="teamAppsContainer" class="space-y-4">`;
+                  <!-- Details Bento Row -->
+                  <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 my-3">
+                    <div class="bg-slate-50/80 border border-slate-100 rounded-xl p-2.5">
+                      <p class="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-0.5 flex items-center gap-1">
+                        <i class="fas fa-calendar-alt text-slate-400 text-[10px]"></i> Period
+                      </p>
+                      <p class="text-xs font-bold text-slate-900 leading-tight">
+                        ${formatDate(app.StartDate)}${app.EndDate && app.StartDate !== app.EndDate ? '<br><span class="text-[11px] text-slate-600 font-normal">to ' + formatDate(app.EndDate) + '</span>' : ''}
+                      </p>
+                    </div>
 
-                        allTeamApps.forEach(app => {
-                            const statusColors = {
-                                'Pending': { bar: 'bg-amber-500', badge: 'status-badge pending', icon: 'fas fa-hourglass-half' },
-                                'Approved': { bar: 'bg-emerald-500', badge: 'status-badge approved', icon: 'fas fa-check-circle' },
-                                'Declined': { bar: 'bg-rose-500', badge: 'status-badge declined', icon: 'fas fa-times-circle' },
-                                'Cancelled': { bar: 'bg-slate-400', badge: 'status-badge cancelled', icon: 'fas fa-ban' },
-                            };
-                            const sc = statusColors[app.Status] || statusColors['Pending'];
-                            const isPending = app.Status === 'Pending';
-                            const searchTokens = `${app.Name || ''} ${app.ID || ''} ${app.LeaveType || ''} ${app.Department || ''} ${app.Role || ''} ${app.Reason || ''}`.toLowerCase();
+                    <div class="bg-slate-50/80 border border-slate-100 rounded-xl p-2.5">
+                      <p class="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-0.5 flex items-center gap-1">
+                        <i class="fas fa-clock text-slate-400 text-[10px]"></i> Duration
+                      </p>
+                      <p class="text-xs font-bold text-slate-900 leading-tight">
+                        ${app.LeaveMode === 'Hourly' ? (app.Hours || 0) + ' hrs' : (app.Duration || 0) + ' days'}
+                      </p>
+                      <span class="text-[10px] text-slate-500">Business Days</span>
+                    </div>
 
-                            pageHTML += `
-        <div class="team-app-card stat-card-elevated bg-white rounded-xl shadow-sm border border-gray-200/80 overflow-hidden hover:shadow-md transition-all"
-             data-status="${(app.Status || 'Pending').toLowerCase()}"
-             data-id="${app.ID}"
-             data-search="${escapeHtml(searchTokens)}">
-          <!-- Left accent bar -->
-          <div class="flex">
-            <div class="w-1.5 flex-shrink-0 ${sc.bar}"></div>
-            <div class="flex-1 p-5">
-              <!-- Top row: avatar + name + badges -->
-              <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
-                <div class="flex items-center gap-3">
-                  ${isPending ? `
-                    <input type="checkbox" class="team-app-checkbox h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer" data-id="${app.ID}">
+                    <div class="bg-slate-50/80 border border-slate-100 rounded-xl p-2.5">
+                      <p class="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-0.5 flex items-center gap-1">
+                        <i class="fas fa-paper-plane text-slate-400 text-[10px]"></i> Submitted
+                      </p>
+                      <p class="text-xs font-bold text-slate-900 leading-tight">${formatDate(app.DateApplied)}</p>
+                      <span class="text-[10px] text-emerald-600 font-medium">Within 48h SLA</span>
+                    </div>
+
+                    <div class="bg-slate-50/80 border border-slate-100 rounded-xl p-2.5">
+                      <p class="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-0.5 flex items-center gap-1">
+                        <i class="fas fa-calculator text-slate-400 text-[10px]"></i> Deductions
+                      </p>
+                      <div class="text-[10px] font-bold flex flex-wrap gap-1 mt-0.5">
+                        ${[
+                          app.DeductFromCompensation > 0 ? `<span class="text-indigo-700 bg-indigo-50 px-1 rounded">TOIL: ${app.DeductFromCompensation}d</span>` : '',
+                          app.DeductFromBroughtForward > 0 ? `<span class="text-amber-700 bg-amber-50 px-1 rounded">BF: ${app.DeductFromBroughtForward}d</span>` : '',
+                          app.DeductFromAnnual > 0 ? `<span class="text-emerald-700 bg-emerald-50 px-1 rounded">Ann: ${app.DeductFromAnnual}d</span>` : '',
+                          app.DeductFromSick > 0 ? `<span class="text-blue-700 bg-blue-50 px-1 rounded">Sick: ${app.DeductFromSick}d</span>` : '',
+                        ].filter(Boolean).join('') || '<span class="text-slate-400 font-normal">Standard</span>'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Reason Box -->
+                  <div class="p-2.5 bg-slate-50/60 rounded-xl border border-slate-100 text-xs text-slate-700 flex items-start gap-2">
+                    <i class="fas fa-quote-left text-slate-300 text-[10px] mt-0.5 flex-shrink-0"></i>
+                    <p class="leading-relaxed"><strong class="text-slate-800">Reason:</strong> ${escapeHtml(app.Reason || 'No specific notes provided.')}</p>
+                  </div>
+
+                  ${!isPending && app.ProcessedBy ? `
+                  <div class="mt-2 text-[11px] text-slate-500 flex items-center gap-1.5">
+                    <i class="fas fa-user-check text-emerald-500"></i>
+                    Processed by <strong>${escapeHtml(app.ProcessedBy)}</strong> on ${formatDate(app.ProcessedDate)}
+                    ${app.Comment ? ` — <em>"${escapeHtml(app.Comment)}"</em>` : ''}
+                  </div>
                   ` : ''}
-                  <div class="h-10 w-10 rounded-full bg-slate-100 border border-slate-200 text-slate-700 flex items-center justify-center font-semibold text-xs flex-shrink-0">
-                    ${app.Name ? app.Name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) : 'TM'}
-                  </div>
-                  <div>
-                    <p class="font-bold text-gray-900">${escapeHtml(app.Name || 'Unknown')}</p>
-                    <p class="text-xs text-gray-500">${escapeHtml(app.Department || '')}${app.Department && app.Role ? ' • ' : ''}${escapeHtml(app.Role || '')}</p>
-                  </div>
-                </div>
-                <div class="flex items-center gap-2 flex-wrap">
-                  <span class="leave-type-badge ${(app.LeaveType || '').replace(/\s+/g, '-').toLowerCase()} px-3 py-1 rounded-lg text-xs font-medium">
-                    ${escapeHtml(app.LeaveType || 'Unknown')}
-                  </span>
-                  <span class="${sc.badge} px-3 py-1 rounded-lg text-xs font-medium flex items-center gap-1">
-                    <i class="${sc.icon} text-xs"></i> ${escapeHtml(app.Status || 'Pending')}
-                  </span>
-                </div>
-              </div>
 
-              <!-- Detail grid -->
-              <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                <div class="bg-gray-50/70 border border-gray-100 rounded-xl p-3">
-                  <p class="text-xs text-gray-500 mb-1"><i class="fas fa-calendar-alt mr-1 text-gray-400"></i>Period</p>
-                  <p class="text-sm font-semibold text-gray-900">
-                    ${formatDate(app.StartDate)}${app.EndDate && app.StartDate !== app.EndDate ? '<br><span class="text-xs text-gray-500 font-normal">to ' + formatDate(app.EndDate) + '</span>' : ''}
-                  </p>
-                </div>
-                <div class="bg-gray-50/70 border border-gray-100 rounded-xl p-3">
-                  <p class="text-xs text-gray-500 mb-1"><i class="fas fa-clock mr-1 text-gray-400"></i>Duration</p>
-                  <p class="text-sm font-semibold text-gray-900 tabular-nums font-mono">
-                    ${app.LeaveMode === 'Hourly' ? (app.Hours || 0) + ' hrs' : (app.Duration || 0) + ' days'}
-                  </p>
-                </div>
-                <div class="bg-gray-50/70 border border-gray-100 rounded-xl p-3">
-                  <p class="text-xs text-gray-500 mb-1"><i class="fas fa-paper-plane mr-1 text-gray-400"></i>Applied</p>
-                  <p class="text-sm font-semibold text-gray-900">${formatDate(app.DateApplied)}</p>
-                </div>
-                <div class="bg-gray-50/70 border border-gray-100 rounded-xl p-3">
-                  <p class="text-xs text-gray-500 mb-1"><i class="fas fa-calculator mr-1 text-gray-400"></i>Deductions</p>
-                  <div class="text-xs font-medium flex flex-wrap gap-1 mt-0.5">
-                    ${[
-                                    app.DeductFromCompensation > 0 ? `<span class="text-indigo-700 font-semibold bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 tabular-nums font-mono">Comp: ${app.DeductFromCompensation}</span>` : '',
-                                    app.DeductFromBroughtForward > 0 ? `<span class="text-amber-800 font-semibold bg-amber-50 px-2 py-0.5 rounded border border-amber-100 tabular-nums font-mono">BF: ${app.DeductFromBroughtForward}</span>` : '',
-                                    app.DeductFromAnnual > 0 ? `<span class="text-emerald-800 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 tabular-nums font-mono">Ann: ${app.DeductFromAnnual}</span>` : '',
-                                    app.DeductFromSick > 0 ? `<span class="text-blue-800 font-semibold bg-blue-50 px-2 py-0.5 rounded border border-blue-100 tabular-nums font-mono">Sick: ${app.DeductFromSick}</span>` : '',
-                                ].filter(Boolean).join('') || '<span class="text-gray-400 font-normal">—</span>'}
+                  <!-- Card Action Footer -->
+                  <div class="flex items-center justify-between pt-3 mt-3 border-t border-slate-100">
+                    <div class="text-[11px] text-slate-500 flex items-center gap-2">
+                      <span class="flex items-center gap-1 text-slate-600 font-medium">
+                        <i class="fas fa-shield-alt text-slate-400"></i> Supervisor Queue
+                      </span>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                      <button class="px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 active:scale-95 transition-all view-team-application-btn flex items-center gap-1.5" data-id="${app.ID}">
+                        <i class="fas fa-eye text-slate-400"></i> View
+                      </button>
+                      ${isPending ? `
+                      <button class="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold active:scale-95 transition-all decline-application-btn flex items-center gap-1.5 shadow-xs" data-id="${app.ID}">
+                        <i class="fas fa-times text-[10px]"></i> Decline
+                      </button>
+                      <button class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold active:scale-95 transition-all approve-application-btn flex items-center gap-1.5 shadow-xs" data-id="${app.ID}">
+                        <i class="fas fa-check text-[10px]"></i> Approve
+                      </button>
+                      ` : ''}
+                    </div>
                   </div>
                 </div>
+                `;
+              }).join('')}
+            </div>
+            `}
+
+            <!-- Floating Batch Action Bar -->
+            <div id="floatingBatchActionBar" class="batch-action-bar hidden bg-slate-900 text-white rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 border border-slate-700 shadow-2xl mt-4">
+              <div class="flex items-center gap-3">
+                <div class="h-9 w-9 rounded-xl bg-emerald-500 flex items-center justify-center font-extrabold text-sm text-slate-950">
+                  <span id="batchSelectedCount">0</span>
+                </div>
+                <div>
+                  <p class="font-bold text-sm text-white"><span id="batchSelectedCountText">0 applications</span> selected</p>
+                  <p class="text-xs text-slate-400">Decisions apply simultaneously to all selected requests</p>
+                </div>
               </div>
-
-              <!-- Reason -->
-              <div class="mb-4 p-3 bg-gray-50/70 rounded-xl border border-gray-100 text-sm text-gray-700">
-                <i class="fas fa-quote-right text-gray-300 mr-2"></i>${escapeHtml(app.Reason || 'No reason provided')}
-              </div>
-
-              ${!isPending && app.ProcessedBy ? `
-              <div class="mb-4 text-xs text-gray-500 flex items-center gap-1">
-                <i class="fas fa-user-check"></i>
-                Processed by ${escapeHtml(app.ProcessedBy)} on ${formatDate(app.ProcessedDate)}
-                ${app.Comment ? ` — <em>${escapeHtml(app.Comment)}</em>` : ''}
-              </div>` : ''}
-
-              <!-- Action buttons -->
-              <div class="flex justify-end gap-2 pt-3 border-t border-gray-100">
-                <button class="px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 active:scale-95 transition-all view-team-application-btn flex items-center gap-1.5" data-id="${app.ID}">
-                  <i class="fas fa-eye text-gray-400"></i> View
+              <div class="flex items-center gap-2">
+                <button id="batchDeselectBtn" class="px-3 py-2 rounded-xl text-xs text-slate-400 hover:text-white hover:bg-slate-800 active:scale-95 transition-all">
+                  Deselect All
                 </button>
-                ${isPending ? `
-                <button class="px-3.5 py-1.5 bg-rose-600 text-white rounded-lg text-xs font-semibold hover:bg-rose-700 active:scale-95 transition-all decline-application-btn flex items-center gap-1.5 shadow-sm" data-id="${app.ID}">
-                  <i class="fas fa-times"></i> Decline
+                <button id="batchDeclineBtn" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold shadow-xs active:scale-95 transition-all flex items-center gap-1.5">
+                  <i class="fas fa-times-circle text-xs"></i> Batch Decline
                 </button>
-                <button class="px-3.5 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700 active:scale-95 transition-all approve-application-btn flex items-center gap-1.5 shadow-sm" data-id="${app.ID}">
-                  <i class="fas fa-check"></i> Approve
-                </button>` : ''}
+                <button id="batchApproveBtn" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-xs active:scale-95 transition-all flex items-center gap-1.5">
+                  <i class="fas fa-check-circle text-xs"></i> Batch Approve
+                </button>
               </div>
             </div>
           </div>
-        </div>`;
-                        });
 
-                        pageHTML += `</div>`;
+          <!-- RIGHT COLUMN: SUPERVISOR DECISION CONTEXT PANEL (4 cols) -->
+          <div class="lg:col-span-4 space-y-4">
+            <!-- 48-Hour Decision SLA Standards -->
+            <div class="stat-card stat-card-elevated bg-white rounded-2xl p-5 shadow-sm border border-slate-200/90">
+              <div class="flex items-center gap-2 pb-3 border-b border-slate-100">
+                <div class="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xs">
+                  <i class="fas fa-stopwatch"></i>
+                </div>
+                <div>
+                  <h4 class="font-bold text-slate-900 text-sm">Supervisor SLA Standards</h4>
+                  <p class="text-[11px] text-slate-500">Agri Experience leave turnaround rule</p>
+                </div>
+              </div>
 
-                        // Add Floating Batch Action Bar
-                        pageHTML += `
-                      <div id="floatingBatchActionBar" class="batch-action-bar hidden bg-gray-900 text-white rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 border border-gray-700 shadow-2xl mt-6">
-                        <div class="flex items-center gap-3">
-                          <div class="h-9 w-9 rounded-xl bg-primary-600 flex items-center justify-center font-bold text-sm text-white">
-                            <span id="batchSelectedCount">0</span>
-                          </div>
-                          <div>
-                            <p class="font-semibold text-sm text-white"><span id="batchSelectedCountText">0 applications</span> selected</p>
-                            <p class="text-xs text-gray-400">Batch decisions will apply to all checked requests</p>
-                          </div>
-                        </div>
-                        <div class="flex items-center gap-2">
-                          <button id="batchDeselectBtn" class="px-3 py-2 rounded-xl text-xs text-gray-400 hover:text-white hover:bg-gray-800 active:scale-95 transition-all">
-                            Deselect All
-                          </button>
-                          <button id="batchDeclineBtn" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold shadow-sm active:scale-95 transition-all flex items-center gap-1.5">
-                            <i class="fas fa-times-circle text-xs"></i> Batch Decline
-                          </button>
-                          <button id="batchApproveBtn" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm active:scale-95 transition-all flex items-center gap-1.5">
-                            <i class="fas fa-check-circle text-xs"></i> Batch Approve
-                          </button>
-                        </div>
-                      </div>
-                    `;
-                    }
+              <div class="space-y-3 mt-3.5 text-xs text-slate-600">
+                <div class="flex items-start gap-2.5 p-2.5 bg-blue-50/60 rounded-xl border border-blue-100/60">
+                  <i class="fas fa-bolt text-blue-600 mt-0.5 text-xs"></i>
+                  <div>
+                    <strong class="text-blue-950 font-bold block">48-Hour Approval Window</strong>
+                    Supervisors must approve or decline leave submissions within 48 business hours to enable operational continuity.
+                  </div>
+                </div>
+
+                <div class="flex items-start gap-2.5 p-2.5 bg-emerald-50/60 rounded-xl border border-emerald-100/60">
+                  <i class="fas fa-handshake text-emerald-600 mt-0.5 text-xs"></i>
+                  <div>
+                    <strong class="text-emerald-950 font-bold block">Handover Colleague Protocol</strong>
+                    Confirm the designated acting colleague has formally accepted the handover notes before granting final approval.
+                  </div>
+                </div>
+
+                <div class="flex items-start gap-2.5 p-2.5 bg-amber-50/60 rounded-xl border border-amber-100/60">
+                  <i class="fas fa-layer-group text-amber-600 mt-0.5 text-xs"></i>
+                  <div>
+                    <strong class="text-amber-950 font-bold block">Statutory Deduction Priority</strong>
+                    Deductions are automated: <em>Compensation &rarr; Brought Forward &rarr; Annual</em>. Supervisors cannot manually alter deduction order.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Team Operational Radar Widget -->
+            <div class="stat-card stat-card-elevated bg-white rounded-2xl p-5 shadow-sm border border-slate-200/90">
+              <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div class="flex items-center gap-2">
+                  <div class="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-xs">
+                    <i class="fas fa-users-viewfinder"></i>
+                  </div>
+                  <div>
+                    <h4 class="font-bold text-slate-900 text-sm">Coverage & Scheduling</h4>
+                    <p class="text-[11px] text-slate-500">Conflict prevention tools</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-3.5 space-y-2.5">
+                <p class="text-xs text-slate-600 leading-relaxed">
+                  Before approving extensive leave requests, cross-reference department projects and active field trials:
+                </p>
+
+                <button onclick="navigateToPage('teamWallchartPage')" class="w-full p-3 rounded-xl border border-slate-200 hover:border-emerald-500 bg-slate-50/50 hover:bg-emerald-50/30 flex items-center justify-between transition-all group text-left">
+                  <div class="flex items-center gap-2.5">
+                    <i class="fas fa-calendar-week text-emerald-600 text-sm"></i>
+                    <div>
+                      <p class="text-xs font-bold text-slate-900 group-hover:text-emerald-800">Team Leave Wallchart</p>
+                      <p class="text-[10px] text-slate-500">Visual overlap & coverage timeline</p>
+                    </div>
+                  </div>
+                  <i class="fas fa-chevron-right text-slate-400 group-hover:text-emerald-600 text-xs transition-transform group-hover:translate-x-0.5"></i>
+                </button>
+
+                <button onclick="navigateToPage('teamOverview')" class="w-full p-3 rounded-xl border border-slate-200 hover:border-teal-500 bg-slate-50/50 hover:bg-teal-50/30 flex items-center justify-between transition-all group text-left">
+                  <div class="flex items-center gap-2.5">
+                    <i class="fas fa-address-book text-teal-600 text-sm"></i>
+                    <div>
+                      <p class="text-xs font-bold text-slate-900 group-hover:text-teal-800">Team Staff Directory</p>
+                      <p class="text-[10px] text-slate-500">Subordinate balance & leave records</p>
+                    </div>
+                  </div>
+                  <i class="fas fa-chevron-right text-slate-400 group-hover:text-teal-600 text-xs transition-transform group-hover:translate-x-0.5"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
 
                     pageElement.innerHTML = pageHTML;
 
@@ -5811,9 +6046,9 @@
                         let visibleCount = 0;
 
                         cards.forEach(card => {
-                            const cardStatus = card.getAttribute('data-status');
-                            const cardSearch = card.getAttribute('data-search') || '';
-                            const matchesStatus = (activeStatusFilter === 'all' || cardStatus === activeStatusFilter);
+                            const cardStatus = (card.getAttribute('data-status') || '').toLowerCase();
+                            const cardSearch = (card.getAttribute('data-search') || '').toLowerCase();
+                            const matchesStatus = (activeStatusFilter === 'all' || cardStatus === activeStatusFilter.toLowerCase());
                             const matchesSearch = !activeSearchQuery || cardSearch.includes(activeSearchQuery);
 
                             if (matchesStatus && matchesSearch) {
@@ -5824,27 +6059,40 @@
                             }
                         });
 
-                        // Update selectable count for pending
-                        const visiblePendingBoxes = pageElement.querySelectorAll('.team-app-card[data-status="pending"]:not([style*="display: none"]) .team-app-checkbox');
-                        const pendingCounter = document.getElementById('pendingSelectableCount');
-                        if (pendingCounter) pendingCounter.textContent = visiblePendingBoxes.length;
-
-                        updateBatchSelectionUI();
+                        // Update batch control toolbar visibility based on visible pending
+                        const batchControl = pageElement.querySelector('#batchControlToolbar');
+                        const selectableCountEl = pageElement.querySelector('#pendingSelectableCount');
+                        const visiblePendingCards = pageElement.querySelectorAll('.team-app-card[data-status="pending"]:not([style*="display: none"])');
+                        if (selectableCountEl) selectableCountEl.textContent = visiblePendingCards.length;
+                        if (batchControl) {
+                            batchControl.style.display = (visiblePendingCards.length > 0 && activeStatusFilter !== 'approved' && activeStatusFilter !== 'declined' && activeStatusFilter !== 'cancelled') ? '' : 'none';
+                        }
                     }
 
-                    // Wire up filter tabs
-                    pageElement.querySelectorAll('.team-filter-tab, .tab-summary-card').forEach(tab => {
+                    // Wire up Tab Filtering
+                    pageElement.querySelectorAll('.team-filter-tab').forEach(tab => {
                         tab.addEventListener('click', function () {
-                            activeStatusFilter = this.getAttribute('data-filter') || 'all';
+                            const filter = this.getAttribute('data-filter');
+                            activeStatusFilter = filter;
 
-                            // Update active tab styling
                             pageElement.querySelectorAll('.team-filter-tab').forEach(t => {
-                                const isPending = t.getAttribute('data-filter') === 'pending' && counts.pending > 0;
-                                t.className = `team-filter-tab px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${t.getAttribute('data-filter') === activeStatusFilter
-                                    ? 'border-primary-500 text-primary-600'
-                                    : isPending ? 'border-amber-500 text-amber-600' : 'border-transparent text-gray-500 hover:text-gray-700'
-                                    }`;
+                                t.classList.remove('bg-amber-500', 'bg-slate-900', 'text-white', 'shadow-xs');
+                                t.classList.add('bg-slate-100', 'text-slate-600');
+                                const badge = t.querySelector('span:last-child');
+                                if (badge) {
+                                    badge.classList.remove('bg-amber-600', 'bg-slate-800', 'text-white');
+                                    badge.classList.add('bg-white/80', 'text-slate-700');
+                                }
                             });
+
+                            const isPendingTab = filter === 'pending';
+                            this.classList.remove('bg-slate-100', 'text-slate-600');
+                            this.classList.add(isPendingTab ? 'bg-amber-500' : 'bg-slate-900', 'text-white', 'shadow-xs');
+                            const badge = this.querySelector('span:last-child');
+                            if (badge) {
+                                badge.classList.remove('bg-white/80', 'text-slate-700');
+                                badge.classList.add(isPendingTab ? 'bg-amber-600' : 'bg-slate-800', 'text-white');
+                            }
 
                             applyFiltersAndSearch();
                         });
@@ -5933,19 +6181,19 @@
                             actionBtnText: isApprove ? `Approve ${selectedIds.length} Applications` : `Decline ${selectedIds.length} Applications`,
                             actionBtnIcon: isApprove ? 'fas fa-check-double text-xs' : 'fas fa-times text-xs',
                             contextHtml: `
-                            <div class="p-3 bg-gray-100 rounded-xl text-xs text-gray-700 max-h-36 overflow-y-auto space-y-1">
+                            <div class="p-3 bg-gray-100 rounded-xl text-xs text-gray-700 max-h-36 overflow-y-auto">
                                 <p class="font-bold text-gray-900 mb-1.5">Selected Application IDs (${selectedIds.length}):</p>
                                 <div class="flex flex-wrap gap-1">
-                                    ${selectedIds.map(id => `<span class="bg-white border border-gray-200 px-2 py-0.5 rounded font-mono text-[11px]">${escapeHtml(id)}</span>`).join('')}
+                                    ${selectedIds.map(id => `<span class="bg-white border border-gray-300 px-1.5 py-0.5 rounded font-mono text-[11px] font-semibold text-gray-800">#${escapeHtml(id)}</span>`).join('')}
                                 </div>
                             </div>
                         `,
                             quickChips: isApprove
-                                ? ['Batch approved with coverage confirmed', 'All requirements verified', 'Approved per departmental schedule']
-                                : ['Staffing constraints during period', 'High volume overlap during dates', 'Please reschedule with supervisor'],
+                                ? ['Batch approved with coverage confirmed', 'All requirements verified', 'Field operations coverage arranged']
+                                : ['Staffing constraints during period', 'High volume overlap during harvest', 'Please reschedule request dates'],
                             requireComment: !isApprove,
-                            commentLabel: isApprove ? 'Batch Approval Note (Optional)' : 'Batch Decline Reason (Required *)',
-                            commentPlaceholder: isApprove ? 'Add an optional note to all approved records...' : 'Please specify reason for declining selected requests...',
+                            commentLabel: isApprove ? 'Batch Approval Note (Optional)' : 'Batch Decline Reason *',
+                            commentPlaceholder: isApprove ? 'Add an optional note to all approved records...' : 'Explain reasons for batch declining...',
                             onConfirm: async (comment) => {
                                 showLoading(`Batch ${decision}ing ${selectedIds.length} application(s)...`);
 
@@ -5959,13 +6207,13 @@
 
                                     if (res.success) {
                                         const successCount = res.data?.successCount ?? selectedIds.length;
-                                        showToast('success', 'Batch Completed', `Successfully ${decision}d ${successCount} application(s)`);
+                                        showToast('success', 'Batch Completed', `Successfully ${decision}d ${successCount} application(s).`);
                                         loadTeamApplicationsPage();
                                         if (AppState.currentPage === 'dashboard') {
                                             loadDashboardData();
                                         }
                                     } else {
-                                        showToast('error', 'Batch Failed', res.error || `Failed to batch ${decision} applications`);
+                                        showToast('error', 'Batch Failed', res.error || `Failed to batch ${decision} applications.`);
                                     }
                                 } catch (err) {
                                     hideLoading();
@@ -5978,9 +6226,11 @@
                     document.getElementById('batchApproveBtn')?.addEventListener('click', () => handleBatchDecision('approve'));
                     document.getElementById('batchDeclineBtn')?.addEventListener('click', () => handleBatchDecision('decline'));
 
-                    // Auto-select "pending" tab if there are any pending
+                    // Auto-select "pending" tab if there are any pending, or "all"
                     if (counts.pending > 0) {
                         pageElement.querySelector('.team-filter-tab[data-filter="pending"]')?.click();
+                    } else {
+                        pageElement.querySelector('.team-filter-tab[data-filter="all"]')?.click();
                     }
 
                 } catch (error) {
@@ -5992,15 +6242,14 @@
           <i class="fas fa-exclamation-triangle text-red-500 text-3xl"></i>
         </div>
         <h3 class="text-xl font-bold text-gray-900 mb-3">Unable to Load Applications</h3>
-        <p class="text-gray-600 max-w-md mx-auto mb-8">There was an error loading team applications. Please try again.</p>
-        <button onclick="loadTeamApplicationsPage()" class="btn-primary px-6 py-3 rounded-lg font-medium inline-flex items-center">
+        <p class="text-gray-600 max-w-md mx-auto mb-8">There was an error loading team applications.</p>
+        <button onclick="loadTeamApplicationsPage()" class="btn-primary px-6 py-3 rounded-lg font-medium">
           <i class="fas fa-redo mr-2"></i> Try Again
         </button>
       </div>
     `;
                 }
             }
-            // Load apply leave page
             function loadApplyLeavePage() {
                 const pageElement = document.getElementById('applyLeavePage');
 
