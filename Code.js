@@ -208,6 +208,38 @@ const Utils = {
         return new Date(d.getFullYear(), d.getMonth(), d.getDate());
     },
 
+    getNextAccrualDate: function (fromDate) {
+        const d = fromDate ? this.parseLocalDate(fromDate) : new Date();
+        const base = (d && !isNaN(d.getTime())) ? d : new Date();
+        const next = new Date(base.getFullYear(), base.getMonth() + 1, 1);
+        return this.formatLocalDate(next);
+    },
+
+    normalizeNextAccrualDate: function (dateStr) {
+        const today = new Date();
+        const defaultNext = this.getNextAccrualDate(today);
+        if (!dateStr) return defaultNext;
+
+        let parsed = this.parseLocalDate(dateStr);
+        if (!parsed || isNaN(parsed.getTime())) return defaultNext;
+
+        // If legacy stored date was shifted by UTC offset to the end of a month (day >= 28):
+        if (parsed.getDate() >= 28) {
+            parsed = new Date(parsed.getFullYear(), parsed.getMonth() + 1, 1);
+        } else if (parsed.getDate() !== 1) {
+            // Accrual is strictly on the 1st of the month
+            parsed = new Date(parsed.getFullYear(), parsed.getMonth(), 1);
+        }
+
+        // If the date is already in the past, roll forward to 1st of upcoming month
+        const todayNorm = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        if (parsed <= todayNorm) {
+            return defaultNext;
+        }
+
+        return this.formatLocalDate(parsed);
+    },
+
     getPublicHolidayDetails: function (date) {
         const d = this.parseLocalDate(date);
         if (!d || isNaN(d.getTime())) return null;
@@ -2104,8 +2136,8 @@ const AccrualManager = {
                     // CRITICAL FIX: Set next accrual date to the FIRST of NEXT month
                     // This ensures we accrue for each month as we enter it
                     const nextMonth = new Date(currentYear, currentMonth + 1, 1);
-                    staff.LeaveAccrual.nextAccrualDate = nextMonth.toISOString().split('T')[0];
-                    staff.LeaveAccrual.lastAccrualDate = firstOfCurrentMonth.toISOString().split('T')[0];
+                    staff.LeaveAccrual.nextAccrualDate = Utils.formatLocalDate(nextMonth);
+                    staff.LeaveAccrual.lastAccrualDate = Utils.formatLocalDate(firstOfCurrentMonth);
 
                     staff.Metadata.lastAccrual = {
                         date: currentDate.toISOString().split('T')[0],
@@ -2237,7 +2269,7 @@ const AccrualManager = {
             currentDeficit: currentDeficit,
             projectedYearEnd: currentAvailable + futureAccrual,
             canBorrow: futureAccrual,
-            nextAccrualDate: staff.LeaveAccrual?.nextAccrualDate
+            nextAccrualDate: Utils.normalizeNextAccrualDate(staff.LeaveAccrual?.nextAccrualDate)
         };
     },
 
@@ -3655,9 +3687,15 @@ const DashboardManager = {
 
             const projection = AccrualManager.getAccrualProjection(user);
 
+            // Normalize nextAccrualDate to strictly 1st of upcoming month
+            const normalizedNextAccrual = Utils.normalizeNextAccrualDate(accrual.nextAccrualDate);
+            if (accrual.nextAccrualDate && accrual.nextAccrualDate !== normalizedNextAccrual) {
+                accrual.nextAccrualDate = normalizedNextAccrual;
+            }
+
             let daysUntilNextAccrual = 0;
-            if (accrual.nextAccrualDate) {
-                const nextAccrual = new Date(accrual.nextAccrualDate);
+            if (normalizedNextAccrual) {
+                const nextAccrual = Utils.parseLocalDate(normalizedNextAccrual);
                 daysUntilNextAccrual = Math.max(0, Math.ceil((nextAccrual - currentDate) / (1000 * 60 * 60 * 24)));
             }
 
@@ -3674,7 +3712,7 @@ const DashboardManager = {
                     hasDeficit: annualDeficit < 0,
                     deficitAmount: Math.abs(Math.min(0, annualDeficit)),
                     percentage: annualPercentage,
-                    nextAccrualDate: accrual.nextAccrualDate,
+                    nextAccrualDate: normalizedNextAccrual,
                     daysUntilNextAccrual: daysUntilNextAccrual,
                     note: annualDeficit < 0 ? `${Math.abs(annualDeficit).toFixed(2)} day deficit from previous year` : 'No annual deficit',
                     projection: projection ? {
@@ -4053,8 +4091,8 @@ const AdminManager = {
                 member.LeaveAccrual.availableBalance = Math.max(0, newBFDays);
 
                 const nextAccrualDate = new Date(targetYear, 0, 1); // Jan 1 of new year
-                member.LeaveAccrual.nextAccrualDate = nextAccrualDate.toISOString().split('T')[0];
-                member.LeaveAccrual.lastAccrualDate = new Date(sourceYear, 11, 1).toISOString().split('T')[0];
+                member.LeaveAccrual.nextAccrualDate = Utils.formatLocalDate(nextAccrualDate);
+                member.LeaveAccrual.lastAccrualDate = Utils.formatLocalDate(new Date(sourceYear, 11, 1));
 
                 // ── 4. Reset sick leave ────────────────────────────────────────────
                 member.SickLeave = {
@@ -6586,8 +6624,8 @@ const SetupManager = {
                     usedYearToDate: 0,
                     annualDeficit: { amount: 0, fromYear: null, recoveryHistory: [] },
                     availableBalance: 0,
-                    nextAccrualDate: nextAccrualDate.toISOString().split('T')[0],
-                    lastAccrualDate: startOfMonth.toISOString().split('T')[0],
+                    nextAccrualDate: Utils.formatLocalDate(nextAccrualDate),
+                    lastAccrualDate: Utils.formatLocalDate(startOfMonth),
                     totalAccruedSinceJoin: 0
                 },
 
@@ -6711,8 +6749,8 @@ const SystemManager = {
                         usedYearToDate: 0,
                         annualDeficit: { amount: 0, fromYear: null, recoveryHistory: [] },
                         availableBalance: 0,
-                        nextAccrualDate: nextAccrualDate.toISOString().split('T')[0],
-                        lastAccrualDate: startOfMonth.toISOString().split('T')[0],
+                        nextAccrualDate: Utils.formatLocalDate(nextAccrualDate),
+                        lastAccrualDate: Utils.formatLocalDate(startOfMonth),
                         totalAccruedSinceJoin: 0
                     },
 
@@ -6807,8 +6845,8 @@ const SystemManager = {
                             usedYearToDate: 0,
                             annualDeficit: { amount: 0, fromYear: null, recoveryHistory: [] },
                             availableBalance: 0,
-                            nextAccrualDate: nextAccrualDate.toISOString().split('T')[0],
-                            lastAccrualDate: startOfMonth.toISOString().split('T')[0],
+                            nextAccrualDate: Utils.formatLocalDate(nextAccrualDate),
+                            lastAccrualDate: Utils.formatLocalDate(startOfMonth),
                             totalAccruedSinceJoin: 0
                         },
 
@@ -9598,8 +9636,9 @@ function apiGetAccrualDetails(email = null) {
 
         const accrual = user.LeaveAccrual || {};
         const today = new Date();
-        const nextAccrualDate = new Date(accrual.nextAccrualDate || today);
-        const daysUntilNextAccrual = Math.ceil((nextAccrualDate - today) / (1000 * 60 * 60 * 24));
+        const normalizedNext = Utils.normalizeNextAccrualDate(accrual.nextAccrualDate);
+        const nextAccrualDate = Utils.parseLocalDate(normalizedNext);
+        const daysUntilNextAccrual = Math.max(0, Math.ceil((nextAccrualDate - today) / (1000 * 60 * 60 * 24)));
 
         return Utils.createSuccessResponse({
             eligible: user.EligibleForLeave || false,
@@ -9608,7 +9647,7 @@ function apiGetAccrualDetails(email = null) {
             usedYearToDate: accrual.usedYearToDate || 0,
             availableBalance: accrual.availableBalance || 0,
             annualDeficit: accrual.annualDeficit || { amount: 0 },
-            nextAccrualDate: accrual.nextAccrualDate,
+            nextAccrualDate: normalizedNext,
             daysUntilNextAccrual: daysUntilNextAccrual
         });
     } catch (error) {
@@ -11100,6 +11139,26 @@ function apiGetBootstrapData(params) {
         const isSupervisor = role === SYSTEM.ROLES.SUPERVISOR || role === SYSTEM.ROLES.ADMIN;
         const isHR = role === SYSTEM.ROLES.HR || role === SYSTEM.ROLES.ADMIN;
         const isAdmin = role === SYSTEM.ROLES.ADMIN;
+
+        // Self-heal user accrual dates in storage if corrupted by timezone offset
+        if (user.LeaveAccrual && user.LeaveAccrual.nextAccrualDate) {
+            const normalizedNext = Utils.normalizeNextAccrualDate(user.LeaveAccrual.nextAccrualDate);
+            if (user.LeaveAccrual.nextAccrualDate !== normalizedNext) {
+                user.LeaveAccrual.nextAccrualDate = normalizedNext;
+                try {
+                    const staffFile = DataManager.readDataFile(SYSTEM.DATA_FILES.STAFF);
+                    const member = staffFile.data.find(s => (s.Email || '').toLowerCase() === currentUserEmail.toLowerCase());
+                    if (member && member.LeaveAccrual) {
+                        member.LeaveAccrual.nextAccrualDate = normalizedNext;
+                        const today = new Date();
+                        member.LeaveAccrual.lastAccrualDate = Utils.formatLocalDate(new Date(today.getFullYear(), today.getMonth(), 1));
+                        DataManager.writeDataFile(SYSTEM.DATA_FILES.STAFF, staffFile);
+                    }
+                } catch (saveErr) {
+                    console.warn('Auto-repair staff accrual date:', saveErr);
+                }
+            }
+        }
 
         // 1. User Balance Breakdown
         const balances = DashboardManager.calculateUserBalance(currentUserEmail);
