@@ -3816,6 +3816,49 @@
                 staffList: [],
             };
 
+            // Client-Side Stale-While-Revalidate (SWR) Engine for instant navigation
+            const ClientCache = {
+                data: new Map(),
+                ttls: new Map(),
+                get: function(key) { return this.data.get(key) || null; },
+                isFresh: function(key, maxAgeMs = 60000) {
+                    const time = this.ttls.get(key);
+                    return time && (Date.now() - time < maxAgeMs);
+                },
+                set: function(key, val) {
+                    this.data.set(key, val);
+                    this.ttls.set(key, Date.now());
+                },
+                invalidate: function(keyPrefix) {
+                    for (const k of this.data.keys()) {
+                        if (k.startsWith(keyPrefix)) {
+                            this.data.delete(k);
+                            this.ttls.delete(k);
+                        }
+                    }
+                },
+                fetchSWR: async function(cacheKey, apiFn, apiParams, onData, maxAgeMs = 60000) {
+                    const cached = this.get(cacheKey);
+                    const isFresh = this.isFresh(cacheKey, maxAgeMs);
+                    if (cached) {
+                        onData(cached, true);
+                        if (isFresh) return cached;
+                    }
+                    try {
+                        const res = await callGoogleScriptFunction(apiFn, apiParams);
+                        if (res && res.success && res.data) {
+                            this.set(cacheKey, res.data);
+                            onData(res.data, false);
+                            return res.data;
+                        }
+                    } catch (err) {
+                        console.warn('SWR background revalidation failed for ' + cacheKey + ':', err);
+                    }
+                    return cached;
+                }
+            };
+            window.ClientCache = ClientCache;
+
             // Google Apps Script API Helper
             function callGoogleScriptFunction(functionName, params = {}, timeout = 30000) {
                 return new Promise((resolve, reject) => {
@@ -4007,9 +4050,8 @@
             });
 
             async function initializeApp() {
-                showLoading('Initializing application...');
-
-                // Pre-seed in memory from local cache if available for immediate responsiveness
+                // 1. FAST-PATH ZERO-BLOCKING HYDRATION: Paint instantly from local storage
+                let hasLocalHydration = false;
                 try {
                     const cachedRaw = localStorage.getItem('agri_bootstrap_v1');
                     if (cachedRaw) {
@@ -4026,6 +4068,7 @@
                             AppState.userRole = cached.user.Role || cached.permissions?.role || 'staff';
                             if (cached.balances) AppState.leaveBalance = cached.balances;
                             if (cached.recentApplications) AppState.applications = cached.recentApplications;
+                            if (cached.allStaffLight) AppState.allStaffLight = cached.allStaffLight;
                             if (cached.supervisorQueue) AppState.teamPendingCount = cached.supervisorQueue.count || 0;
                             if (typeof cached.myPendingCount === 'number') {
                                 AppState.myPendingCount = cached.myPendingCount;
@@ -4036,14 +4079,27 @@
                             }
                             updateTeamPendingBadge();
                             updatePendingAppsBadge();
+                            updateUserInterface();
+
+                            navigateToPage('dashboard');
+                            updateDashboardUI({
+                                balance: cached.balances,
+                                applications: cached.recentApplications || [],
+                                supervisedData: { pendingCount: cached.supervisorQueue ? cached.supervisorQueue.count : 0 }
+                            });
+                            hasLocalHydration = true;
                         }
                     }
                 } catch (cacheErr) {
                     console.warn('Local cache hydration skipped:', cacheErr);
                 }
 
+                if (!hasLocalHydration) {
+                    showLoading('Loading Agri Experience Leave System...');
+                }
+
                 try {
-                    // Revalidate with unified single-roundtrip bootstrap API
+                    // 2. BACKGROUND SWR: Revalidate with unified single-roundtrip bootstrap API
                     const bootstrapRes = await callGoogleScriptFunction('apiGetBootstrapData');
                     if (bootstrapRes && bootstrapRes.success && bootstrapRes.data) {
                         const data = bootstrapRes.data;
@@ -5004,14 +5060,11 @@
             // Load balance page - FIXED null checking
             // Load balance page - FIXED null checking & Bento Grid Redesign
             // Load balance page - FIXED null checking & Bento Grid Redesign
-            async function loadBalancePage() {
+                        // Render leave balance page content instantly from balance object
+            function renderBalancePageContent(balance) {
                 const pageElement = document.getElementById('myBalancePage');
+                if (!pageElement || !balance) return;
 
-                try {
-                    const result = await callGoogleScriptFunction('apiGetUserBalance');
-
-                    if (result.success) {
-                        const balance = result.data;
 
                         // Safely access brought forward data with complete information
                         const bfTotal = balance.broughtForward?.total?.toFixed(3) || '0.000';
@@ -5450,10 +5503,37 @@
       `;
 
                         pageElement.innerHTML = pageHTML;
+            }
+
+            // Load balance page - SWR with instant 0ms local render
+            async function loadBalancePage() {
+                const pageElement = document.getElementById('myBalancePage');
+
+                // 1. Instant 0ms render from memory or client cache
+                const cachedBalance = AppState.leaveBalance || (typeof ClientCache !== 'undefined' ? ClientCache.get('user_balance') : null);
+                if (cachedBalance) {
+                    AppState.leaveBalance = cachedBalance;
+                    renderBalancePageContent(cachedBalance);
+                } else if (pageElement && (!pageElement.innerHTML || pageElement.innerHTML.trim() === '')) {
+                    pageElement.innerHTML = '<div class="py-16 text-center text-slate-400"><i class="fas fa-spinner fa-spin text-2xl text-emerald-600 mb-3"></i><p class="text-xs font-medium text-slate-500">Loading your leave balance...</p></div>';
+                }
+
+                // 2. Background revalidation
+                try {
+                    const result = await callGoogleScriptFunction('apiGetUserBalance');
+
+                    if (result && result.success && result.data) {
+                        const balance = result.data;
+                        AppState.leaveBalance = balance;
+                        if (typeof ClientCache !== 'undefined') {
+                            ClientCache.set('user_balance', balance, 5 * 60 * 1000);
+                        }
+                        renderBalancePageContent(balance);
                     }
                 } catch (error) {
                     console.error('Failed to load balance page:', error);
-                    pageElement.innerHTML = `
+                    if (!AppState.leaveBalance && pageElement) {
+                        pageElement.innerHTML = `
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div class="text-center py-12">
           <div class="h-16 w-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -5465,16 +5545,16 @@
         </div>
       </div>
     `;
+                    }
                 }
             }
-            async function loadMyApplicationsPage() {
+
+            // Render my applications content instantly from applications array
+            function renderMyApplicationsContent(applications) {
                 const pageElement = document.getElementById('myApplicationsPage');
+                if (!pageElement) return;
+                if (!Array.isArray(applications)) applications = [];
 
-                try {
-                    const result = await callGoogleScriptFunction('apiGetMyApplications');
-
-                    if (result.success) {
-                        const applications = result.data.data || [];
                         AppState.applications = applications;
                         AppState.myPendingCount = applications.filter(app => app && app.Status === 'Pending').length;
                         updatePendingAppsBadge();
@@ -5734,10 +5814,36 @@
                                 applyMyAppsFilters();
                             });
                         }
+                    
+            }
+
+            // Load my applications page - SWR with instant 0ms local render
+            async function loadMyApplicationsPage() {
+                const pageElement = document.getElementById('myApplicationsPage');
+
+                // 1. Instant 0ms render from memory or client cache
+                const cachedApps = AppState.applications || (typeof ClientCache !== 'undefined' ? ClientCache.get('my_applications') : null);
+                if (cachedApps) {
+                    renderMyApplicationsContent(cachedApps);
+                } else if (pageElement && (!pageElement.innerHTML || pageElement.innerHTML.trim() === '')) {
+                    pageElement.innerHTML = '<div class="py-16 text-center text-slate-400"><i class="fas fa-spinner fa-spin text-2xl text-emerald-600 mb-3"></i><p class="text-xs font-medium text-slate-500">Loading your applications...</p></div>';
+                }
+
+                // 2. Background revalidation
+                try {
+                    const result = await callGoogleScriptFunction('apiGetMyApplications');
+
+                    if (result && result.success) {
+                        const applications = result.data.data || [];
+                        if (typeof ClientCache !== 'undefined') {
+                            ClientCache.set('my_applications', applications, 3 * 60 * 1000);
+                        }
+                        renderMyApplicationsContent(applications);
                     }
                 } catch (error) {
                     console.error('Failed to load applications page:', error);
-                    pageElement.innerHTML = `
+                    if (!AppState.applications && pageElement) {
+                        pageElement.innerHTML = `
       <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-sm border border-red-100 p-12 text-center">
         <div class="h-16 w-16 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-red-200">
           <i class="fas fa-exclamation-triangle text-2xl"></i>
@@ -5747,6 +5853,7 @@
         <button onclick="loadMyApplicationsPage()" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white rounded-xl text-sm font-medium shadow-xs transition-all">Try Again</button>
       </div>
     `;
+                    }
                 }
             }
             // Load Team Applications Page - IMPROVED STYLING
@@ -5765,26 +5872,16 @@
                 try {
                     showLoading('Loading team applications...');
 
-                    // Fetch BOTH pending (for badge) AND all team apps in parallel
-                    const [pendingResult, allResult] = await Promise.all([
-                        callGoogleScriptFunction('apiGetPendingApplications'),
-                        callGoogleScriptFunction('apiGetTeamApplications')
-                    ]);
-
+                    // Single unified team apps fetch (derives pending in memory, eliminates 1 redundant RPC)
+                    const allResult = await callGoogleScriptFunction('apiGetTeamApplications');
                     hideLoading();
 
-                    // Pending apps for badge count
-                    const pendingApplications = (pendingResult.success ? pendingResult.data?.data : null) || [];
+                    const rawApps = (allResult && allResult.success) ? (allResult.data?.data || allResult.data || []) : [];
+                    const allTeamApps = Array.isArray(rawApps) ? rawApps : [];
+                    const pendingApplications = allTeamApps.filter(a => (a && (a.Status || '').toLowerCase() === 'pending'));
                     AppState.teamApplications = pendingApplications;
+                    AppState.teamPendingCount = pendingApplications.length;
                     updateTeamPendingBadge();
-
-                    // All team apps for the full view
-                    let allTeamApps = [];
-                    if (allResult.success && allResult.data?.data?.length > 0) {
-                        allTeamApps = allResult.data.data;
-                    } else if (pendingApplications.length > 0) {
-                        allTeamApps = pendingApplications;
-                    }
 
                     // Store all team apps for view lookups
                     AppState.allTeamApplications = allTeamApps;
@@ -10421,7 +10518,9 @@
             async function populateHandoverDropdown(selectElementId) {
                 const el = document.getElementById(selectElementId);
                 if (!el) return;
-                let staffList = Array.isArray(window.AppState?.allStaff) ? window.AppState.allStaff : [];
+                let staffList = Array.isArray(window.AppState?.allStaff) && window.AppState.allStaff.length > 0
+                    ? window.AppState.allStaff
+                    : (Array.isArray(window.AppState?.allStaffLight) ? window.AppState.allStaffLight : []);
                 if (!staffList.length) {
                     try {
                         const res = await callGoogleScriptFunction('apiGetAllStaff');
@@ -11080,11 +11179,10 @@
 
                     if (result.success) {
                         showToast('success', 'Application Submitted', result.message || 'Your leave application has been submitted successfully');
-                        await loadDashboardData(); // Refresh data
-
-                        // Refresh current page if on applications page
+                        // Non-blocking background sync so user is not frozen
+                        loadDashboardData();
                         if (AppState.currentPage === 'myApplications') {
-                            await loadMyApplicationsPage();
+                            loadMyApplicationsPage();
                         }
                         return true;
                     } else {

@@ -473,13 +473,35 @@ const EnhancedCacheManager = {
         this.startPerformanceMonitoring();
     },
 
+    CHUNK_SIZE: 90000,
+
     getDistributedCache: function (key) {
         try {
             if (typeof CacheService === 'undefined' || !CacheService.getScriptCache) return null;
             const cache = CacheService.getScriptCache();
-            const val = cache.get(key);
-            if (val) {
-                return JSON.parse(val);
+
+            // Check meta header for chunked payloads
+            const metaRaw = cache.get(key + '_meta');
+            if (metaRaw) {
+                const meta = JSON.parse(metaRaw);
+                const chunkKeys = [];
+                for (let i = 0; i < meta.chunks; i++) {
+                    chunkKeys.push(`${key}_chunk_${i}`);
+                }
+                const chunks = cache.getAll(chunkKeys);
+                let fullStr = '';
+                for (let i = 0; i < meta.chunks; i++) {
+                    const chunk = chunks[`${key}_chunk_${i}`];
+                    if (!chunk) return null; // Incomplete chunk, treat as miss
+                    fullStr += chunk;
+                }
+                return JSON.parse(fullStr);
+            }
+
+            // Direct single key fallback
+            const direct = cache.get(key);
+            if (direct) {
+                return JSON.parse(direct);
             }
         } catch (e) {
             console.warn(`Distributed cache read error for ${key}:`, e.message);
@@ -492,12 +514,23 @@ const EnhancedCacheManager = {
             if (typeof CacheService === 'undefined' || !CacheService.getScriptCache) return false;
             const cache = CacheService.getScriptCache();
             const str = JSON.stringify(value);
-            // CacheService allows max 100KB per key
-            if (str.length < 95000) {
-                const ttl = Math.min(Math.max(ttlSeconds || 300, 1), 21600); // 1s to 6 hours
+            const ttl = Math.min(Math.max(ttlSeconds || 300, 1), 21600); // 1s to 6 hours
+
+            if (str.length < this.CHUNK_SIZE) {
                 cache.put(key, str, ttl);
                 return true;
             }
+
+            // Multi-key chunking for payloads >= 90KB
+            const chunkCount = Math.ceil(str.length / this.CHUNK_SIZE);
+            const chunkEntries = {};
+            for (let i = 0; i < chunkCount; i++) {
+                const start = i * this.CHUNK_SIZE;
+                chunkEntries[`${key}_chunk_${i}`] = str.substring(start, start + this.CHUNK_SIZE);
+            }
+            cache.putAll(chunkEntries, ttl);
+            cache.put(key + '_meta', JSON.stringify({ chunks: chunkCount, totalLen: str.length }), ttl);
+            return true;
         } catch (e) {
             console.warn(`Distributed cache write error for ${key}:`, e.message);
         }
@@ -507,7 +540,18 @@ const EnhancedCacheManager = {
     removeDistributedCache: function (key) {
         try {
             if (typeof CacheService === 'undefined' || !CacheService.getScriptCache) return;
-            CacheService.getScriptCache().remove(key);
+            const cache = CacheService.getScriptCache();
+            const metaRaw = cache.get(key + '_meta');
+            const keysToRemove = [key, key + '_meta'];
+            if (metaRaw) {
+                try {
+                    const meta = JSON.parse(metaRaw);
+                    for (let i = 0; i < meta.chunks; i++) {
+                        keysToRemove.push(`${key}_chunk_${i}`);
+                    }
+                } catch (e) {}
+            }
+            cache.removeAll(keysToRemove);
         } catch (e) {
             console.warn(`Distributed cache remove error for ${key}:`, e.message);
         }
@@ -1181,23 +1225,36 @@ const DataManager = {
 
     readDataFile: function (filename) {
         const startTime = Date.now();
-        const cached = EnhancedCacheManager.getFileCache(filename);
-        if (cached) {
-            EnhancedCacheManager.logOperation(`readDataFile(cached): ${filename}`, startTime, { cacheHit: true });
-            return cached;
+        const cacheKey = 'DATA_FILE_' + filename;
+
+        // Tier 1: In-memory RAM Map (0ms)
+        const memCached = EnhancedCacheManager.getFileCache(filename);
+        if (memCached) {
+            return memCached;
         }
+
+        // Tier 2: Distributed CacheService across all concurrent users (15-30ms)
+        const distCached = EnhancedCacheManager.getDistributedCache(cacheKey);
+        if (distCached) {
+            EnhancedCacheManager.setFileCache(filename, distCached);
+            EnhancedCacheManager.logOperation(`readDataFile(distCache): ${filename}`, startTime, { cacheHit: true });
+            return distCached;
+        }
+
+        // Tier 3: Cold Google Drive Read
         try {
             const file = this.getDataFileObject(filename);
             if (file) {
                 const content = file.getBlob().getDataAsString();
                 const data = JSON.parse(content);
                 EnhancedCacheManager.setFileCache(filename, data);
-                EnhancedCacheManager.logOperation(`readDataFile: ${filename}`, startTime, { cacheHit: false, size: content.length });
+                EnhancedCacheManager.setDistributedCache(cacheKey, data, 7200); // 2 hours
+                EnhancedCacheManager.logOperation(`readDataFile(drive): ${filename}`, startTime, { cacheHit: false, size: content.length });
                 return data;
             }
             const defaultData = this.createDefaultDataStructure(filename);
             EnhancedCacheManager.setFileCache(filename, defaultData);
-            EnhancedCacheManager.logOperation(`readDataFile(default): ${filename}`, startTime);
+            EnhancedCacheManager.setDistributedCache(cacheKey, defaultData, 7200);
             return defaultData;
         } catch (error) {
             console.error(`Error reading ${filename}:`, error);
@@ -1224,11 +1281,12 @@ const DataManager = {
                 version: SYSTEM.VERSION
             });
 
-            // Convert to JSON
-            const jsonContent = JSON.stringify(data, null, 2);
+            // Convert to compact JSON (cuts ~35% size & Drive I/O time)
+            const jsonContent = JSON.stringify(data);
 
-            // Update cache
+            // Update cache (Tier 1 & Tier 2 distributed)
             EnhancedCacheManager.setFileCache(filename, data);
+            EnhancedCacheManager.setDistributedCache('DATA_FILE_' + filename, data, 7200);
             this.clearCacheForFile(filename);
 
             // Write to Google Drive using cached file ID or search
@@ -1282,6 +1340,7 @@ const DataManager = {
     },
     clearCacheForFile: function (filename) {
         const startTime = Date.now();
+        EnhancedCacheManager.removeDistributedCache('DATA_FILE_' + filename);
         switch (filename) {
             case SYSTEM.DATA_FILES.STAFF:
                 EnhancedCacheManager.clear(SYSTEM.CACHE_KEYS.ALL_STAFF);
@@ -9725,9 +9784,7 @@ function processMonthlyAccrualAutomatically() {
 
 function doGet(e) {
     try {
-        // 1. Initialise cache
-        EnhancedCacheManager.initialize();
-        EnhancedCacheManager.buildIndexes();
+        // Web app shell served directly; CacheService is shared and kept warm across sessions
 
         const currentUser = Session.getActiveUser().getEmail();
 
@@ -11230,17 +11287,24 @@ function apiGetBootstrapData(params) {
             console.warn('Holidays in bootstrap:', e.message);
         }
 
-        // 8. Sheets Database Status (HR/Admin only)
-        let sheetsStatus = null;
-        if (isHR || isAdmin) {
-            try {
-                if (typeof SheetsDualStoreManager !== 'undefined') {
-                    sheetsStatus = SheetsDualStoreManager.getDatabaseStatus();
-                }
-            } catch (e) {
-                console.warn('Sheets status in bootstrap:', e.message);
-            }
+        // 8. Lightweight Staff Directory (instant handover dropdowns without extra RPC)
+        let allStaffLight = [];
+        try {
+            const staffList = StaffManager.getAllStaffData() || [];
+            allStaffLight = staffList
+                .filter(s => s.Metadata?.active !== false)
+                .map(s => ({
+                    Email: s.Email,
+                    Name: s.Name,
+                    Department: s.Department || 'Unassigned',
+                    Role: s.Role || 'staff'
+                }));
+        } catch (e) {
+            console.warn('allStaffLight in bootstrap:', e.message);
         }
+
+        // Sheets Database Status deferred to on-demand System Admin tab to keep login instant
+        let sheetsStatus = null;
 
         return Utils.createSuccessResponse({
             user: {
@@ -11270,6 +11334,7 @@ function apiGetBootstrapData(params) {
             supervisorQueue,
             hrQueue,
             holidays: holidays.slice(0, 10),
+            allStaffLight,
             sheetsStatus,
             systemYear: Utils.getCurrentYear(),
             serverTimestamp: new Date().toISOString()
