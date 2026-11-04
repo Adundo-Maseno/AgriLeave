@@ -1,0 +1,29 @@
+---
+source_file: "Index.html"
+type: "code"
+community: "AI Assistant & Conversational Guidance"
+location: "line 4933"
+tags:
+  - graphify/code
+  - graphify/EXTRACTED
+  - community/AI_Assistant__Conversational_Guidance
+---
+
+# navigateToPage Navigation Controller
+
+## Connections
+- [[Apply Leave View (applyLeavePage)]] - `calls` [EXTRACTED]
+- [[ClientCache SWR Engine]] - `calls` [EXTRACTED]
+- [[Dashboard View (dashboardPage)]] - `calls` [EXTRACTED]
+- [[HR Dashboard View (hrDashboardPage)]] - `calls` [EXTRACTED]
+- [[Leave Balance View (myBalancePage)]] - `calls` [EXTRACTED]
+- [[My Applications View (myApplicationsPage)]] - `calls` [EXTRACTED]
+- [[My Profile View (myProfilePage)]] - `calls` [EXTRACTED]
+- [[Reports View (reportsPage)]] - `calls` [EXTRACTED]
+- [[Settings View (settingsPage)]] - `calls` [EXTRACTED]
+- [[Staff Management View (staffManagementPage)]] - `calls` [EXTRACTED]
+- [[System Administration View (systemAdminPage)]] - `calls` [EXTRACTED]
+- [[Team Applications View (teamApplicationsPage)]] - `calls` [EXTRACTED]
+- [[Team Overview View (teamOverviewPage)]] - `calls` [EXTRACTED]
+
+#graphify/code #graphify/EXTRACTED #community/AI_Assistant__Conversational_Guidance

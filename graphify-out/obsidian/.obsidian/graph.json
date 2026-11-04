@@ -1,0 +1,263 @@
+{
+  "colorGroups": [
+    {
+      "query": "tag:#community/HR_Governance__Availability_Wallchart",
+      "color": {
+        "a": 1,
+        "rgb": 5142951
+      }
+    },
+    {
+      "query": "tag:#community/AI_Assistant__Conversational_Guidance",
+      "color": {
+        "a": 1,
+        "rgb": 15896107
+      }
+    },
+    {
+      "query": "tag:#community/System_Administration__Statutory_Policy_Engine",
+      "color": {
+        "a": 1,
+        "rgb": 14767961
+      }
+    },
+    {
+      "query": "tag:#community/AI_Assistant__Conversational_Guidance",
+      "color": {
+        "a": 1,
+        "rgb": 7780274
+      }
+    },
+    {
+      "query": "tag:#community/System_Administration__Statutory_Policy_Engine",
+      "color": {
+        "a": 1,
+        "rgb": 5873999
+      }
+    },
+    {
+      "query": "tag:#community/HR_Governance__Availability_Wallchart",
+      "color": {
+        "a": 1,
+        "rgb": 15583560
+      }
+    },
+    {
+      "query": "tag:#community/HR_Governance__Availability_Wallchart",
+      "color": {
+        "a": 1,
+        "rgb": 11565729
+      }
+    },
+    {
+      "query": "tag:#community/System_Administration__Statutory_Policy_Engine",
+      "color": {
+        "a": 1,
+        "rgb": 16752039
+      }
+    },
+    {
+      "query": "tag:#community/HR_Governance__Availability_Wallchart",
+      "color": {
+        "a": 1,
+        "rgb": 10253663
+      }
+    },
+    {
+      "query": "tag:#community/Subsystem_9_Antigravity_Customizations__M",
+      "color": {
+        "a": 1,
+        "rgb": 12234924
+      }
+    },
+    {
+      "query": "tag:#community/System_Administration__Statutory_Policy_Engine",
+      "color": {
+        "a": 1,
+        "rgb": 5142951
+      }
+    },
+    {
+      "query": "tag:#community/Supervisor_Workflow__Team_Approvals",
+      "color": {
+        "a": 1,
+        "rgb": 15896107
+      }
+    },
+    {
+      "query": "tag:#community/Subsystem_12_apiAdjustCompensationLeave",
+      "color": {
+        "a": 1,
+        "rgb": 14767961
+      }
+    },
+    {
+      "query": "tag:#community/Subsystem_13_apiFixAllStaffLeaveData",
+      "color": {
+        "a": 1,
+        "rgb": 7780274
+      }
+    },
+    {
+      "query": "tag:#community/Leave_Entitlement__Accrual_Engine",
+      "color": {
+        "a": 1,
+        "rgb": 5873999
+      }
+    },
+    {
+      "query": "tag:#community/AI_Assistant__Conversational_Guidance",
+      "color": {
+        "a": 1,
+        "rgb": 15583560
+      }
+    },
+    {
+      "query": "tag:#community/AI_Assistant__Conversational_Guidance",
+      "color": {
+        "a": 1,
+        "rgb": 11565729
+      }
+    },
+    {
+      "query": "tag:#community/Subsystem_17_apiExportSystemData",
+      "color": {
+        "a": 1,
+        "rgb": 16752039
+      }
+    },
+    {
+      "query": "tag:#community/Leave_Entitlement__Accrual_Engine",
+      "color": {
+        "a": 1,
+        "rgb": 10253663
+      }
+    },
+    {
+      "query": "tag:#community/Subsystem_19_apiGetCurrentUser",
+      "color": {
+        "a": 1,
+        "rgb": 12234924
+      }
+    },
+    {
+      "query": "tag:#community/AI_Assistant__Conversational_Guidance",
+      "color": {
+        "a": 1,
+        "rgb": 5142951
+      }
+    },
+    {
+      "query": "tag:#community/Subsystem_21_system_logsjson",
+      "color": {
+        "a": 1,
+        "rgb": 15896107
+      }
+    },
+    {
+      "query": "tag:#community/Subsystem_22_AgriLeave_Comprehensive_System",
+      "color": {
+        "a": 1,
+        "rgb": 14767961
+      }
+    },
+    {
+      "query": "tag:#community/Subsystem_23_Action_Confirm_Modal_actionC",
+      "color": {
+        "a": 1,
+        "rgb": 7780274
+      }
+    },
+    {
+      "query": "tag:#community/Subsystem_24_Add_Staff_Modal_addStaffModa",
+      "color": {
+        "a": 1,
+        "rgb": 5873999
+      }
+    },
+    {
+      "query": "tag:#community/Subsystem_25_Amend_Leave_Dates_Modal_amen",
+      "color": {
+        "a": 1,
+        "rgb": 15583560
+      }
+    },
+    {
+      "query": "tag:#community/AI_Assistant__Conversational_Guidance",
+      "color": {
+        "a": 1,
+        "rgb": 11565729
+      }
+    },
+    {
+      "query": "tag:#community/Subsystem_27_Archived_Applications_Modal_",
+      "color": {
+        "a": 1,
+        "rgb": 16752039
+      }
+    },
+    {
+      "query": "tag:#community/Subsystem_28_Edit_Staff_Modal_editStaffMo",
+      "color": {
+        "a": 1,
+        "rgb": 10253663
+      }
+    },
+    {
+      "query": "tag:#community/HR_Governance__Availability_Wallchart",
+      "color": {
+        "a": 1,
+        "rgb": 12234924
+      }
+    },
+    {
+      "query": "tag:#community/System_Administration__Statutory_Policy_Engine",
+      "color": {
+        "a": 1,
+        "rgb": 5142951
+      }
+    },
+    {
+      "query": "tag:#community/Subsystem_31_System_Diagnostics_Modal_sys",
+      "color": {
+        "a": 1,
+        "rgb": 15896107
+      }
+    },
+    {
+      "query": "tag:#community/Subsystem_32_Vacation_Responder_Modal_vac",
+      "color": {
+        "a": 1,
+        "rgb": 14767961
+      }
+    },
+    {
+      "query": "tag:#community/Subsystem_33_AgriLeave_Enterprise_System_Ov",
+      "color": {
+        "a": 1,
+        "rgb": 7780274
+      }
+    },
+    {
+      "query": "tag:#community/AI_Assistant__Conversational_Guidance",
+      "color": {
+        "a": 1,
+        "rgb": 5873999
+      }
+    },
+    {
+      "query": "tag:#community/Subsystem_35_Google_Workspace_Integrations_",
+      "color": {
+        "a": 1,
+        "rgb": 15583560
+      }
+    },
+    {
+      "query": "tag:#community/Subsystem_36_Role-Based_Access_Control_Spec",
+      "color": {
+        "a": 1,
+        "rgb": 11565729
+      }
+    }
+  ]
+}
