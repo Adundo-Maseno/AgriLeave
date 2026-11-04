@@ -234,3 +234,9 @@ _Questions this graph is uniquely positioned to answer:_
 - **WCAG 2.2 AA Accessible Live Announcer (SC 4.1.3 Status Messages)**:
   - Added an inlined `<div id="a11yLiveAnnouncer" class="sr-only" aria-live="polite" aria-atomic="true"></div>` region directly inside `<body>`.
   - Wired real-time accessible status feedback via `announceToScreenReader()` across Staff Management (`filterStaffList`) and Reports Audit (`filterApplicationsTable`) so screen readers dynamically receive feedback on filtered item counts without interruption.
+
+
+### In-Flight Promise Return & Serialization Fix (Latest)
+- **Resolved `TypeError: Cannot read properties of undefined (reading 'success')`**:
+  - Restored explicit `return requestPromise;` in `callGoogleScriptFunction()`. Previously, the coalesced promise was constructed but failed to return to the caller, causing `loadUpcomingHolidaysWidget`, `loadDashboardData`, and `getCurrentUser` to receive `undefined`.
+  - All asynchronous callers now resolve cleanly with the proper server response object.

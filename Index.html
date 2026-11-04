@@ -4081,9 +4081,13 @@
                             clearTimeout(timeoutId);
                             console.error(`GAS ${functionName} failed:`, error);
                             reject(error);
-                        })
-                    [functionName](params);
+                        })[functionName](params);
+                }).finally(() => {
+                    if (reqKey) inFlightGASRequests.delete(reqKey);
                 });
+
+                if (reqKey) inFlightGASRequests.set(reqKey, requestPromise);
+                return requestPromise;
             }
 
             // Utility Functions
