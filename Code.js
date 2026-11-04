@@ -13,6 +13,7 @@ const SYSTEM = {
     VERSION: '3.4.0',
     ORGANIZATION: 'Agri Experience',
     LOGO_URL: 'https://drive.google.com/thumbnail?id=1FG3ihsPb06rIDp7DcxtZQsmi9XydO9y4&sz=w320',
+    LOGO_FILE_ID: '1FG3ihsPb06rIDp7DcxtZQsmi9XydO9y4',
     ADMIN_EMAIL: 'info@agri-experience.com',
     FOLDER_NAME: 'Agri Experience Leave System',
 
@@ -4450,6 +4451,29 @@ const EmailService = {
     SYSTEM_NAME: SYSTEM.NAME,
     SYSTEM_URL: ScriptApp.getService().getUrl(),
     LOGO_URL: SYSTEM.LOGO_URL || 'https://drive.google.com/thumbnail?id=1FG3ihsPb06rIDp7DcxtZQsmi9XydO9y4&sz=w320',
+    LOGO_FILE_ID: SYSTEM.LOGO_FILE_ID || '1FG3ihsPb06rIDp7DcxtZQsmi9XydO9y4',
+    _cachedLogoBlob: null,
+
+    getLogoBlob: function () {
+        try {
+            if (this._cachedLogoBlob) return this._cachedLogoBlob;
+            if (typeof DriveApp !== 'undefined' && this.LOGO_FILE_ID) {
+                const file = DriveApp.getFileById(this.LOGO_FILE_ID);
+                if (file) {
+                    this._cachedLogoBlob = file.getBlob().setName('agri_experience_logo.png');
+                    return this._cachedLogoBlob;
+                }
+            }
+        } catch (e) {
+            console.warn('Could not fetch logo blob from Drive for email inline image:', e);
+        }
+        return null;
+    },
+
+    getInlineImages: function () {
+        const blob = this.getLogoBlob();
+        return blob ? { companyLogo: blob } : {};
+    },
 
     // The Web Kitchen (TWK) Modern Editorial Email Styles
     baseStyles: `
@@ -4651,7 +4675,7 @@ const EmailService = {
         <div class="email-container">
           <div class="email-header ${headerClass}">
             <div style="display:inline-block;margin-bottom:12px;background:#ffffff;padding:8px 18px;border-radius:12px;box-shadow:0 4px 14px rgba(0,0,0,0.12);border:1px solid rgba(255,255,255,0.35);">
-              <img src="${this.LOGO_URL}" alt="Agri Experience" width="130" height="auto" style="display:block;max-height:40px;width:auto;margin:0 auto;border:0;outline:none;" />
+              <img src="cid:companyLogo" alt="Agri Experience" width="130" height="auto" style="display:block;max-height:40px;width:auto;margin:0 auto;border:0;outline:none;font-family:'Plus Jakarta Sans',sans-serif;font-size:15px;font-weight:800;color:#065f46;text-align:center;" />
             </div>
             <div class="brand-title">${headerTitle}</div>
             <div class="brand-subtitle">${headerSubtitle}</div>
@@ -4881,12 +4905,17 @@ const EmailService = {
             // Generate HTML from template function
             const htmlBody = template.htmlBody(emailData);
 
-            MailApp.sendEmail({
+            const mailOptions = {
                 to: recipientEmail,
                 subject: template.subject,
                 htmlBody: htmlBody,
                 name: this.SYSTEM_NAME
-            });
+            };
+            const inlineImgs = this.getInlineImages();
+            if (inlineImgs && Object.keys(inlineImgs).length > 0) {
+                mailOptions.inlineImages = inlineImgs;
+            }
+            MailApp.sendEmail(mailOptions);
 
             console.log(`✓ Email sent to ${recipientEmail}: ${templateName}`);
             return true;
@@ -5091,7 +5120,7 @@ const NotificationManager = {
 
             hrEmails.forEach(hrEmail => {
                 try {
-                    MailApp.sendEmail({ to: hrEmail, subject, htmlBody: body, name: SYSTEM.NAME });
+                    MailApp.sendEmail({ to: hrEmail, subject, htmlBody: body, name: SYSTEM.NAME, inlineImages: EmailService.getInlineImages() });
                 } catch (e) { console.error('HR decision notify error:', e); }
             });
             return true;
@@ -5368,7 +5397,7 @@ const NotificationManager = {
                   </p>
                 `
             });
-            MailApp.sendEmail({ to: application.HandoverEmail, subject: subject, htmlBody: body, name: SYSTEM.NAME });
+            MailApp.sendEmail({ to: application.HandoverEmail, subject: subject, htmlBody: body, name: SYSTEM.NAME, inlineImages: EmailService.getInlineImages() });
             return true;
         } catch (e) {
             console.error('notifyHandoverNominated error:', e);
@@ -5421,7 +5450,7 @@ const NotificationManager = {
                   </p>
                 `
             });
-            MailApp.sendEmail({ to: application.HandoverEmail, subject: subject, htmlBody: body, name: SYSTEM.NAME });
+            MailApp.sendEmail({ to: application.HandoverEmail, subject: subject, htmlBody: body, name: SYSTEM.NAME, inlineImages: EmailService.getInlineImages() });
             return true;
         } catch (e) {
             console.error('notifyHandoverAssigned error:', e);
