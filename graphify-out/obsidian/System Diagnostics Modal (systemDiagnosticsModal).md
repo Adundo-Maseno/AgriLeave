@@ -1,14 +1,14 @@
 ---
 source_file: "Index.html"
 type: "code"
-community: "Subsystem 31: System Diagnostics Modal (#sys"
+community: "index_modal_system_diagnostics"
 location: "line 3535"
 tags:
   - graphify/code
   - graphify/EXTRACTED
-  - community/Subsystem_31_System_Diagnostics_Modal_sys
+  - community/index_modal_system_diagnostics
 ---
 
 # System Diagnostics Modal (#systemDiagnosticsModal)
 
-#graphify/code #graphify/EXTRACTED #community/Subsystem_31_System_Diagnostics_Modal_sys
+#graphify/code #graphify/EXTRACTED #community/index_modal_system_diagnostics

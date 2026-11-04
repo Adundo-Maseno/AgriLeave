@@ -1,12 +1,12 @@
 ---
 source_file: "agrileave_performance_audit_and_optimization_blueprint.md"
 type: "document"
-community: "HR Governance & Availability Wallchart"
+community: "audit_finding_bootstrap_rpc & audit_finding_cacheservice_cliff & audit_finding_cascading_waterfalls"
 location: "Section 1"
 tags:
   - graphify/document
   - graphify/EXTRACTED
-  - community/HR_Governance__Availability_Wallchart
+  - community/audit_finding_bootstrap_rpc__audit_finding_cacheservice_cliff__audit_finding_cascading_waterfalls
 ---
 
 # AgriLeave Performance Audit & Optimization Blueprint
@@ -20,4 +20,4 @@ tags:
 - [[Audit Finding F Redundant RPC Calls & Missing Client SWR]] - `references` [EXTRACTED]
 - [[Audit Finding G Tailwind CDN Runtime Compilation & DOM Thrashing]] - `references` [EXTRACTED]
 
-#graphify/document #graphify/EXTRACTED #community/HR_Governance__Availability_Wallchart
+#graphify/document #graphify/EXTRACTED #community/audit_finding_bootstrap_rpc__audit_finding_cacheservice_cliff__audit_finding_cascading_waterfalls

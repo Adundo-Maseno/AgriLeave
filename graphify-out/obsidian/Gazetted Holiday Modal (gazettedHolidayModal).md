@@ -1,12 +1,12 @@
 ---
 source_file: "Index.html"
 type: "code"
-community: "System Administration & Statutory Policy Engine"
+community: "code_api_add_gazetted_holiday & code_api_delete_gazetted_holiday & code_api_get_gazetted_holidays"
 location: "line 3222"
 tags:
   - graphify/code
   - graphify/EXTRACTED
-  - community/System_Administration__Statutory_Policy_Engine
+  - community/code_api_add_gazetted_holiday__code_api_delete_gazetted_holiday__code_api_get_gazetted_holidays
 ---
 
 # Gazetted Holiday Modal (#gazettedHolidayModal)
@@ -16,4 +16,4 @@ tags:
 - [[apiDeleteGazettedHoliday]] - `calls` [EXTRACTED]
 - [[apiGetGazettedHolidays]] - `calls` [EXTRACTED]
 
-#graphify/code #graphify/EXTRACTED #community/System_Administration__Statutory_Policy_Engine
+#graphify/code #graphify/EXTRACTED #community/code_api_add_gazetted_holiday__code_api_delete_gazetted_holiday__code_api_get_gazetted_holidays

@@ -3238,6 +3238,70 @@ const ApplicationsManager = {
         }
     },
 
+    updateStaffRecordLeaveBalances: function (staff, application) {
+        if (!staff || !staff.EligibleForLeave) return false;
+
+        const currentYear = Utils.getCurrentYear().toString();
+        if (!staff.LeaveHistory) staff.LeaveHistory = {};
+        if (!staff.LeaveHistory[currentYear]) {
+            staff.LeaveHistory[currentYear] = { annualUsed: 0, sickUsed: 0, broughtForwardUsed: 0, totalUsed: 0 };
+        }
+        const yearHistory = staff.LeaveHistory[currentYear];
+
+        if (application.DeductFromAnnual > 0) {
+            yearHistory.annualUsed += application.DeductFromAnnual;
+            if (staff.LeaveAccrual) {
+                staff.LeaveAccrual.usedYearToDate += application.DeductFromAnnual;
+                // Compute raw (pre-floor) annual balance so deficit can be detected and recorded
+                const accrued = staff.LeaveAccrual.accruedYearToDate || 0;
+                const used = staff.LeaveAccrual.usedYearToDate;
+                const existingDeficit = staff.LeaveAccrual.annualDeficit?.amount || 0;
+                const rawAnnualBalance = accrued - used + existingDeficit;
+                staff.LeaveAccrual.availableBalance = Math.max(0, rawAnnualBalance);
+                if (rawAnnualBalance < 0) {
+                    if (!staff.LeaveAccrual.annualDeficit) {
+                        staff.LeaveAccrual.annualDeficit = { amount: 0, fromYear: null, recoveryHistory: [] };
+                    }
+                    staff.LeaveAccrual.annualDeficit.amount = rawAnnualBalance;
+                }
+            }
+        }
+
+        if (application.DeductFromBroughtForward > 0) {
+            yearHistory.broughtForwardUsed += application.DeductFromBroughtForward;
+            if (staff.LeaveBroughtForward) {
+                const currentBalance = staff.LeaveBroughtForward.daysCarriedFromPreviousYear || 0;
+                const newBalance = Math.max(0, currentBalance - application.DeductFromBroughtForward);
+                if (newBalance > 0) {
+                    staff.LeaveBroughtForward.daysCarriedFromPreviousYear = newBalance;
+                } else {
+                    staff.LeaveBroughtForward = null;
+                }
+            }
+        }
+
+        if (application.DeductFromSick > 0) {
+            yearHistory.sickUsed += application.DeductFromSick;
+            if (staff.SickLeave) {
+                staff.SickLeave.used += application.DeductFromSick;
+            }
+        }
+
+        // Deduct from compensation leave pool
+        if (application.DeductFromCompensation > 0) {
+            yearHistory.compensationUsed = (yearHistory.compensationUsed || 0) + application.DeductFromCompensation;
+            if (staff.CompensationLeave) {
+                staff.CompensationLeave.balance = Math.max(0,
+                    (staff.CompensationLeave.balance || 0) - application.DeductFromCompensation
+                );
+                staff.CompensationLeave.used = (staff.CompensationLeave.used || 0) + application.DeductFromCompensation;
+            }
+        }
+
+        yearHistory.totalUsed += application.Duration || 0;
+        return true;
+    },
+
     updateStaffLeaveBalances: function (application) {
         const startTime = Date.now();
         try {
@@ -3257,64 +3321,8 @@ const ApplicationsManager = {
                 return;
             }
 
-            const currentYear = Utils.getCurrentYear().toString();
-            if (!staff.LeaveHistory) staff.LeaveHistory = {};
-            if (!staff.LeaveHistory[currentYear]) {
-                staff.LeaveHistory[currentYear] = { annualUsed: 0, sickUsed: 0, broughtForwardUsed: 0, totalUsed: 0 };
-            }
-            const yearHistory = staff.LeaveHistory[currentYear];
+            this.updateStaffRecordLeaveBalances(staff, application);
 
-            if (application.DeductFromAnnual > 0) {
-                yearHistory.annualUsed += application.DeductFromAnnual;
-                if (staff.LeaveAccrual) {
-                    staff.LeaveAccrual.usedYearToDate += application.DeductFromAnnual;
-                    // Compute raw (pre-floor) annual balance so deficit can be detected and recorded
-                    const accrued = staff.LeaveAccrual.accruedYearToDate || 0;
-                    const used = staff.LeaveAccrual.usedYearToDate;
-                    const existingDeficit = staff.LeaveAccrual.annualDeficit?.amount || 0;
-                    const rawAnnualBalance = accrued - used + existingDeficit;
-                    staff.LeaveAccrual.availableBalance = Math.max(0, rawAnnualBalance);
-                    if (rawAnnualBalance < 0) {
-                        if (!staff.LeaveAccrual.annualDeficit) {
-                            staff.LeaveAccrual.annualDeficit = { amount: 0, fromYear: null, recoveryHistory: [] };
-                        }
-                        staff.LeaveAccrual.annualDeficit.amount = rawAnnualBalance;
-                    }
-                }
-            }
-
-            if (application.DeductFromBroughtForward > 0) {
-                yearHistory.broughtForwardUsed += application.DeductFromBroughtForward;
-                if (staff.LeaveBroughtForward) {
-                    const currentBalance = staff.LeaveBroughtForward.daysCarriedFromPreviousYear || 0;
-                    const newBalance = Math.max(0, currentBalance - application.DeductFromBroughtForward);
-                    if (newBalance > 0) {
-                        staff.LeaveBroughtForward.daysCarriedFromPreviousYear = newBalance;
-                    } else {
-                        staff.LeaveBroughtForward = null;
-                    }
-                }
-            }
-
-            if (application.DeductFromSick > 0) {
-                yearHistory.sickUsed += application.DeductFromSick;
-                if (staff.SickLeave) {
-                    staff.SickLeave.used += application.DeductFromSick;
-                }
-            }
-
-            // Deduct from compensation leave pool
-            if (application.DeductFromCompensation > 0) {
-                yearHistory.compensationUsed = (yearHistory.compensationUsed || 0) + application.DeductFromCompensation;
-                if (staff.CompensationLeave) {
-                    staff.CompensationLeave.balance = Math.max(0,
-                        (staff.CompensationLeave.balance || 0) - application.DeductFromCompensation
-                    );
-                    staff.CompensationLeave.used = (staff.CompensationLeave.used || 0) + application.DeductFromCompensation;
-                }
-            }
-
-            yearHistory.totalUsed += application.Duration || 0;
             DataManager.writeDataFile(SYSTEM.DATA_FILES.STAFF, staffFile);
             EnhancedCacheManager.clearBalance(application.Email);
             EnhancedCacheManager.clear(`${SYSTEM.CACHE_KEYS.DASHBOARD_PREFIX}${application.Email}`);
@@ -3337,6 +3345,207 @@ const ApplicationsManager = {
         } catch (error) {
             console.error('Error updating staff leave balances:', error);
             EnhancedCacheManager.logOperation('updateStaffLeaveBalances(error)', startTime, { error: error.message });
+        }
+    },
+
+    batchProcessDecisions: function (appIds, decision, comment = '', callerEmail = null) {
+        const startTime = Date.now();
+        try {
+            const currentUser = (callerEmail || Session.getActiveUser().getEmail() || '').trim();
+            const user = StaffManager.getUserData(currentUser);
+            if (!user) return Utils.createErrorResponse('User not found');
+
+            const isAdmin = user.Role === SYSTEM.ROLES.ADMIN;
+            const isHR = user.Role === SYSTEM.ROLES.HR;
+
+            // 1. Read datasets ONCE
+            const applicationsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.APPLICATIONS);
+            const staffFile = DataManager.readDataFile(SYSTEM.DATA_FILES.STAFF);
+
+            const results = [];
+            let successCount = 0;
+            let failCount = 0;
+            const sideEffectsToRun = [];
+            let staffModified = false;
+            let appsModified = false;
+            const affectedEmails = new Set();
+
+            for (const appId of appIds) {
+                const appIndex = applicationsFile.data.findIndex(a => a.ID === appId);
+                if (appIndex === -1) {
+                    failCount++;
+                    results.push({ appId, success: false, error: 'Application not found' });
+                    continue;
+                }
+
+                const application = applicationsFile.data[appIndex];
+                if (application.Status !== SYSTEM.STATUS.PENDING) {
+                    failCount++;
+                    results.push({ appId, success: false, error: 'Application is not in pending status' });
+                    continue;
+                }
+
+                const isSupervisor = application.SupervisorEmail && application.SupervisorEmail.toLowerCase().trim() === currentUser.toLowerCase().trim();
+                let isActingSupervisor = false;
+                if (application.SupervisorEmail) {
+                    const primarySupervisor = staffFile.data.find(s => s.Email.toLowerCase().trim() === application.SupervisorEmail.toLowerCase().trim());
+                    if (primarySupervisor && primarySupervisor.ActingSupervisor && primarySupervisor.ActingSupervisor.active) {
+                        const act = primarySupervisor.ActingSupervisor;
+                        const actEmail = (act.actingEmail || act.email || '').toLowerCase().trim();
+                        if (actEmail && actEmail === currentUser.toLowerCase().trim()) {
+                            const today = Utils.parseLocalDate(new Date());
+                            const actStart = Utils.parseLocalDate(act.startDate || act.fromDate);
+                            const actEnd = Utils.parseLocalDate(act.endDate || act.toDate);
+                            if (actStart && actEnd && today >= actStart && today <= actEnd) {
+                                isActingSupervisor = true;
+                            }
+                        }
+                    }
+                }
+
+                if (!isSupervisor && !isAdmin && !isHR && !isActingSupervisor) {
+                    failCount++;
+                    results.push({ appId, success: false, error: 'Unauthorized to process application' });
+                    continue;
+                }
+
+                const isSpecializedLeave = [
+                    SYSTEM.LEAVE_TYPES.STUDY,
+                    SYSTEM.LEAVE_TYPES.MATERNITY,
+                    SYSTEM.LEAVE_TYPES.PATERNITY
+                ].includes(application.LeaveType);
+                const requiresDualApproval = Boolean(application.RequiresDualApproval || (application.Duration > 5) || isSpecializedLeave);
+                const isSupervisorApproval = (isSupervisor || isActingSupervisor) && !isAdmin && !isHR;
+                const isStage1 = application.ApprovalStage === 'pending_supervisor' || !application.ApprovalStage;
+
+                if (decision === 'approve' && requiresDualApproval && isSupervisorApproval && isStage1) {
+                    application.ApprovalStage = 'pending_hr';
+                    application.Status = SYSTEM.STATUS.PENDING;
+                    application.SupervisorApproval = {
+                        approvedBy: currentUser + (isActingSupervisor ? ' (Acting Supervisor)' : ''),
+                        approvedAt: new Date().toISOString(),
+                        comment: comment || ''
+                    };
+                    application.Comment = (application.Comment ? application.Comment + ' | ' : '') + `Supervisor Approved: ${comment || 'Recommended for HR sign-off'}`;
+                    if (!application.Metadata) application.Metadata = {};
+                    application.Metadata.supervisorApprovedAt = new Date().toISOString();
+                    if (isActingSupervisor) {
+                        application.Metadata.actedBySupervisor = true;
+                        application.Metadata.actingSupervisorEmail = currentUser;
+                    }
+                    appsModified = true;
+                    successCount++;
+                    results.push({ appId, success: true, stage: 'pending_hr' });
+                    sideEffectsToRun.push({ type: 'notifyHREndorsement', application });
+                    continue;
+                }
+
+                const newStatus = decision === 'approve' ? SYSTEM.STATUS.APPROVED : SYSTEM.STATUS.DECLINED;
+                application.Status = newStatus;
+                application.ApprovalStage = newStatus === SYSTEM.STATUS.APPROVED ? 'approved' : 'declined';
+                application.ProcessedDate = new Date().toISOString();
+                application.ProcessedBy = currentUser + (isActingSupervisor ? ' (Acting Supervisor)' : '');
+                application.Comment = comment || '';
+
+                if (newStatus === SYSTEM.STATUS.APPROVED && (isAdmin || isHR)) {
+                    application.HRApproval = {
+                        approvedBy: currentUser,
+                        approvedAt: new Date().toISOString(),
+                        comment: comment || ''
+                    };
+                }
+
+                if (!application.Metadata) application.Metadata = {};
+                if (isActingSupervisor) {
+                    application.Metadata.actedBySupervisor = true;
+                    application.Metadata.actingSupervisorEmail = currentUser;
+                }
+
+                if (newStatus === SYSTEM.STATUS.APPROVED) {
+                    const staffIndex = staffFile.data.findIndex(s => s.Email.toLowerCase().trim() === application.Email.toLowerCase().trim());
+                    if (staffIndex !== -1) {
+                        this.updateStaffRecordLeaveBalances(staffFile.data[staffIndex], application);
+                        staffModified = true;
+                        affectedEmails.add(application.Email);
+                    }
+                }
+
+                appsModified = true;
+                successCount++;
+                results.push({ appId, success: true, status: newStatus });
+                sideEffectsToRun.push({ type: 'decisionComplete', application, newStatus, isActingSupervisor, currentUser, comment });
+            }
+
+            // 2. ATOMIC BATCH WRITE: exactly 1 write for applications, 1 write for staff!
+            if (appsModified) {
+                DataManager.writeDataFile(SYSTEM.DATA_FILES.APPLICATIONS, applicationsFile);
+            }
+            if (staffModified) {
+                DataManager.writeDataFile(SYSTEM.DATA_FILES.STAFF, staffFile);
+                for (const email of affectedEmails) {
+                    EnhancedCacheManager.clearBalance(email);
+                    EnhancedCacheManager.clear(`${SYSTEM.CACHE_KEYS.DASHBOARD_PREFIX}${email}`);
+                }
+            }
+            if (appsModified || staffModified) {
+                EnhancedCacheManager.buildIndexes();
+            }
+
+            // 3. ASYNCHRONOUS / NON-BLOCKING SIDE-EFFECTS
+            for (const effect of sideEffectsToRun) {
+                try {
+                    if (effect.type === 'notifyHREndorsement') {
+                        try { NotificationManager.notifyHREndorsementRequired(effect.application); } catch (e) {}
+                        Utils.logAction('SUPERVISOR_ENDORSE_LEAVE', {
+                            applicationId: effect.application.ID,
+                            supervisor: currentUser,
+                            nextStage: 'pending_hr'
+                        });
+                    } else if (effect.type === 'decisionComplete') {
+                        const app = effect.application;
+                        if (effect.newStatus === SYSTEM.STATUS.APPROVED) {
+                            try { CalendarSyncManager.syncLeaveToCalendar(app); } catch (e) {}
+                            try {
+                                if (typeof GmailSyncManager !== 'undefined') {
+                                    GmailSyncManager.configureVacationResponder(app);
+                                }
+                            } catch (e) {}
+                            if (app.HandoverEmail) {
+                                try { NotificationManager.notifyHandoverAssigned(app); } catch (e) {}
+                            }
+                            try { NotificationManager.notifyApplicationApproved(app); } catch (e) {}
+                        } else {
+                            try { NotificationManager.notifyApplicationDeclined(app); } catch (e) {}
+                        }
+                        try { NotificationManager.notifyHRDecision(app, effect.newStatus, effect.comment); } catch (e) {}
+
+                        Utils.logAction('PROCESS_APPLICATION', {
+                            applicationId: app.ID,
+                            decision: decision,
+                            newStatus: effect.newStatus,
+                            processedBy: currentUser,
+                            isActingSupervisor: effect.isActingSupervisor,
+                            applicant: app.Email
+                        });
+                    }
+                } catch (sideErr) {
+                    console.warn('Batch side effect error (non-fatal):', sideErr.message);
+                }
+            }
+
+            EnhancedCacheManager.logOperation(`batchProcessDecisions (${successCount}/${appIds.length})`, startTime);
+
+            return Utils.createSuccessResponse({
+                total: appIds.length,
+                successCount,
+                failCount,
+                decision,
+                results
+            }, `Processed ${successCount} of ${appIds.length} application(s) in batch`);
+
+        } catch (error) {
+            console.error('Error in batchProcessDecisions:', error);
+            return Utils.createErrorResponse('Failed to batch process applications: ' + error.toString());
         }
     },
 
@@ -9458,28 +9667,7 @@ function apiBatchProcessDecisions(params) {
             return Utils.createErrorResponse('Only Supervisors, Admins, or HR can process applications');
         }
 
-        const results = [];
-        let successCount = 0;
-        let failCount = 0;
-
-        for (const appId of appIds) {
-            const res = ApplicationsManager.processApplicationDecision(appId, decision, comment || `Batch ${decision}d by ${currentUser}`);
-            if (res.success) {
-                successCount++;
-                results.push({ appId, success: true });
-            } else {
-                failCount++;
-                results.push({ appId, success: false, error: res.error });
-            }
-        }
-
-        return Utils.createSuccessResponse({
-            total: appIds.length,
-            successCount,
-            failCount,
-            decision,
-            results
-        }, `Processed ${successCount} of ${appIds.length} application(s)`);
+        return ApplicationsManager.batchProcessDecisions(appIds, decision, comment || `Batch ${decision}d by ${currentUser}`, currentUser);
     } catch (error) {
         return Utils.createErrorResponse('Failed to batch process applications: ' + error.message);
     }

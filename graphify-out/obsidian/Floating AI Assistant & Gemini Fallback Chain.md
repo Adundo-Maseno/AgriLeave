@@ -1,14 +1,14 @@
 ---
 source_file: "README.md"
 type: "document"
-community: "AI Assistant & Conversational Guidance"
+community: "readme_ai_assistant_spec"
 location: "Section: Floating AI Assistant"
 tags:
   - graphify/document
   - graphify/EXTRACTED
-  - community/AI_Assistant__Conversational_Guidance
+  - community/readme_ai_assistant_spec
 ---
 
 # Floating AI Assistant & Gemini Fallback Chain
 
-#graphify/document #graphify/EXTRACTED #community/AI_Assistant__Conversational_Guidance
+#graphify/document #graphify/EXTRACTED #community/readme_ai_assistant_spec

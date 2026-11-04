@@ -1,12 +1,12 @@
 ---
 source_file: "Code.js"
 type: "code"
-community: "System Administration & Statutory Policy Engine"
-location: "L6355"
+community: "code_adminmanager & code_api_get_system_diagnostics & code_api_process_year_end"
+location: "L6564"
 tags:
   - graphify/code
   - graphify/EXTRACTED
-  - community/System_Administration__Statutory_Policy_Engine
+  - community/code_adminmanager__code_api_get_system_diagnostics__code_api_process_year_end
 ---
 
 # HolidayManager
@@ -17,4 +17,4 @@ tags:
 - [[apiRecalibrateOverlappingLeaves]] - `calls` [EXTRACTED]
 - [[gazetted_holidays.json]] - `shares_data_with` [EXTRACTED]
 
-#graphify/code #graphify/EXTRACTED #community/System_Administration__Statutory_Policy_Engine
+#graphify/code #graphify/EXTRACTED #community/code_adminmanager__code_api_get_system_diagnostics__code_api_process_year_end

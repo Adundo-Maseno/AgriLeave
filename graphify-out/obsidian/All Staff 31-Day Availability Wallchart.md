@@ -1,11 +1,11 @@
 ---
 source_file: "docs/screenshots/06_hr_dashboard.png"
 type: "image"
-community: "HR Governance & Availability Wallchart"
+community: "docs_screenshots_01_dashboard_supervisor_banner & docs_screenshots_05_team_approvals_actions & docs_screenshots_05_team_approvals_clash_detection"
 tags:
   - graphify/image
   - graphify/EXTRACTED
-  - community/HR_Governance__Availability_Wallchart
+  - community/docs_screenshots_01_dashboard_supervisor_banner__docs_screenshots_05_team_approvals_actions__docs_screenshots_05_team_approvals_clash_detection
 ---
 
 # All Staff 31-Day Availability Wallchart
@@ -14,4 +14,4 @@ tags:
 - [[Department Leave Clash Detector]] - `conceptually_related_to` [INFERRED]
 - [[HR Governance Portal View]] - `implements` [EXTRACTED]
 
-#graphify/image #graphify/EXTRACTED #community/HR_Governance__Availability_Wallchart
+#graphify/image #graphify/EXTRACTED #community/docs_screenshots_01_dashboard_supervisor_banner__docs_screenshots_05_team_approvals_actions__docs_screenshots_05_team_approvals_clash_detection

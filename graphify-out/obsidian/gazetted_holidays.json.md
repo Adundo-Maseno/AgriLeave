@@ -1,11 +1,11 @@
 ---
 source_file: "Agri Experience Leave System/gazetted_holidays.json"
 type: "document"
-community: "System Administration & Statutory Policy Engine"
+community: "code_adminmanager & code_api_get_system_diagnostics & code_api_process_year_end"
 tags:
   - graphify/document
   - graphify/EXTRACTED
-  - community/System_Administration__Statutory_Policy_Engine
+  - community/code_adminmanager__code_api_get_system_diagnostics__code_api_process_year_end
 ---
 
 # gazetted_holidays.json
@@ -13,4 +13,4 @@ tags:
 ## Connections
 - [[HolidayManager]] - `shares_data_with` [EXTRACTED]
 
-#graphify/document #graphify/EXTRACTED #community/System_Administration__Statutory_Policy_Engine
+#graphify/document #graphify/EXTRACTED #community/code_adminmanager__code_api_get_system_diagnostics__code_api_process_year_end

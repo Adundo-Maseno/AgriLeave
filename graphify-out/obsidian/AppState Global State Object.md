@@ -1,12 +1,12 @@
 ---
 source_file: "Index.html"
 type: "code"
-community: "AI Assistant & Conversational Guidance"
+community: "code_api_batch_process_decisions & code_api_cancel_application & code_api_create_staff"
 location: "line 3807"
 tags:
   - graphify/code
   - graphify/EXTRACTED
-  - community/AI_Assistant__Conversational_Guidance
+  - community/code_api_batch_process_decisions__code_api_cancel_application__code_api_create_staff
 ---
 
 # AppState Global State Object
@@ -25,4 +25,4 @@ tags:
 - [[Team Applications View (teamApplicationsPage)]] - `shares_data_with` [EXTRACTED]
 - [[Team Overview View (teamOverviewPage)]] - `shares_data_with` [EXTRACTED]
 
-#graphify/code #graphify/EXTRACTED #community/AI_Assistant__Conversational_Guidance
+#graphify/code #graphify/EXTRACTED #community/code_api_batch_process_decisions__code_api_cancel_application__code_api_create_staff

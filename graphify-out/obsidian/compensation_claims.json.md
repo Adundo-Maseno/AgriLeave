@@ -1,13 +1,13 @@
 ---
 source_file: "Agri Experience Leave System/compensation_claims.json"
 type: "document"
-community: "AI Assistant & Conversational Guidance"
+community: "drive_compensation_claims_json"
 tags:
   - graphify/document
   - graphify/EXTRACTED
-  - community/AI_Assistant__Conversational_Guidance
+  - community/drive_compensation_claims_json
 ---
 
 # compensation_claims.json
 
-#graphify/document #graphify/EXTRACTED #community/AI_Assistant__Conversational_Guidance
+#graphify/document #graphify/EXTRACTED #community/drive_compensation_claims_json

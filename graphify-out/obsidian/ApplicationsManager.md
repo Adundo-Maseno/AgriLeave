@@ -1,12 +1,12 @@
 ---
 source_file: "Code.js"
 type: "code"
-community: "AI Assistant & Conversational Guidance"
+community: "audit_solution_two_tier_read & code_accrualmanager & code_aiassistantmanager"
 location: "L2360"
 tags:
   - graphify/code
   - graphify/EXTRACTED
-  - community/AI_Assistant__Conversational_Guidance
+  - community/audit_solution_two_tier_read__code_accrualmanager__code_aiassistantmanager
 ---
 
 # ApplicationsManager
@@ -19,4 +19,4 @@ tags:
 - [[leave_applications.json]] - `shares_data_with` [EXTRACTED]
 - [[leave_applications_archive.json]] - `shares_data_with` [EXTRACTED]
 
-#graphify/code #graphify/EXTRACTED #community/AI_Assistant__Conversational_Guidance
+#graphify/code #graphify/EXTRACTED #community/audit_solution_two_tier_read__code_accrualmanager__code_aiassistantmanager

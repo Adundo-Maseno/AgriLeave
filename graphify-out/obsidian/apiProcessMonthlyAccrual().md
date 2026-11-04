@@ -1,12 +1,12 @@
 ---
 source_file: "Code.js"
 type: "code"
-community: "HR Governance & Availability Wallchart"
-location: "L9676"
+community: "code & code_absencedigestmanager & code_apiaddgazettedholiday"
+location: "L9864"
 tags:
   - graphify/code
   - graphify/EXTRACTED
-  - community/HR_Governance__Availability_Wallchart
+  - community/code__code_absencedigestmanager__code_apiaddgazettedholiday
 ---
 
 # apiProcessMonthlyAccrual()
@@ -14,4 +14,4 @@ tags:
 ## Connections
 - [[Code.js]] - `contains` [EXTRACTED]
 
-#graphify/code #graphify/EXTRACTED #community/HR_Governance__Availability_Wallchart
+#graphify/code #graphify/EXTRACTED #community/code__code_absencedigestmanager__code_apiaddgazettedholiday

@@ -1,12 +1,12 @@
 ---
 source_file: "antigravity_customizations_inventory.md"
 type: "document"
-community: "Subsystem 9: Antigravity Customizations & M"
+community: "inventory_customizations_overview & inventory_ecc_plugin & inventory_graphify_skill"
 location: "Section 1"
 tags:
   - graphify/document
   - graphify/EXTRACTED
-  - community/Subsystem_9_Antigravity_Customizations__M
+  - community/inventory_customizations_overview__inventory_ecc_plugin__inventory_graphify_skill
 ---
 
 # Antigravity Customizations & Migration Guide
@@ -18,4 +18,4 @@ tags:
 - [[OmniRoute Intelligent Gateway & Model Routing Skill]] - `references` [EXTRACTED]
 - [[Reverse Engineer Anything (REA) Plugin]] - `references` [EXTRACTED]
 
-#graphify/document #graphify/EXTRACTED #community/Subsystem_9_Antigravity_Customizations__M
+#graphify/document #graphify/EXTRACTED #community/inventory_customizations_overview__inventory_ecc_plugin__inventory_graphify_skill

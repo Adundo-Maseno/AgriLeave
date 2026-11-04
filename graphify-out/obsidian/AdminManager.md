@@ -1,12 +1,12 @@
 ---
 source_file: "Code.js"
 type: "code"
-community: "System Administration & Statutory Policy Engine"
-location: "L4044"
+community: "code_adminmanager & code_api_get_system_diagnostics & code_api_process_year_end"
+location: "L4253"
 tags:
   - graphify/code
   - graphify/EXTRACTED
-  - community/System_Administration__Statutory_Policy_Engine
+  - community/code_adminmanager__code_api_get_system_diagnostics__code_api_process_year_end
 ---
 
 # AdminManager
@@ -19,4 +19,4 @@ tags:
 - [[apiProcessYearEnd]] - `calls` [EXTRACTED]
 - [[system_settings.json]] - `shares_data_with` [EXTRACTED]
 
-#graphify/code #graphify/EXTRACTED #community/System_Administration__Statutory_Policy_Engine
+#graphify/code #graphify/EXTRACTED #community/code_adminmanager__code_api_get_system_diagnostics__code_api_process_year_end

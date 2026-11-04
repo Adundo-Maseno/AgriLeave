@@ -1,14 +1,14 @@
 ---
 source_file: "Index.html"
 type: "code"
-community: "HR Governance & Availability Wallchart"
+community: "index_modal_leave_liability"
 location: "line 3654"
 tags:
   - graphify/code
   - graphify/EXTRACTED
-  - community/HR_Governance__Availability_Wallchart
+  - community/index_modal_leave_liability
 ---
 
 # Leave Liability Modal (#leaveLiabilityModal)
 
-#graphify/code #graphify/EXTRACTED #community/HR_Governance__Availability_Wallchart
+#graphify/code #graphify/EXTRACTED #community/index_modal_leave_liability

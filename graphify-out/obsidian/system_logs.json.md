@@ -1,13 +1,13 @@
 ---
 source_file: "Agri Experience Leave System/system_logs.json"
 type: "document"
-community: "Subsystem 21: system_logs.json"
+community: "drive_system_logs_json"
 tags:
   - graphify/document
   - graphify/EXTRACTED
-  - community/Subsystem_21_system_logsjson
+  - community/drive_system_logs_json
 ---
 
 # system_logs.json
 
-#graphify/document #graphify/EXTRACTED #community/Subsystem_21_system_logsjson
+#graphify/document #graphify/EXTRACTED #community/drive_system_logs_json

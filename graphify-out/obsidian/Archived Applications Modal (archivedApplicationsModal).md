@@ -1,14 +1,14 @@
 ---
 source_file: "Index.html"
 type: "code"
-community: "Subsystem 27: Archived Applications Modal (#"
+community: "index_modal_archived_applications"
 location: "line 3465"
 tags:
   - graphify/code
   - graphify/EXTRACTED
-  - community/Subsystem_27_Archived_Applications_Modal_
+  - community/index_modal_archived_applications
 ---
 
 # Archived Applications Modal (#archivedApplicationsModal)
 
-#graphify/code #graphify/EXTRACTED #community/Subsystem_27_Archived_Applications_Modal_
+#graphify/code #graphify/EXTRACTED #community/index_modal_archived_applications

@@ -1,14 +1,14 @@
 ---
 source_file: "README.md"
 type: "document"
-community: "Subsystem 35: Google Workspace Integrations "
+community: "readme_google_workspace_integrations"
 location: "Section: Google Workspace Integrations"
 tags:
   - graphify/document
   - graphify/EXTRACTED
-  - community/Subsystem_35_Google_Workspace_Integrations_
+  - community/readme_google_workspace_integrations
 ---
 
 # Google Workspace Integrations Specification
 
-#graphify/document #graphify/EXTRACTED #community/Subsystem_35_Google_Workspace_Integrations_
+#graphify/document #graphify/EXTRACTED #community/readme_google_workspace_integrations

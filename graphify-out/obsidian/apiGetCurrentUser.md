@@ -1,14 +1,14 @@
 ---
 source_file: "Code.js"
 type: "code"
-community: "Subsystem 19: apiGetCurrentUser"
+community: "code_api_get_current_user"
 location: "RPC Endpoint"
 tags:
   - graphify/code
   - graphify/EXTRACTED
-  - community/Subsystem_19_apiGetCurrentUser
+  - community/code_api_get_current_user
 ---
 
 # apiGetCurrentUser
 
-#graphify/code #graphify/EXTRACTED #community/Subsystem_19_apiGetCurrentUser
+#graphify/code #graphify/EXTRACTED #community/code_api_get_current_user

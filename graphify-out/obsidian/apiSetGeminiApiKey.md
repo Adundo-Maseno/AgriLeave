@@ -1,12 +1,12 @@
 ---
 source_file: "Code.js"
 type: "code"
-community: "AI Assistant & Conversational Guidance"
+community: "code_api_set_gemini_api_key & index_modal_ai_api_key"
 location: "RPC Endpoint"
 tags:
   - graphify/code
   - graphify/EXTRACTED
-  - community/AI_Assistant__Conversational_Guidance
+  - community/code_api_set_gemini_api_key__index_modal_ai_api_key
 ---
 
 # apiSetGeminiApiKey
@@ -14,4 +14,4 @@ tags:
 ## Connections
 - [[AI API Key Modal (aiApiKeyModal)]] - `calls` [EXTRACTED]
 
-#graphify/code #graphify/EXTRACTED #community/AI_Assistant__Conversational_Guidance
+#graphify/code #graphify/EXTRACTED #community/code_api_set_gemini_api_key__index_modal_ai_api_key

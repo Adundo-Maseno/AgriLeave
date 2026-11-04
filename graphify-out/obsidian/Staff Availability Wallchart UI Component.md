@@ -1,12 +1,12 @@
 ---
 source_file: "Index.html"
 type: "code"
-community: "HR Governance & Availability Wallchart"
+community: "code_api_batch_process_decisions & code_api_cancel_application & code_api_create_staff"
 location: "line 15150"
 tags:
   - graphify/code
   - graphify/EXTRACTED
-  - community/HR_Governance__Availability_Wallchart
+  - community/code_api_batch_process_decisions__code_api_cancel_application__code_api_create_staff
 ---
 
 # Staff Availability Wallchart UI Component
@@ -14,4 +14,4 @@ tags:
 ## Connections
 - [[HR Dashboard View (hrDashboardPage)]] - `implements` [EXTRACTED]
 
-#graphify/code #graphify/EXTRACTED #community/HR_Governance__Availability_Wallchart
+#graphify/code #graphify/EXTRACTED #community/code_api_batch_process_decisions__code_api_cancel_application__code_api_create_staff

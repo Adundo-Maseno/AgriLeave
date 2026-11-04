@@ -1,12 +1,12 @@
 ---
 source_file: "Code.js"
 type: "code"
-community: "Subsystem 13: apiFixAllStaffLeaveData()"
-location: "L10339"
+community: "code_apifixallstaffleavedata & code_apifixstaffleavedata & code_fixstaffleavedata"
+location: "L10527"
 tags:
   - graphify/code
   - graphify/EXTRACTED
-  - community/Subsystem_13_apiFixAllStaffLeaveData
+  - community/code_apifixallstaffleavedata__code_apifixstaffleavedata__code_fixstaffleavedata
 ---
 
 # fixStaffLeaveData()
@@ -16,4 +16,4 @@ tags:
 - [[apiFixAllStaffLeaveData()]] - `calls` [EXTRACTED]
 - [[apiFixStaffLeaveData()]] - `calls` [EXTRACTED]
 
-#graphify/code #graphify/EXTRACTED #community/Subsystem_13_apiFixAllStaffLeaveData
+#graphify/code #graphify/EXTRACTED #community/code_apifixallstaffleavedata__code_apifixstaffleavedata__code_fixstaffleavedata

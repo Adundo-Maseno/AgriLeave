@@ -1,12 +1,12 @@
 ---
 source_file: "Code.js"
 type: "code"
-community: "Leave Entitlement & Accrual Engine"
-location: "L10201"
+community: "code_fixaccrualforallstaff & code_fixaccrualforallstaff_formatlocaldate"
+location: "L10389"
 tags:
   - graphify/code
   - graphify/EXTRACTED
-  - community/Leave_Entitlement__Accrual_Engine
+  - community/code_fixaccrualforallstaff__code_fixaccrualforallstaff_formatlocaldate
 ---
 
 # formatLocalDate()
@@ -14,4 +14,4 @@ tags:
 ## Connections
 - [[fixAccrualForAllStaff()]] - `contains` [EXTRACTED]
 
-#graphify/code #graphify/EXTRACTED #community/Leave_Entitlement__Accrual_Engine
+#graphify/code #graphify/EXTRACTED #community/code_fixaccrualforallstaff__code_fixaccrualforallstaff_formatlocaldate

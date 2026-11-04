@@ -1,14 +1,14 @@
 ---
 source_file: "Index.html"
 type: "code"
-community: "Subsystem 28: Edit Staff Modal (#editStaffMo"
+community: "index_modal_edit_staff"
 location: "line 2606"
 tags:
   - graphify/code
   - graphify/EXTRACTED
-  - community/Subsystem_28_Edit_Staff_Modal_editStaffMo
+  - community/index_modal_edit_staff
 ---
 
 # Edit Staff Modal (#editStaffModal)
 
-#graphify/code #graphify/EXTRACTED #community/Subsystem_28_Edit_Staff_Modal_editStaffMo
+#graphify/code #graphify/EXTRACTED #community/index_modal_edit_staff

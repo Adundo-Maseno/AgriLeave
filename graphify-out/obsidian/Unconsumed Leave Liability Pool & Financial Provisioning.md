@@ -1,12 +1,12 @@
 ---
 source_file: "docs/AgriLeave_User_and_Admin_Guide.md"
 type: "document"
-community: "HR Governance & Availability Wallchart"
+community: "code_api_batch_process_decisions & code_api_cancel_application & code_api_create_staff"
 location: "Section 7: Financial Provision"
 tags:
   - graphify/document
   - graphify/EXTRACTED
-  - community/HR_Governance__Availability_Wallchart
+  - community/code_api_batch_process_decisions__code_api_cancel_application__code_api_create_staff
 ---
 
 # Unconsumed Leave Liability Pool & Financial Provisioning
@@ -14,4 +14,4 @@ tags:
 ## Connections
 - [[FinancialProvisionManager]] - `references` [EXTRACTED]
 
-#graphify/document #graphify/EXTRACTED #community/HR_Governance__Availability_Wallchart
+#graphify/document #graphify/EXTRACTED #community/code_api_batch_process_decisions__code_api_cancel_application__code_api_create_staff

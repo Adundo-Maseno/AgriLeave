@@ -1,14 +1,14 @@
 ---
 source_file: "README.md"
 type: "document"
-community: "Subsystem 33: AgriLeave Enterprise System Ov"
+community: "readme_agrileave_overview"
 location: "Section: Key Features"
 tags:
   - graphify/document
   - graphify/EXTRACTED
-  - community/Subsystem_33_AgriLeave_Enterprise_System_Ov
+  - community/readme_agrileave_overview
 ---
 
 # AgriLeave Enterprise System Overview
 
-#graphify/document #graphify/EXTRACTED #community/Subsystem_33_AgriLeave_Enterprise_System_Ov
+#graphify/document #graphify/EXTRACTED #community/readme_agrileave_overview

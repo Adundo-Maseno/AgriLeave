@@ -1,12 +1,12 @@
 ---
 source_file: "Index.html"
 type: "code"
-community: "System Administration & Statutory Policy Engine"
+community: "code_adminmanager & code_api_get_system_diagnostics & code_api_process_year_end"
 location: "line 2054"
 tags:
   - graphify/code
   - graphify/EXTRACTED
-  - community/System_Administration__Statutory_Policy_Engine
+  - community/code_adminmanager__code_api_get_system_diagnostics__code_api_process_year_end
 ---
 
 # System Administration View (#systemAdminPage)
@@ -20,4 +20,4 @@ tags:
 - [[apiSyncSheetsDatabase]] - `calls` [EXTRACTED]
 - [[navigateToPage Navigation Controller]] - `calls` [EXTRACTED]
 
-#graphify/code #graphify/EXTRACTED #community/System_Administration__Statutory_Policy_Engine
+#graphify/code #graphify/EXTRACTED #community/code_adminmanager__code_api_get_system_diagnostics__code_api_process_year_end

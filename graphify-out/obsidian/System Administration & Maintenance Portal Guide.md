@@ -1,12 +1,12 @@
 ---
 source_file: "docs/AgriLeave_User_and_Admin_Guide.md"
 type: "document"
-community: "System Administration & Statutory Policy Engine"
+community: "code_adminmanager & code_api_get_system_diagnostics & code_api_process_year_end"
 location: "Section 8"
 tags:
   - graphify/document
   - graphify/EXTRACTED
-  - community/System_Administration__Statutory_Policy_Engine
+  - community/code_adminmanager__code_api_get_system_diagnostics__code_api_process_year_end
 ---
 
 # System Administration & Maintenance Portal Guide
@@ -14,4 +14,4 @@ tags:
 ## Connections
 - [[System Administration View (systemAdminPage)]] - `references` [EXTRACTED]
 
-#graphify/document #graphify/EXTRACTED #community/System_Administration__Statutory_Policy_Engine
+#graphify/document #graphify/EXTRACTED #community/code_adminmanager__code_api_get_system_diagnostics__code_api_process_year_end

@@ -1,12 +1,12 @@
 ---
 source_file: "Code.js"
 type: "code"
-community: "Subsystem 17: apiExportSystemData()"
-location: "L10653"
+community: "code_apiexportsystemdata & code_apiexportsystemdata_escapecsv"
+location: "L10841"
 tags:
   - graphify/code
   - graphify/EXTRACTED
-  - community/Subsystem_17_apiExportSystemData
+  - community/code_apiexportsystemdata__code_apiexportsystemdata_escapecsv
 ---
 
 # apiExportSystemData()
@@ -15,4 +15,4 @@ tags:
 - [[Code.js]] - `contains` [EXTRACTED]
 - [[escapeCsv()]] - `indirect_call` [INFERRED]
 
-#graphify/code #graphify/EXTRACTED #community/Subsystem_17_apiExportSystemData
+#graphify/code #graphify/EXTRACTED #community/code_apiexportsystemdata__code_apiexportsystemdata_escapecsv
