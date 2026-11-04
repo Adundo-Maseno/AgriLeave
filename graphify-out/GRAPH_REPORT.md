@@ -272,3 +272,24 @@ _Questions this graph is uniquely positioned to answer:_
 - **Pillar 6 (WCAG 2.2 AA Accessibility & Reduced Motion)**:
   - Accessible semantics: `role="status"` and `aria-live="polite"` on `#loadingOverlay`.
   - Full `@media (prefers-reduced-motion: reduce)` overrides disabling transforms and ambient loops.
+
+
+### The Web Kitchen (TWK) Craftsman Upgrade: Typography & Bulletproof Email Templates (Pillars 1, 4 & 6)
+- **Application Typography Overhaul (Index.html)**:
+  - Replaced generic single-font Inter with **The Web Kitchen (TWK) Editorial Typography System**:
+    - Primary Body & UI Sans: **Plus Jakarta Sans** (contemporary geometric neo-grotesque with wide apertures, enhanced x-height, and superior retina legibility).
+    - Display & Executive Headings: **Playfair Display** (refined high-fashion serif for brand emphasis, modals, and report headers).
+    - Tabular Figures: Enforced `font-variant-numeric: tabular-nums` and tight `-0.02em` tracking on all numerical stats, KPIs, and date columns (`td.numeric, td:has(span.numeric)`).
+    - Tailored letter-spacing: Enforced `letter-spacing: -0.011em` and `-webkit-font-smoothing: antialiased` globally.
+- **Enterprise Bulletproof Email Template Architecture (Code.js)**:
+  - **Universal Email Shell (`EmailService.wrapTemplate`)**:
+    - Bulletproof table-based layout compatible with Outlook Windows desktop, Apple Mail, Gmail (web, iOS, Android), and Thunderbird.
+    - Executive forest-emerald gradient headers with branded emblem crest, crisp uppercase tracking, and theme switching (`primary`, `success`, `error`, `warning`).
+    - Plus Jakarta Sans typography with Google Fonts import and universal system fallbacks.
+    - Outlook-compatible 2-column key-value data tables, high-contrast pill badges (`badge-approved`, `badge-declined`, `badge-pending`), and tactile CTA buttons (`cta-button`).
+  - **Upgraded Notification Coverage**:
+    - `applicationSubmitted`: High-contrast application review card with key-value table and 48-hour review prompt.
+    - `applicationApproved`: Success banner, approval badge, and dedicated 4-column deduction breakdown (Annual, B/Fwd, TOIL/Comp, Sick).
+    - `applicationDeclined`: High-contrast error banner, decline reason callout card, and structured "Suggested Next Steps" box.
+    - `notifyHRDecision`: Enterprise decision audit report for HR distribution with supervisor remarks and applied deductions.
+    - `notifyHandoverNominated` & `notifyHandoverAssigned`: Professional coverage requests and confirmation briefs for nominated colleagues.

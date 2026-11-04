@@ -4449,257 +4449,408 @@ const EmailService = {
     SYSTEM_NAME: SYSTEM.NAME,
     SYSTEM_URL: ScriptApp.getService().getUrl(),
 
-    // Base styles shared across all templates
+    // The Web Kitchen (TWK) Modern Editorial Email Styles
     baseStyles: `
-    body { 
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      line-height: 1.5; 
-      color: #1f2937; 
-      background-color: #f3f4f6; 
-      margin: 0; 
-      padding: 20px; 
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+    body, html { 
+      margin: 0 !important; 
+      padding: 0 !important; 
+      -webkit-text-size-adjust: 100% !important; 
+      -ms-text-size-adjust: 100% !important; 
+      background-color: #f1f5f9; 
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      color: #1e293b; 
+      line-height: 1.6; 
     }
-    .container { 
+    table { 
+      border-collapse: separate; 
+      mso-table-lspace: 0pt; 
+      mso-table-rspace: 0pt; 
+    }
+    img { 
+      border: 0; 
+      height: auto; 
+      line-height: 100%; 
+      outline: none; 
+      text-decoration: none; 
+    }
+    .email-container { 
       max-width: 600px; 
       margin: 0 auto; 
-      background: white; 
-      border-radius: 8px; 
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); 
+      background: #ffffff; 
+      border-radius: 16px; 
       overflow: hidden; 
+      border: 1px solid #e2e8f0; 
+      box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.05); 
     }
-    .header { 
-      padding: 24px 32px; 
+    .email-header { 
+      padding: 32px 28px; 
       text-align: center; 
+      border-bottom: 3px solid #10b981; 
     }
-    .header-primary { background-color: #059669; }
-    .header-success { background-color: #059669; }
-    .header-error { background-color: #dc2626; }
-    .title { 
-      font-size: 20px; 
-      font-weight: 600; 
-      color: white; 
+    .header-primary { 
+      background: linear-gradient(135deg, #064e3b 0%, #065f46 50%, #047857 100%); 
+    }
+    .header-success { 
+      background: linear-gradient(135deg, #064e3b 0%, #059669 50%, #0d9488 100%); 
+      border-bottom-color: #34d399; 
+    }
+    .header-error { 
+      background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 50%, #b91c1c 100%); 
+      border-bottom-color: #f87171; 
+    }
+    .header-warning { 
+      background: linear-gradient(135deg, #78350f 0%, #92400e 50%, #b45309 100%); 
+      border-bottom-color: #fbbf24; 
+    }
+    .brand-title { 
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 15px; 
+      font-weight: 800; 
+      letter-spacing: 0.18em; 
+      text-transform: uppercase; 
+      color: #ffffff; 
       margin: 0; 
+      line-height: 1.2; 
     }
-    .subtitle { 
-      font-size: 14px; 
-      color: rgba(255, 255, 255, 0.9); 
+    .brand-subtitle { 
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 10px; 
+      font-weight: 600; 
+      letter-spacing: 0.12em; 
+      text-transform: uppercase; 
+      color: #a7f3d0; 
       margin-top: 4px; 
     }
-    .content { padding: 32px; }
+    .email-content { 
+      padding: 32px 28px; 
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: #1e293b; 
+      font-size: 14px; 
+      line-height: 1.6; 
+    }
     .greeting { 
       font-size: 16px; 
-      font-weight: 500; 
-      color: #111827; 
-      margin-bottom: 24px; 
+      font-weight: 700; 
+      color: #0f172a; 
+      letter-spacing: -0.01em; 
+      margin-bottom: 12px; 
     }
     .badge {
       display: inline-block;
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 600;
-      margin-bottom: 16px;
+      padding: 5px 14px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
     }
-    .badge-approved { background-color: #d1fae5; color: #065f46; }
-    .badge-declined { background-color: #fee2e2; color: #991b1b; }
-    .section { 
-      background-color: #f9fafb; 
-      border-radius: 8px; 
-      padding: 24px; 
-      margin-bottom: 24px; 
+    .badge-approved { background-color: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+    .badge-declined { background-color: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+    .badge-pending  { background-color: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+    .data-table { 
+      width: 100%; 
+      border-collapse: separate; 
+      background-color: #f8fafc; 
+      border: 1px solid #e2e8f0; 
+      border-radius: 12px; 
+      margin: 20px 0; 
+      overflow: hidden; 
     }
-    .grid { 
-      display: grid; 
-      grid-template-columns: 1fr 1fr; 
-      gap: 16px; 
+    .data-table td { 
+      padding: 12px 16px; 
+      vertical-align: top; 
+      border-bottom: 1px solid #edf2f7; 
+    }
+    .data-table tr:last-child td { 
+      border-bottom: none; 
     }
     .label { 
-      font-size: 12px; 
-      color: #6b7280; 
+      font-size: 10.5px; 
+      font-weight: 700; 
+      color: #64748b; 
       text-transform: uppercase; 
-      letter-spacing: 0.05em; 
-      margin-bottom: 4px; 
+      letter-spacing: 0.07em; 
+      margin-bottom: 2px; 
     }
     .value { 
-      font-size: 15px; 
-      font-weight: 600; 
-      color: #111827; 
-      font-variant-numeric: tabular-nums;
-      font-feature-settings: 'tnum';
-    }
-    .reason-box { 
-      background: white; 
-      border-radius: 6px; 
-      padding: 16px; 
-      border-left: 3px solid #059669; 
-      margin-top: 16px; 
-    }
-    .button { 
-      display: inline-block; 
-      background-color: #059669; 
-      color: white; 
-      padding: 12px 24px; 
-      border-radius: 6px; 
-      text-decoration: none; 
-      font-weight: 500; 
       font-size: 14px; 
-      margin-top: 24px; 
+      font-weight: 700; 
+      color: #0f172a; 
+      font-variant-numeric: tabular-nums; 
     }
-    .footer { 
-      background-color: #f9fafb; 
-      padding: 24px 32px; 
+    .reason-card { 
+      background: #f8fafc; 
+      border-left: 3px solid #059669; 
+      border-radius: 0 10px 10px 0; 
+      padding: 14px 18px; 
+      margin: 16px 0; 
+      border-top: 1px solid #e2e8f0; 
+      border-right: 1px solid #e2e8f0; 
+      border-bottom: 1px solid #e2e8f0; 
+    }
+    .cta-button { 
+      display: inline-block; 
+      background: linear-gradient(135deg, #059669 0%, #0d9488 100%); 
+      color: #ffffff !important; 
+      padding: 13px 30px; 
+      border-radius: 10px; 
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-weight: 700; 
+      font-size: 13.5px; 
+      text-decoration: none; 
+      letter-spacing: 0.02em; 
+      box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25); 
+    }
+    .email-footer { 
+      background-color: #f8fafc; 
+      padding: 22px 28px; 
       text-align: center; 
-      border-top: 1px solid #e5e7eb; 
-      font-size: 12px; 
-      color: #6b7280; 
+      border-top: 1px solid #e2e8f0; 
+      font-size: 11px; 
+      color: #64748b; 
+      line-height: 1.6; 
     }
-    .footer a { color: #059669; text-decoration: none; }
-    hr { border: none; border-top: 1px solid #e5e7eb; margin: 24px 0; }
+    .email-footer a { 
+      color: #059669; 
+      text-decoration: none; 
+      font-weight: 600; 
+    }
   `,
+
+    wrapTemplate: function(options) {
+        const headerTheme = options.headerTheme || 'primary';
+        const headerClass = headerTheme === 'success' ? 'header-success' : (headerTheme === 'error' ? 'header-error' : (headerTheme === 'warning' ? 'header-warning' : 'header-primary'));
+        const headerTitle = options.title || this.SYSTEM_NAME;
+        const headerSubtitle = options.subtitle || 'Leave Management System';
+        const systemUrl = options.systemUrl || this.SYSTEM_URL;
+        const actionBtn = options.actionBtn ? `
+          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 24px 0 8px 0;">
+            <tr>
+              <td align="center">
+                <a href="${options.actionBtn.url}" class="cta-button" target="_blank">${options.actionBtn.label} &rarr;</a>
+              </td>
+            </tr>
+          </table>` : '';
+
+        return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>${this.baseStyles}</style>
+</head>
+<body style="margin:0;padding:0;background-color:#f1f5f9;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#f1f5f9;table-layout:fixed;">
+    <tr>
+      <td align="center" style="padding: 24px 12px 36px 12px;">
+        <div class="email-container">
+          <div class="email-header ${headerClass}">
+            <div style="display:inline-block;width:34px;height:34px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:10px;text-align:center;line-height:34px;margin-bottom:8px;">
+              <span style="font-size:18px;">🌿</span>
+            </div>
+            <div class="brand-title">${headerTitle}</div>
+            <div class="brand-subtitle">${headerSubtitle}</div>
+          </div>
+          <div class="email-content">
+            ${options.contentHtml}
+            ${actionBtn}
+          </div>
+          <div class="email-footer">
+            <div style="font-weight: 700; color: #475569; font-size: 11.5px;">${SYSTEM.ORGANIZATION || 'Agri Experience Limited'} • Leave Portal</div>
+            <div style="margin-top: 4px;"><a href="${systemUrl}" target="_blank">${systemUrl}</a></div>
+            <div style="margin-top: 10px; color: #94a3b8; font-size: 10.5px;">Making Every Season Count • Confidential Enterprise Notification</div>
+            <div style="margin-top: 4px; color: #cbd5e1; font-size: 10px;">This is an automated message. Please do not reply directly.</div>
+          </div>
+        </div>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+    },
 
     templates: {
         applicationSubmitted: {
             subject: `Leave Application Submitted - ${SYSTEM.NAME}`,
-            htmlBody: (data) => `
-        <!DOCTYPE html>
-        <html>
-        <head><meta charset="UTF-8"><style>${EmailService.baseStyles}</style></head>
-        <body>
-          <div class="container">
-            <div class="header header-primary">
-              <div class="title">${data.systemName}</div>
-              <div class="subtitle">Leave Management System</div>
-            </div>
-            <div class="content">
-              <div class="greeting">Dear ${data.supervisorName},</div>
-              <div class="section">
-                <div style="font-weight: 600; color: #059669; margin-bottom: 16px;">New Leave Application</div>
-                <div class="grid">
-                  <div><div class="label">Staff Member</div><div class="value">${data.staffName}</div></div>
-                  <div><div class="label">Department</div><div class="value">${data.department}</div></div>
-                  <div><div class="label">Leave Type</div><div class="value">${data.leaveType}</div></div>
-                  <div><div class="label">Duration</div><div class="value">${data.duration} days</div></div>
-                  <div><div class="label">Start Date</div><div class="value">${data.startDate}</div></div>
-                  <div><div class="label">End Date</div><div class="value">${data.endDate}</div></div>
-                </div>
-                <div style="margin-top: 16px;">
-                  <div class="label">Reason</div>
-                  <div class="value">${data.reason}</div>
-                </div>
-                <div style="text-align: center;">
-                  <a href="${data.actionUrl}" class="button">Review Application</a>
-                </div>
-              </div>
-              <div style="text-align: center; color: #6b7280; font-size: 13px;">
-                Please review within 48 hours
-              </div>
-            </div>
-            <div class="footer">
-              <div><a href="${data.systemUrl}">${data.systemUrl}</a></div>
-              <div style="margin-top: 8px;">© ${new Date().getFullYear()} ${SYSTEM.ORGANIZATION}</div>
-              <div style="margin-top: 16px; font-size: 11px;">This is an automated message. Please do not reply.</div>
-            </div>
-          </div>
-        </body>
-        </html>
-      `
+            htmlBody: (data) => EmailService.wrapTemplate({
+                title: data.systemName,
+                subtitle: 'Leave Application Review',
+                headerTheme: 'primary',
+                systemUrl: data.systemUrl,
+                actionBtn: { label: 'Review Application', url: data.actionUrl },
+                contentHtml: `
+                  <div class="greeting">Dear ${data.supervisorName},</div>
+                  <p style="margin: 0 0 16px 0; color: #475569;">
+                    A new leave application has been submitted by <strong>${data.staffName}</strong> and requires your review and endorsement.
+                  </p>
+
+                  <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="data-table">
+                    <tr>
+                      <td style="width: 50%;">
+                        <div class="label">Staff Member</div>
+                        <div class="value">${data.staffName}</div>
+                      </td>
+                      <td style="width: 50%;">
+                        <div class="label">Department</div>
+                        <div class="value">${data.department}</div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <div class="label">Leave Type</div>
+                        <div class="value" style="color: #059669;">${data.leaveType}</div>
+                      </td>
+                      <td>
+                        <div class="label">Duration</div>
+                        <div class="value">${data.duration} business day(s)</div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <div class="label">Start Date</div>
+                        <div class="value">${data.startDate}</div>
+                      </td>
+                      <td>
+                        <div class="label">End Date</div>
+                        <div class="value">${data.endDate}</div>
+                      </td>
+                    </tr>
+                  </table>
+
+                  ${data.reason ? `
+                  <div class="reason-card">
+                    <div class="label">Reason / Notes</div>
+                    <div class="value" style="font-weight: 500; font-size: 13.5px; margin-top: 4px;">${data.reason}</div>
+                  </div>` : ''}
+
+                  <div style="text-align: center; color: #64748b; font-size: 12.5px; margin-top: 16px;">
+                    Kindly review and take action within 48 hours to ensure seamless team continuity.
+                  </div>
+                `
+            })
         },
 
         applicationApproved: {
             subject: `Leave Application Approved - ${SYSTEM.NAME}`,
-            htmlBody: (data) => `
-        <!DOCTYPE html>
-        <html>
-        <head><meta charset="UTF-8"><style>${EmailService.baseStyles}</style></head>
-        <body>
-          <div class="container">
-            <div class="header header-success">
-              <div class="title">${data.systemName}</div>
-              <div class="subtitle">Leave Management System</div>
-            </div>
-            <div class="content">
-              <div style="text-align: center;">
-                <span class="badge badge-approved">✓ APPROVED</span>
-                <div class="greeting" style="margin-top: 8px;">Great news, ${data.staffName}!</div>
-                <p style="color: #6b7280;">Your leave application has been approved.</p>
-              </div>
-              <hr>
-              <div class="grid">
-                <div><div class="label">Application ID</div><div class="value">${data.appId}</div></div>
-                <div><div class="label">Leave Type</div><div class="value">${data.leaveType}</div></div>
-                <div><div class="label">Period</div><div class="value">${data.startDate} - ${data.endDate}</div></div>
-                <div><div class="label">Duration</div><div class="value">${data.duration} days</div></div>
-              </div>
-              <hr>
-              <div style="display: flex; justify-content: space-around; text-align: center; gap: 8px;">
-                <div><div class="label">Annual Used</div><div class="value">${data.deductAnnual || 0}</div></div>
-                <div><div class="label">B/Fwd Used</div><div class="value">${data.deductBroughtForward || 0}</div></div>
-                <div><div class="label">Comp Used</div><div class="value">${data.deductCompensation || 0}</div></div>
-                <div><div class="label">Sick Used</div><div class="value">${data.deductSick || 0}</div></div>
-              </div>
-              <div style="text-align: center;">
-                <a href="${data.dashboardUrl}" class="button">View Balance</a>
-              </div>
-            </div>
-            <div class="footer">
-              <div><a href="${data.systemUrl}">${data.systemUrl}</a></div>
-              <div>Making Every Season Count</div>
-            </div>
-          </div>
-        </body>
-        </html>
-      `
+            htmlBody: (data) => EmailService.wrapTemplate({
+                title: data.systemName,
+                subtitle: 'Leave Application Approved',
+                headerTheme: 'success',
+                systemUrl: data.systemUrl,
+                actionBtn: { label: 'View Leave Balance', url: data.dashboardUrl },
+                contentHtml: `
+                  <div style="text-align: center; margin-bottom: 20px;">
+                    <span class="badge badge-approved">✓ APPROVED</span>
+                    <div class="greeting" style="font-size: 18px; margin-top: 6px;">Great news, ${data.staffName}!</div>
+                    <p style="color: #475569; margin: 4px 0 0 0;">Your leave application has been officially reviewed and approved.</p>
+                  </div>
+
+                  <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="data-table">
+                    <tr>
+                      <td style="width: 50%;">
+                        <div class="label">Application Ref</div>
+                        <div class="value">${data.appId}</div>
+                      </td>
+                      <td style="width: 50%;">
+                        <div class="label">Leave Type</div>
+                        <div class="value" style="color: #059669;">${data.leaveType}</div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <div class="label">Leave Period</div>
+                        <div class="value">${data.startDate} – ${data.endDate}</div>
+                      </td>
+                      <td>
+                        <div class="label">Total Approved</div>
+                        <div class="value">${data.duration} business day(s)</div>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <div style="margin: 20px 0 10px 0; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; text-align: center;">
+                    Deduction Breakdown
+                  </div>
+                  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; text-align: center; margin-bottom: 16px;">
+                    <tr>
+                      <td style="padding: 10px 6px; border-right: 1px solid #edf2f7; width: 25%;">
+                        <div class="label">Annual</div>
+                        <div class="value">${data.deductAnnual || 0}</div>
+                      </td>
+                      <td style="padding: 10px 6px; border-right: 1px solid #edf2f7; width: 25%;">
+                        <div class="label">B/Fwd</div>
+                        <div class="value">${data.deductBroughtForward || 0}</div>
+                      </td>
+                      <td style="padding: 10px 6px; border-right: 1px solid #edf2f7; width: 25%;">
+                        <div class="label">Comp / TOIL</div>
+                        <div class="value">${data.deductCompensation || 0}</div>
+                      </td>
+                      <td style="padding: 10px 6px; width: 25%;">
+                        <div class="label">Sick</div>
+                        <div class="value">${data.deductSick || 0}</div>
+                      </td>
+                    </tr>
+                  </table>
+                `
+            })
         },
 
         applicationDeclined: {
             subject: `Leave Application Declined - ${SYSTEM.NAME}`,
-            htmlBody: (data) => `
-        <!DOCTYPE html>
-        <html>
-        <head><meta charset="UTF-8"><style>${EmailService.baseStyles}</style></head>
-        <body>
-          <div class="container">
-            <div class="header header-error">
-              <div class="title">${data.systemName}</div>
-              <div class="subtitle">Leave Management System</div>
-            </div>
-            <div class="content">
-              <div style="text-align: center;">
-                <span class="badge badge-declined">✗ DECLINED</span>
-                <div class="greeting" style="margin-top: 8px;">Dear ${data.staffName},</div>
-                <p style="color: #6b7280;">Your leave application has been declined.</p>
-              </div>
-              <hr>
-              <div class="grid">
-                <div><div class="label">Application ID</div><div class="value">${data.appId}</div></div>
-                <div><div class="label">Leave Type</div><div class="value">${data.leaveType}</div></div>
-                <div><div class="label">Period</div><div class="value">${data.startDate} - ${data.endDate}</div></div>
-                <div><div class="label">Duration</div><div class="value">${data.duration} days</div></div>
-              </div>
-              <div class="reason-box">
-                <div class="label">Reason for Declining</div>
-                <div class="value">${data.comment}</div>
-              </div>
-              <div style="background-color: #fef3c7; border-radius: 6px; padding: 16px; margin-top: 24px;">
-                <div style="font-weight: 600; color: #92400e; margin-bottom: 8px;">Next Steps</div>
-                <ul style="margin: 0; padding-left: 20px; color: #92400e; font-size: 14px;">
-                  <li>Review the reason for declining above</li>
-                  <li>Check your leave balance before reapplying</li>
-                  <li>Contact your supervisor if you need clarification</li>
-                </ul>
-              </div>
-              <div style="text-align: center;">
-                <a href="${data.dashboardUrl}" class="button">View Details</a>
-              </div>
-            </div>
-            <div class="footer">
-              <div><a href="${data.systemUrl}">${data.systemUrl}</a></div>
-              <div>Making Every Season Count</div>
-            </div>
-          </div>
-        </body>
-        </html>
-      `
+            htmlBody: (data) => EmailService.wrapTemplate({
+                title: data.systemName,
+                subtitle: 'Leave Application Decision',
+                headerTheme: 'error',
+                systemUrl: data.systemUrl,
+                actionBtn: { label: 'View Application Details', url: data.dashboardUrl },
+                contentHtml: `
+                  <div style="text-align: center; margin-bottom: 20px;">
+                    <span class="badge badge-declined">✗ DECLINED</span>
+                    <div class="greeting" style="font-size: 18px; margin-top: 6px;">Dear ${data.staffName},</div>
+                    <p style="color: #475569; margin: 4px 0 0 0;">Your leave application has been reviewed and declined.</p>
+                  </div>
+
+                  <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="data-table">
+                    <tr>
+                      <td style="width: 50%;">
+                        <div class="label">Application Ref</div>
+                        <div class="value">${data.appId}</div>
+                      </td>
+                      <td style="width: 50%;">
+                        <div class="label">Leave Type</div>
+                        <div class="value">${data.leaveType}</div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <div class="label">Requested Period</div>
+                        <div class="value">${data.startDate} – ${data.endDate}</div>
+                      </td>
+                      <td>
+                        <div class="label">Duration</div>
+                        <div class="value">${data.duration} business day(s)</div>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-left: 4px solid #ef4444; border-radius: 8px; padding: 14px 18px; margin: 16px 0;">
+                    <div style="font-size: 10.5px; font-weight: 700; color: #991b1b; text-transform: uppercase; letter-spacing: 0.07em;">Reason for Declining</div>
+                    <div style="font-size: 13.5px; font-weight: 600; color: #7f1d1d; margin-top: 4px;">${data.comment || 'No specific comments provided.'}</div>
+                  </div>
+
+                  <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 16px 20px; margin-top: 16px;">
+                    <div style="font-size: 12px; font-weight: 700; color: #92400e; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">Suggested Next Steps</div>
+                    <ul style="margin: 0; padding-left: 18px; color: #78350f; font-size: 13px; line-height: 1.5;">
+                      <li>Review the feedback notes provided by your supervisor</li>
+                      <li>Consult your live leave balances in the portal before resubmitting</li>
+                      <li>Discuss with your department lead if date adjustments are required</li>
+                    </ul>
+                  </div>
+                `
+            })
         }
     },
 
@@ -4858,58 +5009,83 @@ const NotificationManager = {
             const badgeClass = isApproved ? 'badge-approved' : 'badge-declined';
             const badgeText = isApproved ? '✓ APPROVED' : '✗ DECLINED';
 
-            const body = `
-        <!DOCTYPE html>
-        <html>
-        <head><meta charset="UTF-8"><style>${EmailService.baseStyles}</style></head>
-        <body>
-          <div class="container">
-            <div class="header" style="background-color: ${headerColor};">
-              <div class="title">${SYSTEM.NAME}</div>
-              <div class="subtitle">HR Leave Activity Notification</div>
-            </div>
-            <div class="content">
-              <div style="text-align: center;">
-                <span class="badge ${badgeClass}">${badgeText}</span>
-                <div class="greeting" style="margin-top: 8px;">Leave Application Decision</div>
-                <p style="color: #6b7280; font-size: 13px;">Processed by <strong>${application.ProcessedBy || 'Supervisor'}</strong></p>
-              </div>
-              <hr>
-              <div class="grid">
-                <div><div class="label">Staff Member</div><div class="value">${application.Name}</div></div>
-                <div><div class="label">Department</div><div class="value">${application.Department || '—'}</div></div>
-                <div><div class="label">Leave Type</div><div class="value">${application.LeaveType}</div></div>
-                <div><div class="label">Period</div><div class="value">${Utils.formatDateForDisplay(application.StartDate)} – ${Utils.formatDateForDisplay(application.EndDate)}</div></div>
-                <div><div class="label">Duration</div><div class="value">${application.Duration} day(s)</div></div>
-                <div><div class="label">Staff Email</div><div class="value" style="font-size: 13px;">${application.Email}</div></div>
-              </div>
-              ${comment ? `
-              <div class="reason-box" style="border-left-color: ${headerColor};">
-                <div class="label">Supervisor Comment</div>
-                <div class="value">${comment}</div>
-              </div>` : ''}
-              ${isApproved ? `
-              <hr>
-              <div class="label" style="margin-bottom: 8px;">Deductions Applied</div>
-              <div style="display: flex; justify-content: space-around; text-align: center; gap: 8px;">
-                <div><div class="label">Annual</div><div class="value">${application.DeductFromAnnual || 0}</div></div>
-                <div><div class="label">B/Fwd</div><div class="value">${application.DeductFromBroughtForward || 0}</div></div>
-                <div><div class="label">Comp</div><div class="value">${application.DeductFromCompensation || 0}</div></div>
-                <div><div class="label">Sick</div><div class="value">${application.DeductFromSick || 0}</div></div>
-              </div>` : ''}
-              <div style="text-align: center;">
-                <a href="${EmailService.SYSTEM_URL}" class="button">Open HR Dashboard</a>
-              </div>
-            </div>
-            <div class="footer">
-              <div><a href="${EmailService.SYSTEM_URL}">${EmailService.SYSTEM_URL}</a></div>
-              <div style="margin-top: 8px;">© ${new Date().getFullYear()} ${SYSTEM.ORGANIZATION}</div>
-              <div style="margin-top: 16px; font-size: 11px;">This is an automated system notification for HR records.</div>
-            </div>
-          </div>
-        </body>
-        </html>
-      `;
+            const body = EmailService.wrapTemplate({
+                title: SYSTEM.NAME,
+                subtitle: 'HR Leave Activity Notification',
+                headerTheme: isApproved ? 'success' : 'error',
+                actionBtn: { label: 'Open HR Dashboard', url: EmailService.SYSTEM_URL },
+                contentHtml: `
+                  <div style="text-align: center; margin-bottom: 20px;">
+                    <span class="badge ${badgeClass}">${badgeText}</span>
+                    <div class="greeting" style="font-size: 17px; margin-top: 6px;">Leave Application Decision Recorded</div>
+                    <p style="color: #64748b; font-size: 13px; margin: 2px 0 0 0;">Processed by <strong>${application.ProcessedBy || 'Supervisor'}</strong></p>
+                  </div>
+
+                  <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="data-table">
+                    <tr>
+                      <td style="width: 50%;">
+                        <div class="label">Staff Member</div>
+                        <div class="value">${application.Name}</div>
+                      </td>
+                      <td style="width: 50%;">
+                        <div class="label">Department</div>
+                        <div class="value">${application.Department || '—'}</div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <div class="label">Leave Type</div>
+                        <div class="value" style="color: ${headerColor};">${application.LeaveType}</div>
+                      </td>
+                      <td>
+                        <div class="label">Duration</div>
+                        <div class="value">${application.Duration} day(s)</div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <div class="label">Period</div>
+                        <div class="value">${Utils.formatDateForDisplay(application.StartDate)} – ${Utils.formatDateForDisplay(application.EndDate)}</div>
+                      </td>
+                      <td>
+                        <div class="label">Staff Email</div>
+                        <div class="value" style="font-size: 12.5px; font-weight: 600;">${application.Email}</div>
+                      </td>
+                    </tr>
+                  </table>
+
+                  ${comment ? `
+                  <div class="reason-card" style="border-left-color: ${headerColor};">
+                    <div class="label">Supervisor Decision Remarks</div>
+                    <div class="value" style="font-weight: 500; font-size: 13.5px; margin-top: 4px;">${comment}</div>
+                  </div>` : ''}
+
+                  ${isApproved ? `
+                  <div style="margin: 20px 0 10px 0; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; text-align: center;">
+                    Deductions Applied
+                  </div>
+                  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; text-align: center; margin-bottom: 16px;">
+                    <tr>
+                      <td style="padding: 10px 6px; border-right: 1px solid #edf2f7; width: 25%;">
+                        <div class="label">Annual</div>
+                        <div class="value">${application.DeductFromAnnual || 0}</div>
+                      </td>
+                      <td style="padding: 10px 6px; border-right: 1px solid #edf2f7; width: 25%;">
+                        <div class="label">B/Fwd</div>
+                        <div class="value">${application.DeductFromBroughtForward || 0}</div>
+                      </td>
+                      <td style="padding: 10px 6px; border-right: 1px solid #edf2f7; width: 25%;">
+                        <div class="label">Comp</div>
+                        <div class="value">${application.DeductFromCompensation || 0}</div>
+                      </td>
+                      <td style="padding: 10px 6px; width: 25%;">
+                        <div class="label">Sick</div>
+                        <div class="value">${application.DeductFromSick || 0}</div>
+                      </td>
+                    </tr>
+                  </table>` : ''}
+                `
+            });
 
             hrEmails.forEach(hrEmail => {
                 try {
@@ -4923,7 +5099,6 @@ const NotificationManager = {
         }
     },
 
-    // Notify HR of year-end processing summary
     notifyHRYearEnd: function (summary) {
         try {
             const hrEmails = this.getHREmails();
@@ -5150,20 +5325,47 @@ const NotificationManager = {
         try {
             if (!application.HandoverEmail) return false;
             const subject = `[Handover Request] You are nominated as reliever for ${application.Name}`;
-            const body = `
-                <div style="font-family:sans-serif;padding:16px;color:#1f2937;">
-                    <h3 style="color:#059669;margin-top:0;">🌿 Handover Nomination</h3>
-                    <p>Dear Colleague,</p>
-                    <p><strong>${application.Name}</strong> (${application.Email}) has submitted a leave application and nominated you as their handover / reliever contact.</p>
-                    <table style="width:100%;border-collapse:collapse;margin:16px 0;background:#f9fafb;border-radius:8px;padding:12px;">
-                        <tr><td style="padding:6px;font-weight:bold;">Leave Type:</td><td>${application.LeaveType}</td></tr>
-                        <tr><td style="padding:6px;font-weight:bold;">Period:</td><td>${Utils.formatDateForDisplay(application.StartDate)} to ${Utils.formatDateForDisplay(application.EndDate)}</td></tr>
-                        <tr><td style="padding:6px;font-weight:bold;">Duration:</td><td>${application.Duration} business day(s)</td></tr>
-                        ${application.HandoverNotes ? `<tr><td style="padding:6px;font-weight:bold;">Handover Notes:</td><td>${application.HandoverNotes}</td></tr>` : ''}
-                    </table>
-                    <p style="font-size:13px;color:#6b7280;">This request is currently pending supervisor approval. You will receive another notification once approved.</p>
-                </div>
-            `;
+            const body = EmailService.wrapTemplate({
+                title: SYSTEM.NAME,
+                subtitle: 'Handover / Reliever Nomination',
+                headerTheme: 'primary',
+                actionBtn: { label: 'Review Handover Request', url: EmailService.SYSTEM_URL },
+                contentHtml: `
+                  <div class="greeting">Dear Colleague,</div>
+                  <p style="margin: 0 0 16px 0; color: #475569;">
+                    <strong>${application.Name}</strong> (${application.Email}) has submitted a leave application and nominated you as their designated handover colleague and reliever.
+                  </p>
+
+                  <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="data-table">
+                    <tr>
+                      <td style="width: 50%;">
+                        <div class="label">Leave Type</div>
+                        <div class="value" style="color: #059669;">${application.LeaveType}</div>
+                      </td>
+                      <td style="width: 50%;">
+                        <div class="label">Duration</div>
+                        <div class="value">${application.Duration} business day(s)</div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td colspan="2">
+                        <div class="label">Coverage Period</div>
+                        <div class="value">${Utils.formatDateForDisplay(application.StartDate)} to ${Utils.formatDateForDisplay(application.EndDate)}</div>
+                      </td>
+                    </tr>
+                  </table>
+
+                  ${application.HandoverNotes ? `
+                  <div class="reason-card">
+                    <div class="label">Handover Instructions & Coverage Notes</div>
+                    <div class="value" style="font-weight: 500; font-size: 13.5px; margin-top: 4px;">${application.HandoverNotes}</div>
+                  </div>` : ''}
+
+                  <p style="color: #64748b; font-size: 12.5px; margin-top: 16px; text-align: center;">
+                    This request is currently pending supervisor approval. You will receive another notification once finalized.
+                  </p>
+                `
+            });
             MailApp.sendEmail({ to: application.HandoverEmail, subject: subject, htmlBody: body, name: SYSTEM.NAME });
             return true;
         } catch (e) {
@@ -5176,54 +5378,51 @@ const NotificationManager = {
         try {
             if (!application.HandoverEmail) return false;
             const subject = `[Handover Confirmed] Leave Approved for ${application.Name}`;
-            const body = `
-                <div style="font-family:sans-serif;padding:16px;color:#1f2937;">
-                    <h3 style="color:#059669;margin-top:0;">🌿 Handover Coverage Confirmed</h3>
-                    <p>Dear Colleague,</p>
-                    <p>The leave application for <strong>${application.Name}</strong> has been approved.</p>
-                    <table style="width:100%;border-collapse:collapse;margin:16px 0;background:#f9fafb;border-radius:8px;padding:12px;">
-                        <tr><td style="padding:6px;font-weight:bold;">Coverage Period:</td><td>${Utils.formatDateForDisplay(application.StartDate)} to ${Utils.formatDateForDisplay(application.EndDate)}</td></tr>
-                        <tr><td style="padding:6px;font-weight:bold;">Duration:</td><td>${application.Duration} business day(s)</td></tr>
-                        ${application.HandoverNotes ? `<tr><td style="padding:6px;font-weight:bold;">Handover Notes:</td><td>${application.HandoverNotes}</td></tr>` : ''}
-                    </table>
-                    <p style="font-size:13px;color:#6b7280;">Thank you for assisting your teammate during their absence.</p>
-                </div>
-            `;
+            const body = EmailService.wrapTemplate({
+                title: SYSTEM.NAME,
+                subtitle: 'Handover Coverage Confirmed',
+                headerTheme: 'success',
+                actionBtn: { label: 'Open AgriLeave Portal', url: EmailService.SYSTEM_URL },
+                contentHtml: `
+                  <div class="greeting">Dear Colleague,</div>
+                  <p style="margin: 0 0 16px 0; color: #475569;">
+                    The leave application for <strong>${application.Name}</strong> has been officially approved. Your handover coverage is confirmed for the period below.
+                  </p>
+
+                  <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="data-table">
+                    <tr>
+                      <td style="width: 50%;">
+                        <div class="label">Staff Colleague</div>
+                        <div class="value">${application.Name}</div>
+                      </td>
+                      <td style="width: 50%;">
+                        <div class="label">Duration</div>
+                        <div class="value">${application.Duration} business day(s)</div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td colspan="2">
+                        <div class="label">Coverage Period</div>
+                        <div class="value">${Utils.formatDateForDisplay(application.StartDate)} to ${Utils.formatDateForDisplay(application.EndDate)}</div>
+                      </td>
+                    </tr>
+                  </table>
+
+                  ${application.HandoverNotes ? `
+                  <div class="reason-card">
+                    <div class="label">Handover Instructions & Action Items</div>
+                    <div class="value" style="font-weight: 500; font-size: 13.5px; margin-top: 4px;">${application.HandoverNotes}</div>
+                  </div>` : ''}
+
+                  <p style="color: #64748b; font-size: 12.5px; margin-top: 16px; text-align: center;">
+                    Thank you for assisting your teammate and ensuring operational excellence during their absence.
+                  </p>
+                `
+            });
             MailApp.sendEmail({ to: application.HandoverEmail, subject: subject, htmlBody: body, name: SYSTEM.NAME });
             return true;
         } catch (e) {
             console.error('notifyHandoverAssigned error:', e);
-            return false;
-        }
-    },
-
-    notifyHREndorsementRequired: function (application) {
-        try {
-            const hrEmails = this.getHREmails();
-            if (hrEmails.length === 0) return false;
-            const subject = `[Action Required] HR Endorsement Needed: ${application.Name} (${application.LeaveType}, ${application.Duration} days)`;
-            const body = `
-                <div style="font-family:sans-serif;padding:16px;color:#1f2937;">
-                    <h3 style="color:#2563eb;margin-top:0;">📋 HR Leave Endorsement Required</h3>
-                    <p>Dear HR Team,</p>
-                    <p>The leave application for <strong>${application.Name}</strong> has been endorsed by their supervisor and requires secondary HR review (policy rule: leave duration &gt; 5 business days or specialized category).</p>
-                    <table style="width:100%;border-collapse:collapse;margin:16px 0;background:#f9fafb;border-radius:8px;padding:12px;">
-                        <tr><td style="padding:6px;font-weight:bold;">Applicant:</td><td>${application.Name} (${application.Email})</td></tr>
-                        <tr><td style="padding:6px;font-weight:bold;">Department:</td><td>${application.Department}</td></tr>
-                        <tr><td style="padding:6px;font-weight:bold;">Leave Type:</td><td>${application.LeaveType}</td></tr>
-                        <tr><td style="padding:6px;font-weight:bold;">Duration:</td><td><strong>${application.Duration} business day(s)</strong></td></tr>
-                        <tr><td style="padding:6px;font-weight:bold;">Dates:</td><td>${Utils.formatDateForDisplay(application.StartDate)} to ${Utils.formatDateForDisplay(application.EndDate)}</td></tr>
-                        <tr><td style="padding:6px;font-weight:bold;">Supervisor Sign-off:</td><td>${application.SupervisorApproval ? application.SupervisorApproval.approvedBy : application.Supervisor}</td></tr>
-                    </table>
-                    <p style="font-size:13px;color:#6b7280;">Please log into the HR Dashboard to review and grant final approval.</p>
-                </div>
-            `;
-            hrEmails.forEach(email => {
-                MailApp.sendEmail({ to: email, subject: subject, htmlBody: body, name: SYSTEM.NAME });
-            });
-            return true;
-        } catch (e) {
-            console.error('notifyHREndorsementRequired error:', e);
             return false;
         }
     },
