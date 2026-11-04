@@ -27,7 +27,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdnjs.cloudflare.com">
     <link rel="dns-prefetch" href="https://drive.google.com">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Font Awesome CDN (Asynchronous Non-Render-Blocking Loading) -->
+    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
 
     <!-- Inter Font -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -4184,7 +4186,30 @@
             document.addEventListener('DOMContentLoaded', function () {
                 initializeApp();
                 setupEventListeners();
+                initTWKTactileInteractions();
             });
+
+            
+            // ── The Web Kitchen (TWK) Tactile Micro-Interactions (60fps Spring Physics) ──
+            function initTWKTactileInteractions() {
+                if (window.matchMedia && window.matchMedia('(pointer: fine)').matches && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                    document.addEventListener('mousemove', function (e) {
+                        const target = e.target.closest && e.target.closest('.btn-primary, #btnQuickApply, #btnApplyLeaveModal, .quick-chip');
+                        if (!target) return;
+                        const rect = target.getBoundingClientRect();
+                        const x = (e.clientX - rect.left - rect.width / 2) * 0.12;
+                        const y = (e.clientY - rect.top - rect.height / 2) * 0.12;
+                        target.style.transform = 'translate(' + x.toFixed(1) + 'px, ' + y.toFixed(1) + 'px)';
+                    }, { passive: true });
+
+                    document.addEventListener('mouseout', function (e) {
+                        const target = e.target.closest && e.target.closest('.btn-primary, #btnQuickApply, #btnApplyLeaveModal, .quick-chip');
+                        if (target) {
+                            target.style.transform = '';
+                        }
+                    }, { passive: true });
+                }
+            }
 
             async function initializeApp() {
                 // 1. FAST-PATH ZERO-BLOCKING HYDRATION: Paint instantly from local storage
@@ -5942,7 +5967,7 @@
                         });
 
                         if (searchInput) {
-                            searchInput.addEventListener('input', applyMyAppsFilters);
+                            searchInput.addEventListener('input', debounce(applyMyAppsFilters, 150));
                         }
                         if (clearSearchBtn) {
                             clearSearchBtn.addEventListener('click', function() {
@@ -7036,7 +7061,7 @@
                 const eligSelect = document.getElementById('eligibilityFilter');
                 const resetBtn = document.getElementById('resetStaffFilters');
 
-                searchInput?.addEventListener('input', filterStaffList);
+                searchInput?.addEventListener('input', debounce(filterStaffList, 150));
                 searchClear?.addEventListener('click', () => {
                     if (searchInput) {
                         searchInput.value = '';
@@ -7797,7 +7822,7 @@
                     searchInput.value = '';
                     const newInp = searchInput.cloneNode(true);
                     searchInput.parentNode.replaceChild(newInp, searchInput);
-                    newInp.addEventListener('input', runFilter);
+                    newInp.addEventListener('input', debounce(runFilter, 150));
                     const newClr = document.getElementById('teamOverviewClearSearch');
                     if (newClr) {
                         const freshClr = newClr.cloneNode(true);
@@ -8974,7 +8999,7 @@
                 const typeFilter = document.getElementById('appTypeFilter');
                 const resetBtn = document.getElementById('resetAppFiltersBtn');
 
-                searchInput?.addEventListener('input', filterApplicationsTable);
+                searchInput?.addEventListener('input', debounce(filterApplicationsTable, 150));
                 clearBtn?.addEventListener('click', () => {
                     if (searchInput) {
                         searchInput.value = '';
@@ -9243,7 +9268,7 @@
                     if (deptBadge) deptBadge.textContent = `${vis} of ${rows.length} depts`;
                 }
 
-                if (deptSearch) deptSearch.addEventListener('input', filterDeptSummary);
+                if (deptSearch) deptSearch.addEventListener('input', debounce(filterDeptSummary, 150));
                 if (deptClear) deptClear.addEventListener('click', () => { deptSearch.value = ''; deptSearch.focus(); filterDeptSummary(); });
                 filterDeptSummary();
 
@@ -13732,7 +13757,7 @@
                     if (balBadge) balBadge.textContent = `${visible} of ${rows.length} staff`;
                 }
 
-                if (balSearch) balSearch.addEventListener('input', filterHRBalances);
+                if (balSearch) balSearch.addEventListener('input', debounce(filterHRBalances, 150));
                 if (balClear) balClear.addEventListener('click', () => { balSearch.value = ''; balSearch.focus(); filterHRBalances(); });
                 if (balDept) balDept.addEventListener('change', filterHRBalances);
 
@@ -13763,7 +13788,7 @@
                     if (appBadge) appBadge.textContent = `${visible} of ${rows.length} applications`;
                 }
 
-                if (appSearch) appSearch.addEventListener('input', filterHRApps);
+                if (appSearch) appSearch.addEventListener('input', debounce(filterHRApps, 150));
                 if (appClear) appClear.addEventListener('click', () => { appSearch.value = ''; appSearch.focus(); filterHRApps(); });
                 if (appStatus) appStatus.addEventListener('change', filterHRApps);
                 filterHRApps();
@@ -14940,7 +14965,7 @@
                     if (countBadge) countBadge.textContent = `${visible} of ${rows.length} awards`;
                 }
 
-                searchInp.addEventListener('input', filterAwards);
+                searchInp.addEventListener('input', debounce(filterAwards, 150));
                 if (clearBtn) clearBtn.addEventListener('click', () => { searchInp.value = ''; searchInp.focus(); filterAwards(); });
             }
 

@@ -198,3 +198,13 @@ _Questions this graph is uniquely positioned to answer:_
   - Implemented 44×44px minimum touch targets on mobile/touch viewports via `@media (pointer: coarse)`.
 - **Tactile Easing Physics**:
   - Integrated TWK exponential curves (`cubic-bezier(0.16, 1, 0.3, 1)`) into Tailwind config and root tokens.
+
+
+### The Web Kitchen (TWK) Phase 2: Asynchronous Preloading, Search Debouncing & Tactile Micro-Interactions (Latest)
+- **Asynchronous Non-Render-Blocking FontAwesome (FCP & LCP Lift)**:
+  - Upgraded `all.min.css` from a render-blocking stylesheet to an asynchronous `rel="preload" as="style"` with seamless `onload` swap and `<noscript>` fallback. HTML parsing and first contentful paint are unblocked.
+- **Universal 150ms Search Debouncing (INP & Stutter Elimination)**:
+  - Debounced all 9 high-frequency live search and filter inputs across the system (`myAppsSearchInput`, `staffSearch`, `teamSearchInput`, `teamOverviewSearchInput`, `appSearchFilter`, `deptReportSearchInput`, `hrBalancesSearchInput`, `hrAppsSearchInput`, and `compAwardsSearchInput`).
+  - Eliminates main-thread keyboard lag and prevents heavy DOM table re-filtering from firing on every single keystroke.
+- **Tactile Micro-Interactions & Spring Physics (TWK Pillar 2)**:
+  - Implemented delegated magnetic cursor spring physics (`initTWKTactileInteractions`) for fine pointers (`pointer: fine`) across primary CTA buttons (`.btn-primary`, `#btnQuickApply`, `#btnApplyLeaveModal`, and `.quick-chip`), respecting user `prefers-reduced-motion` settings.
