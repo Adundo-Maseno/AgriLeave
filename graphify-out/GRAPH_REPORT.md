@@ -170,3 +170,7 @@ _Questions this graph is uniquely positioned to answer:_
   _Cohesion score 0.0773109243697479 - nodes in this community are weakly interconnected._
 - **Why does `Dashboard View (#dashboardPage)` connect `audit_solution_two_tier_read & code_accrualmanager & code_aiassistantmanager` to `code_api_batch_process_decisions & code_api_cancel_application & code_api_create_staff`?**
   _High betweenness centrality (0.047) - this node is a cross-community bridge._
+
+### Background Hydration & Colleague Delegation Wiring (Latest)
+- **Reports Page SWR Background Hydration**: Connected `index_view_reports` to `ClientCache SWR Engine` (`index_client_cache`), concurrent `apiGetAllStaff` (`code_apigetallstaff`), and `apiGetAllApplications` (`code_apigetallapplications`). Instant 0ms cached renders without screen-freezing modal overlays.
+- **Acting Supervisor Delegation Colleague Population**: Connected `Acting_Supervisor_Modal` directly to `code_apigetallstaff` directory and `AppState.allStaffLight` with instant fallback and active delegation auto-selection.

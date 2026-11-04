@@ -4245,6 +4245,7 @@
                         setTimeout(() => {
                             hideLoading();
                             showToast('success', 'System Loaded', 'Welcome to Agri Experience Leave Management System');
+                            if (typeof prefetchAdminReportsData === 'function') prefetchAdminReportsData();
                         }, 400);
                         return;
                     }
@@ -4266,6 +4267,7 @@
                     setTimeout(() => {
                         hideLoading();
                         showToast('success', 'System Loaded', 'Welcome to Agri Experience Leave Management System');
+                        if (typeof prefetchAdminReportsData === 'function') prefetchAdminReportsData();
                     }, 500);
 
                 } catch (error) {
@@ -8242,100 +8244,201 @@
   `;
 
                 // Attach event listeners (button + live change triggers)
-                document.getElementById('generateReportBtn')?.addEventListener('click', generateReport);
+                document.getElementById('generateReportBtn')?.addEventListener('click', () => generateReport({ forceRefresh: true }));
                 document.getElementById('exportReportBtn')?.addEventListener('click', exportReportToCSV);
-                document.getElementById('reportType')?.addEventListener('change', generateReport);
-                document.getElementById('reportYear')?.addEventListener('change', generateReport);
-                document.getElementById('reportDepartment')?.addEventListener('change', generateReport);
+                document.getElementById('reportType')?.addEventListener('change', () => generateReport());
+                document.getElementById('reportYear')?.addEventListener('change', () => generateReport());
+                document.getElementById('reportDepartment')?.addEventListener('change', () => generateReport());
 
-                // Load initial data
+                // SWR background hydration (renders instantly from cache if warm, otherwise fetches without freezing screen)
                 generateReport();
             }
 
-            // Generate Report based on filters - ADMIN LEVEL
-            async function generateReport() {
+            // Render Report View from in-memory/cached Staff and Applications datasets
+            function renderReportData(allStaff, allApplications) {
+                const reportContent = document.getElementById('reportContent');
+                if (!reportContent) return;
+
                 const reportType = document.getElementById('reportType')?.value || 'overview';
                 const year = document.getElementById('reportYear')?.value || new Date().getFullYear();
                 const deptSelectEl = document.getElementById('reportDepartment');
                 const department = deptSelectEl?.value || 'all';
 
-                showLoading('Generating report...');
-
-                try {
-                    // Get ALL staff data (admin endpoint)
-                    const staffResult = await callGoogleScriptFunction('apiGetAllStaff');
-
-                    if (!staffResult.success) {
-                        hideLoading();
-                        showToast('error', 'Failed', 'Could not load staff data');
-                        return;
-                    }
-
-                    const allStaff = staffResult.data?.data || [];
-
-                    // Dynamically populate #reportDepartment from actual staff departments while preserving selection
-                    if (deptSelectEl && allStaff.length > 0) {
-                        const actualDepts = Array.from(new Set(allStaff.map(s => (s.Department || s.department || '').trim()).filter(Boolean))).sort();
-                        const prevDept = department;
-                        deptSelectEl.innerHTML = '<option value="all">All Departments</option>' +
-                            actualDepts.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
+                // Dynamically populate #reportDepartment from actual staff departments while preserving selection
+                if (deptSelectEl && allStaff && allStaff.length > 0) {
+                    const actualDepts = Array.from(new Set(allStaff.map(s => (s.Department || s.department || '').trim()).filter(Boolean))).sort();
+                    const prevDept = department;
+                    const optionsHtml = '<option value="all">All Departments</option>' +
+                        actualDepts.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
+                    if (deptSelectEl.innerHTML !== optionsHtml) {
+                        deptSelectEl.innerHTML = optionsHtml;
                         if (prevDept && (prevDept === 'all' || actualDepts.includes(prevDept))) {
                             deptSelectEl.value = prevDept;
                         }
                     }
+                }
 
-                    const activeDept = deptSelectEl?.value || 'all';
+                const activeDept = deptSelectEl?.value || 'all';
 
-                    // Get ALL applications
-                    const appsResult = await callGoogleScriptFunction('apiGetAllApplications');
-                    let allApplications = appsResult.success ? (appsResult.data?.data || []) : [];
+                // Filter applications by selected year
+                const yearApplications = (allApplications || []).filter(app => {
+                    const d = new Date(app.DateApplied || app.dateApplied || app.StartDate || app.startDate);
+                    const appYear = !isNaN(d.getTime()) ? d.getFullYear() : Number(year);
+                    return appYear.toString() === year.toString();
+                });
 
-                    // Filter applications by selected year
-                    allApplications = allApplications.filter(app => {
-                        const d = new Date(app.DateApplied || app.dateApplied || app.StartDate || app.startDate);
-                        const appYear = !isNaN(d.getTime()) ? d.getFullYear() : Number(year);
-                        return appYear.toString() === year.toString();
+                // Filter staff by department if selected
+                const filteredStaff = activeDept === 'all'
+                    ? (allStaff || [])
+                    : (allStaff || []).filter(s => (s.Department || s.department || '').toLowerCase() === activeDept.toLowerCase());
+
+                // Filter applications by department if selected
+                const filteredEmails = new Set(filteredStaff.map(s => (s.Email || s.email || '').toLowerCase()).filter(Boolean));
+                const filteredApplications = activeDept === 'all'
+                    ? yearApplications
+                    : yearApplications.filter(app => {
+                        const appEmail = (app.Email || app.email || '').toLowerCase();
+                        const appDept = (app.Department || app.department || '').toLowerCase();
+                        return filteredEmails.has(appEmail) || appDept === activeDept.toLowerCase();
                     });
 
-                    // Filter staff by department if selected
-                    const filteredStaff = activeDept === 'all'
-                        ? allStaff
-                        : allStaff.filter(s => (s.Department || s.department || '').toLowerCase() === activeDept.toLowerCase());
+                if (reportType === 'applications') {
+                    const applicationsHTML = renderApplicationsAudit(filteredApplications, allStaff || [], year, activeDept);
+                    reportContent.innerHTML = applicationsHTML;
+                    attachApplicationsFilters();
+                } else {
+                    const fullReportHTML = renderFullReport();
+                    reportContent.innerHTML = fullReportHTML;
 
-                    // Filter applications by department if selected
-                    const filteredEmails = new Set(filteredStaff.map(s => (s.Email || s.email || '').toLowerCase()).filter(Boolean));
-                    const filteredApplications = activeDept === 'all'
-                        ? allApplications
-                        : allApplications.filter(app => {
-                            const appEmail = (app.Email || app.email || '').toLowerCase();
-                            const appDept = (app.Department || app.department || '').toLowerCase();
-                            return filteredEmails.has(appEmail) || appDept === activeDept.toLowerCase();
-                        });
-
-                    const reportContent = document.getElementById('reportContent');
-
-                    if (reportType === 'applications') {
-                        const applicationsHTML = renderApplicationsAudit(filteredApplications, allStaff, year, activeDept);
-                        reportContent.innerHTML = applicationsHTML;
-                        attachApplicationsFilters();
-                    } else {
-                        const fullReportHTML = renderFullReport();
-                        reportContent.innerHTML = fullReportHTML;
-
-                        updateReportSummary(filteredStaff, filteredApplications, year);
-                        updateReportCharts(reportType, filteredStaff, filteredApplications, year);
-                        updateDepartmentBreakdown(filteredStaff, filteredApplications);
-                        updateStaffReportTable(filteredStaff, filteredApplications, year, reportType, activeDept);
-                    }
-
-                    hideLoading();
-
-                } catch (error) {
-                    hideLoading();
-                    console.error('Failed to generate report:', error);
-                    showToast('error', 'Report Failed', error.message);
+                    updateReportSummary(filteredStaff, filteredApplications, year);
+                    updateReportCharts(reportType, filteredStaff, filteredApplications, year);
+                    updateDepartmentBreakdown(filteredStaff, filteredApplications);
+                    updateStaffReportTable(filteredStaff, filteredApplications, year, reportType, activeDept);
                 }
             }
+
+            // Generate Report based on filters - ADMIN LEVEL (Non-blocking SWR background hydration)
+            async function generateReport(options = {}) {
+                const forceRefresh = options?.forceRefresh === true;
+                const genBtn = document.getElementById('generateReportBtn');
+
+                // SWR: Check in-memory ClientCache / AppState first
+                let cachedStaff = (typeof ClientCache !== 'undefined' ? ClientCache.get('all_staff') : null) || (Array.isArray(window.AppState?.allStaff) && window.AppState.allStaff.length > 0 ? window.AppState.allStaff : null);
+                let cachedApps = (typeof ClientCache !== 'undefined' ? ClientCache.get('all_applications') : null) || (Array.isArray(window.AppState?.allApplicationsAdmin) && window.AppState.allApplicationsAdmin.length > 0 ? window.AppState.allApplicationsAdmin : null);
+
+                // If both are available and not forced refresh, render immediately (0ms instant response)
+                if (cachedStaff && cachedApps && !forceRefresh) {
+                    renderReportData(cachedStaff, cachedApps);
+                    // If fresh within 1 minute, skip re-querying
+                    if (typeof ClientCache !== 'undefined' && ClientCache.isFresh('all_staff', 60000) && ClientCache.isFresh('all_applications', 60000)) {
+                        return;
+                    }
+                }
+
+                // If not cached, render elegant non-blocking Bento shimmer skeleton
+                const reportContent = document.getElementById('reportContent');
+                if (reportContent && (!cachedStaff || !cachedApps)) {
+                    reportContent.innerHTML = `
+                        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-4 animate-pulse">
+                            <div class="bg-slate-100 rounded-2xl h-24"></div>
+                            <div class="bg-slate-100 rounded-2xl h-24"></div>
+                            <div class="bg-slate-100 rounded-2xl h-24"></div>
+                            <div class="bg-slate-100 rounded-2xl h-24"></div>
+                            <div class="bg-slate-100 rounded-2xl h-24"></div>
+                        </div>
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6 animate-pulse">
+                            <div class="bg-slate-100 rounded-2xl h-64"></div>
+                            <div class="bg-slate-100 rounded-2xl h-64"></div>
+                        </div>
+                        <div class="bg-slate-100 rounded-2xl h-72 mt-6 animate-pulse"></div>
+                    `;
+                }
+
+                // Subtle button spinner (no screen freeze)
+                if (genBtn) {
+                    genBtn.innerHTML = '<i class="fas fa-sync-alt fa-spin text-[11px]"></i> Updating...';
+                    genBtn.disabled = true;
+                }
+
+                try {
+                    // Concurrent fetch for staff and applications
+                    const staffPromise = (cachedStaff && !forceRefresh)
+                        ? Promise.resolve({ success: true, data: { data: cachedStaff } })
+                        : callGoogleScriptFunction('apiGetAllStaff');
+                    const appsPromise = (cachedApps && !forceRefresh)
+                        ? Promise.resolve({ success: true, data: { data: cachedApps } })
+                        : callGoogleScriptFunction('apiGetAllApplications');
+
+                    const [staffResult, appsResult] = await Promise.all([staffPromise, appsPromise]);
+
+                    if (staffResult && staffResult.success) {
+                        const fetchedStaff = staffResult.data?.data || staffResult.data || [];
+                        cachedStaff = fetchedStaff;
+                        if (typeof ClientCache !== 'undefined') ClientCache.set('all_staff', fetchedStaff, 5 * 60 * 1000);
+                        if (window.AppState) window.AppState.allStaff = fetchedStaff;
+                    }
+
+                    if (appsResult && appsResult.success) {
+                        const fetchedApps = appsResult.data?.data || appsResult.data || [];
+                        cachedApps = fetchedApps;
+                        if (typeof ClientCache !== 'undefined') ClientCache.set('all_applications', fetchedApps, 3 * 60 * 1000);
+                        if (window.AppState) window.AppState.allApplicationsAdmin = fetchedApps;
+                    }
+
+                    if (cachedStaff && cachedApps) {
+                        renderReportData(cachedStaff, cachedApps);
+                    }
+                } catch (error) {
+                    console.error('Failed to hydrate report data in background:', error);
+                    if (!cachedStaff && !cachedApps) {
+                        if (reportContent) {
+                            reportContent.innerHTML = `<div class="p-8 text-center text-red-500 bg-red-50 rounded-2xl border border-red-200">
+                                <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                                <p class="font-semibold">Failed to generate report</p>
+                                <p class="text-xs text-red-400 mt-1">${escapeHtml(error.message)}</p>
+                            </div>`;
+                        }
+                        showToast('error', 'Report Error', error.message);
+                    }
+                } finally {
+                    if (genBtn) {
+                        genBtn.innerHTML = '<i class="fas fa-sync-alt text-[11px]"></i> Generate Report';
+                        genBtn.disabled = false;
+                    }
+                }
+            }
+
+            // Prefetch Staff and Reports data in background for instant sub-page navigation
+            function prefetchAdminReportsData() {
+                try {
+                    const role = (window.AppState?.userRole || '').toLowerCase();
+                    if (role === 'admin' || role === 'hr' || role === 'supervisor') {
+                        if (typeof ClientCache !== 'undefined') {
+                            if (!ClientCache.get('all_staff')) {
+                                callGoogleScriptFunction('apiGetAllStaff').then(res => {
+                                    if (res && res.success) {
+                                        const s = res.data?.data || res.data || [];
+                                        ClientCache.set('all_staff', s, 5 * 60 * 1000);
+                                        if (window.AppState) window.AppState.allStaff = s;
+                                    }
+                                }).catch(() => {});
+                            }
+                            if (!ClientCache.get('all_applications')) {
+                                callGoogleScriptFunction('apiGetAllApplications').then(res => {
+                                    if (res && res.success) {
+                                        const a = res.data?.data || res.data || [];
+                                        ClientCache.set('all_applications', a, 3 * 60 * 1000);
+                                        if (window.AppState) window.AppState.allApplicationsAdmin = a;
+                                    }
+                                }).catch(() => {});
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Background prefetch skipped:', e);
+                }
+            }
+            window.prefetchAdminReportsData = prefetchAdminReportsData;
 
             // Render full report HTML structure
             function renderFullReport() {
@@ -11622,6 +11725,7 @@
                                 if (typeof ClientCache !== 'undefined') {
                                     ClientCache.invalidate('team_applications');
                                     ClientCache.invalidate('my_applications');
+                                    ClientCache.invalidate('all_applications');
                                     ClientCache.invalidate('dashboard');
                                 }
                                 if (AppState.currentPage === 'dashboard') {
@@ -11897,6 +12001,7 @@
 
                     if (result.success) {
                         showToast('success', 'Staff Created', `Successfully created ${staffData.Name}`);
+                        if (typeof ClientCache !== 'undefined') ClientCache.invalidate('all_staff');
                         closeAddStaffModal();
                         loadStaffList();
                     } else {
@@ -16188,46 +16293,113 @@
                 const modal = document.getElementById('actingSupervisorModal');
                 if (!modal) return;
 
-                // Pre-populate staff select
+                modal.classList.remove('hidden');
+
                 const sel = document.getElementById('actingSupervisorSelect');
-                if (sel) {
-                    const staffList = (window.AppState && window.AppState.allStaff) || [];
-                    const currentEmail = (window.AppState && window.AppState.currentUser && window.AppState.currentUser.email) || '';
-                    sel.innerHTML = '<option value="">Select colleague...</option>' +
-                        staffList
-                            .filter(s => (s.Email || s.email || '').toLowerCase() !== currentEmail.toLowerCase())
-                            .map(s => {
-                                const email = s.Email || s.email;
-                                const name = s.Name || s.name || email;
-                                return `<option value="${escapeHtml(email)}" data-name="${escapeHtml(name)}">${escapeHtml(name)} (${escapeHtml(email)})</option>`;
-                            }).join('');
-                }
+                const startEl = document.getElementById('actingStartDate');
+                const endEl = document.getElementById('actingEndDate');
+                const notesEl = document.getElementById('actingNotes');
 
                 // Default dates
                 const today = new Date().toISOString().split('T')[0];
-                const startEl = document.getElementById('actingStartDate');
-                const endEl = document.getElementById('actingEndDate');
                 if (startEl && !startEl.value) startEl.value = today;
                 if (endEl && !endEl.value) endEl.value = today;
 
-                // Load existing delegation status from server
+                const populateColleagueSelect = (staffList, selectedEmail = '') => {
+                    if (!sel) return;
+                    const currentEmail = (
+                        (window.AppState?.currentUser?.Email || window.AppState?.currentUser?.email) ||
+                        window.AppState?.userEmail ||
+                        ''
+                    ).toLowerCase().trim();
+
+                    const validColleagues = (staffList || [])
+                        .filter(s => {
+                            if (!s) return false;
+                            const email = (s.Email || s.email || '').toLowerCase().trim();
+                            if (!email || email === currentEmail) return false;
+                            if (s.Metadata && s.Metadata.active === false) return false;
+                            return true;
+                        })
+                        .sort((a, b) => {
+                            const nameA = (a.Name || a.name || a.Email || a.email || '').toLowerCase();
+                            const nameB = (b.Name || b.name || b.Email || b.email || '').toLowerCase();
+                            return nameA.localeCompare(nameB);
+                        });
+
+                    if (validColleagues.length === 0) {
+                        sel.innerHTML = '<option value="">No eligible colleagues found</option>';
+                        return;
+                    }
+
+                    let opts = '<option value="">Select colleague...</option>';
+                    validColleagues.forEach(s => {
+                        const email = s.Email || s.email;
+                        const name = s.Name || s.name || email;
+                        const dept = s.Department || s.department || '';
+                        const role = s.Role || s.role || '';
+                        const deptInfo = dept ? ` (${dept}${role ? ' - ' + role : ''})` : '';
+                        opts += `<option value="${escapeHtml(email)}" data-name="${escapeHtml(name)}">${escapeHtml(name)}${escapeHtml(deptInfo)} - ${escapeHtml(email)}</option>`;
+                    });
+                    sel.innerHTML = opts;
+
+                    if (selectedEmail) {
+                        sel.value = selectedEmail;
+                    }
+                };
+
+                // Check in-memory / cached staff
+                let staffList = (window.AppState && Array.isArray(window.AppState.allStaff) && window.AppState.allStaff.length > 0)
+                    ? window.AppState.allStaff
+                    : ((typeof ClientCache !== 'undefined' && ClientCache.get('all_staff')) || []);
+
+                if (!staffList.length && window.AppState && Array.isArray(window.AppState.allStaffLight) && window.AppState.allStaffLight.length > 0) {
+                    staffList = window.AppState.allStaffLight;
+                }
+
+                if (staffList.length > 0) {
+                    populateColleagueSelect(staffList);
+                } else if (sel) {
+                    sel.innerHTML = '<option value="">Loading colleagues...</option>';
+                }
+
+                // Concurrently fetch existing delegation status and full staff directory if needed
                 try {
-                    const res = await callGoogleScriptFunction('apiGetActingSupervisor');
-                    const del = res?.data?.delegation;
+                    const promises = [callGoogleScriptFunction('apiGetActingSupervisor')];
+                    if (staffList.length === 0) {
+                        promises.push(callGoogleScriptFunction('apiGetAllStaff'));
+                    }
+
+                    const [actingRes, staffRes] = await Promise.all(promises);
+
+                    if (staffRes && staffRes.success) {
+                        const fetched = staffRes.data?.data || staffRes.data || [];
+                        if (Array.isArray(fetched) && fetched.length > 0) {
+                            staffList = fetched;
+                            if (window.AppState) window.AppState.allStaff = fetched;
+                            if (typeof ClientCache !== 'undefined') ClientCache.set('all_staff', fetched, 5 * 60 * 1000);
+                        }
+                    }
+
+                    const del = actingRes?.data?.delegation;
                     const card = document.getElementById('currentActingDelegationCard');
                     const text = document.getElementById('currentActingDelegationText');
+                    const targetActingEmail = (del && del.active && del.actingEmail) ? del.actingEmail : '';
+
+                    populateColleagueSelect(staffList, targetActingEmail);
 
                     if (del && del.active && del.actingEmail) {
                         if (card) card.classList.remove('hidden');
                         if (text) text.innerHTML = `Delegated to <strong>${escapeHtml(del.actingName || del.actingEmail)}</strong> from <strong>${escapeHtml(del.startDate || del.fromDate)}</strong> to <strong>${escapeHtml(del.endDate || del.toDate)}</strong>.`;
+                        if (startEl && (del.startDate || del.fromDate)) startEl.value = del.startDate || del.fromDate;
+                        if (endEl && (del.endDate || del.toDate)) endEl.value = del.endDate || del.toDate;
+                        if (notesEl && (del.notes || del.note)) notesEl.value = del.notes || del.note;
                     } else {
                         if (card) card.classList.add('hidden');
                     }
                 } catch (e) {
-                    console.warn('Could not fetch acting delegation status:', e);
+                    console.warn('Could not fetch acting delegation status or staff list:', e);
                 }
-
-                modal.classList.remove('hidden');
             }
             window.openActingSupervisorModal = openActingSupervisorModal;
 
