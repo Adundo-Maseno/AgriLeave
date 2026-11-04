@@ -16,4 +16,7 @@ tags:
 - [[callGoogleScriptFunction RPC Invoker]] - `calls` [EXTRACTED]
 - [[navigateToPage Navigation Controller]] - `calls` [EXTRACTED]
 
+- [[HR Dashboard View (hrDashboardPage)]] - `hydrates_via_swr` [EXTRACTED]
+- [[Team Overview View (teamOverviewPage)]] - `hydrates_via_swr` [EXTRACTED]
+- [[Staff Availability Wallchart UI Component]] - `hydrates_via_swr` [EXTRACTED]
 #graphify/code #graphify/EXTRACTED #community/audit_finding_bootstrap_rpc__audit_finding_cacheservice_cliff__audit_finding_cascading_waterfalls

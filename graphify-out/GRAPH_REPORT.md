@@ -174,3 +174,14 @@ _Questions this graph is uniquely positioned to answer:_
 ### Background Hydration & Colleague Delegation Wiring (Latest)
 - **Reports Page SWR Background Hydration**: Connected `index_view_reports` to `ClientCache SWR Engine` (`index_client_cache`), concurrent `apiGetAllStaff` (`code_apigetallstaff`), and `apiGetAllApplications` (`code_apigetallapplications`). Instant 0ms cached renders without screen-freezing modal overlays.
 - **Acting Supervisor Delegation Colleague Population**: Connected `Acting_Supervisor_Modal` directly to `code_apigetallstaff` directory and `AppState.allStaffLight` with instant fallback and active delegation auto-selection.
+
+
+### Universal SWR Background Hydration Across All Pages (Latest)
+- **Universal Zero-Lag SWR Architecture**: Replaced blocking full-screen modal spinners (`showLoading`) with client-side Stale-While-Revalidate (SWR) cache checks, non-blocking inline Bento skeletons, and background revalidation across all enterprise views:
+  - **HR Dashboard & Governance (`index_view_hr_dashboard`)**: Checks `ClientCache.get('hr_dashboard')`; immediately renders via pure `renderHRDashboardUI(data)` in 0ms. Revalidates in the background without UI blocking. SWR subcomponents for Gazetted Holidays (`gazetted_holidays`) and Blackout Periods (`blackout_periods`).
+  - **Team Overview Portal (`index_view_team_overview`)**: Instant 0ms cache hits on `supervisor_stats` using pure `renderTeamOverviewUI(stats)` and background async revalidation.
+  - **Availability Wallchart (`index_availability_wallchart`)**: Scope/department/month availability matrices cached in `ClientCache.get('wallchart_' + scope + '_' + dept + '_' + year + '_' + month)`, rendered instantly through `renderWallchartDOM()` without page freeze.
+  - **Team Applications Center (`index_view_team_applications`)**: Cold-start modal `showLoading('Loading team applications...')` eliminated in favor of non-blocking inline skeleton and 0ms SWR cache hits.
+  - **System Admin & Diagnostics**: Diagnostic cache stats instant render via `ClientCache.get('perf_stats')`.
+  - **Idle Prefetcher**: Background pre-warming during user idle intervals for staff directory, applications audit, supervisor stats, HR dashboard, blackout windows, and gazetted holidays.
+  - **Selective Cache Invalidation**: Automatic multi-key cache eviction on leave application creation and decision batches to prevent stale state.

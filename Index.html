@@ -5984,15 +5984,8 @@
                 }
 
                 try {
-                    if (!hasRenderedCached) {
-                        showLoading('Loading team applications...');
-                    }
-
                     // Single unified team apps fetch with SWR
                     const allResult = await callGoogleScriptFunction('apiGetTeamApplications');
-                    if (!hasRenderedCached) {
-                        hideLoading();
-                    }
 
                     const rawApps = (allResult && allResult.success) ? (allResult.data?.data || allResult.data || []) : [];
                     const allTeamApps = Array.isArray(rawApps) ? rawApps : [];
@@ -7434,17 +7427,31 @@
                 getCacheStats();
             }
 
+            function renderCacheStatsUI(stats) {
+                const el = document.getElementById('cacheStats');
+                if (!el || !stats) return;
+                el.innerHTML = `
+              <div>Cache Hit Rate: ${stats.cache?.hitRate ?? 0}%</div>
+              <div>Memory Cache: ${stats.memoryUsage?.memorySize ?? 0} items</div>
+              <div>File Cache: ${stats.fileCache?.size ?? 0} files</div>
+              <div>Indexes: Staff:${stats.indexes?.staffSize ?? 0}, Apps:${stats.indexes?.applicationsByEmailSize ?? 0}</div>
+            `;
+            }
+
             function getCacheStats() {
+                const cachedStats = (typeof ClientCache !== 'undefined') ? ClientCache.get('perf_stats') : null;
+                if (cachedStats) {
+                    renderCacheStatsUI(cachedStats);
+                }
+
                 callGoogleScriptFunction('apiGetPerformanceStats')
                     .then(result => {
-                        if (result.success) {
+                        if (result && result.success && result.data) {
                             const stats = result.data;
-                            document.getElementById('cacheStats').innerHTML = `
-              <div>Cache Hit Rate: ${stats.cache.hitRate}%</div>
-              <div>Memory Cache: ${stats.memoryUsage.memorySize} items</div>
-              <div>File Cache: ${stats.fileCache.size} files</div>
-              <div>Indexes: Staff:${stats.indexes.staffSize}, Apps:${stats.indexes.applicationsByEmailSize}</div>
-            `;
+                            if (typeof ClientCache !== 'undefined') {
+                                ClientCache.set('perf_stats', stats, 60000);
+                            }
+                            renderCacheStatsUI(stats);
                         }
                     })
                     .catch(error => {
@@ -7936,11 +7943,9 @@
                 return match ? match[1] : '0';
             }
             // Load Team Overview Data - WITH COMPLETE BFW INFO
-            function loadTeamOverviewData() {
-                callGoogleScriptFunction('apiGetSupervisorStats')
-                    .then(result => {
-                        if (result.success) {
-                            const stats = result.data || {};
+            // Render Team Overview UI from in-memory/cached stats
+            function renderTeamOverviewUI(stats) {
+                stats = stats || {};
                             const summary = stats.summary || {};
                             const totalUsed = typeof summary.totalUsed === 'number' ? summary.totalUsed : 0;
                             const totalPool = typeof summary.totalTheoreticalAllocation === 'number' ? summary.totalTheoreticalAllocation : 0;
@@ -8174,18 +8179,50 @@
                                 }
                             }
                             setupTeamOverviewFilters();
+            }
+
+            // Load Team Overview with Background SWR Hydration
+            function loadTeamOverviewData() {
+                // 1. SWR: Instant 0ms render from ClientCache
+                const cachedStats = (typeof ClientCache !== 'undefined') ? ClientCache.get('supervisor_stats') : null;
+                let hasRenderedCached = false;
+                if (cachedStats) {
+                    renderTeamOverviewUI(cachedStats);
+                    hasRenderedCached = true;
+                    if (typeof ClientCache !== 'undefined' && ClientCache.isFresh('supervisor_stats', 60000)) {
+                        return;
+                    }
+                }
+
+                // 2. Background revalidation (never blocks the screen)
+                callGoogleScriptFunction('apiGetSupervisorStats')
+                    .then(result => {
+                        if (result && result.success && result.data) {
+                            if (typeof ClientCache !== 'undefined') {
+                                ClientCache.set('supervisor_stats', result.data, 3 * 60 * 1000);
+                            }
+                            renderTeamOverviewUI(result.data);
+                        } else if (!hasRenderedCached) {
+                            const statsEl = document.getElementById('teamStats');
+                            if (statsEl) {
+                                statsEl.innerHTML = `<div class="col-span-4 bg-amber-50 border border-amber-200 rounded-xl p-6 text-center text-amber-700">${(result && result.error) || 'Failed to load supervisor stats'}</div>`;
+                            }
                         }
                     })
                     .catch(error => {
                         console.error('Failed to load team overview:', error);
-                        showToast('error', 'Failed to Load Team Overview', error.message);
-
-                        document.getElementById('teamStats').innerHTML = `
-        <div class="col-span-4 bg-red-50 border border-red-200 rounded-xl p-8 text-center">
-          <i class="fas fa-exclamation-triangle text-red-500 text-4xl mb-3"></i>
-          <p class="text-red-700">Failed to load team data. Please try again.</p>
-        </div>
-      `;
+                        if (!hasRenderedCached) {
+                            showToast('error', 'Failed to Load Team Overview', error.message);
+                            const statsEl = document.getElementById('teamStats');
+                            if (statsEl) {
+                                statsEl.innerHTML = `
+                                    <div class="col-span-4 bg-red-50 border border-red-200 rounded-xl p-8 text-center">
+                                        <i class="fas fa-exclamation-triangle text-red-500 text-4xl mb-3"></i>
+                                        <p class="text-red-700">Failed to load team data. Please try again.</p>
+                                    </div>
+                                `;
+                            }
+                        }
                     });
             }
 
@@ -8412,26 +8449,62 @@
             function prefetchAdminReportsData() {
                 try {
                     const role = (window.AppState?.userRole || '').toLowerCase();
+                    if (typeof ClientCache === 'undefined') return;
+
+                    // Privileged supervisor, HR & Admin prefetching
                     if (role === 'admin' || role === 'hr' || role === 'supervisor') {
-                        if (typeof ClientCache !== 'undefined') {
-                            if (!ClientCache.get('all_staff')) {
-                                callGoogleScriptFunction('apiGetAllStaff').then(res => {
-                                    if (res && res.success) {
-                                        const s = res.data?.data || res.data || [];
-                                        ClientCache.set('all_staff', s, 5 * 60 * 1000);
-                                        if (window.AppState) window.AppState.allStaff = s;
-                                    }
-                                }).catch(() => {});
-                            }
-                            if (!ClientCache.get('all_applications')) {
-                                callGoogleScriptFunction('apiGetAllApplications').then(res => {
-                                    if (res && res.success) {
-                                        const a = res.data?.data || res.data || [];
-                                        ClientCache.set('all_applications', a, 3 * 60 * 1000);
-                                        if (window.AppState) window.AppState.allApplicationsAdmin = a;
-                                    }
-                                }).catch(() => {});
-                            }
+                        if (!ClientCache.get('all_staff')) {
+                            callGoogleScriptFunction('apiGetAllStaff').then(res => {
+                                if (res && res.success) {
+                                    const s = res.data?.data || res.data || [];
+                                    ClientCache.set('all_staff', s, 5 * 60 * 1000);
+                                    if (window.AppState) window.AppState.allStaff = s;
+                                }
+                            }).catch(() => {});
+                        }
+                        if (!ClientCache.get('all_applications')) {
+                            callGoogleScriptFunction('apiGetAllApplications').then(res => {
+                                if (res && res.success) {
+                                    const a = res.data?.data || res.data || [];
+                                    ClientCache.set('all_applications', a, 3 * 60 * 1000);
+                                    if (window.AppState) window.AppState.allApplicationsAdmin = a;
+                                }
+                            }).catch(() => {});
+                        }
+                        if (!ClientCache.get('supervisor_stats')) {
+                            callGoogleScriptFunction('apiGetSupervisorStats').then(res => {
+                                if (res && res.success && res.data) {
+                                    ClientCache.set('supervisor_stats', res.data, 3 * 60 * 1000);
+                                }
+                            }).catch(() => {});
+                        }
+                    }
+
+                    // HR & Admin dashboard governance prefetching
+                    if (role === 'admin' || role === 'hr') {
+                        if (!ClientCache.get('hr_dashboard')) {
+                            callGoogleScriptFunction('apiGetHRDashboard').then(res => {
+                                if (res && res.success && res.data) {
+                                    ClientCache.set('hr_dashboard', res.data, 3 * 60 * 1000);
+                                    if (window.AppState) window.AppState.hrDashboardData = res.data;
+                                }
+                            }).catch(() => {});
+                        }
+                        if (!ClientCache.get('blackout_periods')) {
+                            callGoogleScriptFunction('apiGetBlackoutPeriods').then(res => {
+                                if (res && res.success && Array.isArray(res.data)) {
+                                    ClientCache.set('blackout_periods', res.data, 5 * 60 * 1000);
+                                    if (window.AppState) window.AppState.blackoutPeriods = res.data;
+                                }
+                            }).catch(() => {});
+                        }
+                        if (!ClientCache.get('gazetted_holidays')) {
+                            callGoogleScriptFunction('apiGetGazettedHolidays').then(res => {
+                                if (res && res.success && Array.isArray(res.data)) {
+                                    ClientCache.set('gazetted_holidays', res.data, 5 * 60 * 1000);
+                                    if (window.AppState) window.AppState.gazettedHolidays = res.data;
+                                }
+                            }).catch(() => {});
                         }
                     }
                 } catch (e) {
@@ -11418,6 +11491,16 @@
 
                     if (result.success) {
                         showToast('success', 'Application Submitted', result.message || 'Your leave application has been submitted successfully');
+                        if (typeof ClientCache !== 'undefined') {
+                            ClientCache.invalidate('my_applications');
+                            ClientCache.invalidate('team_applications');
+                            ClientCache.invalidate('all_applications');
+                            ClientCache.invalidate('user_balance');
+                            ClientCache.invalidate('supervisor_stats');
+                            ClientCache.invalidate('hr_dashboard');
+                            ClientCache.invalidate('wallchart_');
+                            ClientCache.invalidate('dashboard');
+                        }
                         // Non-blocking background sync so user is not frozen
                         loadDashboardData();
                         if (AppState.currentPage === 'myApplications') {
@@ -11726,6 +11809,9 @@
                                     ClientCache.invalidate('team_applications');
                                     ClientCache.invalidate('my_applications');
                                     ClientCache.invalidate('all_applications');
+                                    ClientCache.invalidate('supervisor_stats');
+                                    ClientCache.invalidate('hr_dashboard');
+                                    ClientCache.invalidate('wallchart_');
                                     ClientCache.invalidate('dashboard');
                                 }
                                 if (AppState.currentPage === 'dashboard') {
@@ -13194,27 +13280,15 @@
 
 
             // ─── HR Dashboard ─────────────────────────────────────────────────────
-            async function loadHRDashboardPage() {
+            // ─── HR Dashboard UI Renderer ─────────────────────────────────────────
+            function renderHRDashboardUI(data) {
                 const pageElement = document.getElementById('hrDashboardPage');
-                if (!pageElement) return;
+                if (!pageElement || !data) return;
 
-                pageElement.innerHTML = '<div class="p-8 text-center"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto mb-3"></div><p class="text-gray-600">Loading HR data...</p></div>';
-
-                showLoading('Loading HR dashboard...');
-
-                try {
-                    const result = await callGoogleScriptFunction('apiGetHRDashboard');
-                    hideLoading();
-
-                    if (!result.success) {
-                        pageElement.innerHTML = '<div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center text-red-700">' + (result.error || 'Failed to load HR data') + '</div>';
-                        return;
-                    }
-
-                    const staffList = result.data.staff || [];
-                    const allApps = result.data.applications.all || [];
-                    const summary = result.data.summary || {};
-                    const liability = result.data.liability || {
+                const staffList = data.staff || [];
+                    const allApps = data.applications.all || [];
+                    const summary = data.summary || {};
+                    const liability = data.liability || {
                         totalUnconsumedDays: 0,
                         totalAnnualDays: 0,
                         totalBroughtForwardDays: 0,
@@ -13319,7 +13393,7 @@
                     html += '<div id="hrWallchartContainer" class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-emerald-100/80 mb-8 overflow-hidden"></div>';
 
                     // ── HR Endorsement Queue (Tier-2 Sign-Off) ──────────────────────
-                    const hrEndorsements = (result.data.applications && result.data.applications.hrEndorsements) ? result.data.applications.hrEndorsements : [];
+                    const hrEndorsements = (data.applications && data.applications.hrEndorsements) ? data.applications.hrEndorsements : [];
                     html += '<div class="stat-card stat-card-elevated bg-white rounded-xl shadow-sm border border-amber-200 p-6 mb-8">';
                     html += '<div class="flex flex-wrap items-center justify-between gap-3 mb-4">';
                     html += '<div><h3 class="text-lg font-bold text-gray-900 flex items-center gap-2"><i class="fas fa-user-check text-amber-600"></i> HR Endorsement Queue (Tier-2 Sign-Off)</h3><p class="text-xs text-gray-500 mt-0.5">Extended leaves (> 5 days) and specialized leaves (Study, Maternity, Paternity) endorsed by supervisors awaiting final HR approval</p></div>';
@@ -13507,11 +13581,54 @@
                     renderBlackoutPeriodsList('blackoutPeriodsList');
                     renderGazettedHolidaysList('gazettedHolidaysListContainer');
                     setupHRDashboardTableFilters(staffList);
+            }
 
+            // ─── HR Dashboard (Background SWR Hydration) ──────────────────────────
+            async function loadHRDashboardPage() {
+                const pageElement = document.getElementById('hrDashboardPage');
+                if (!pageElement) return;
+
+                // 1. SWR: Instant render from memory or ClientCache
+                const cached = (typeof ClientCache !== 'undefined' ? ClientCache.get('hr_dashboard') : null) || window.AppState?.hrDashboardData;
+                let hasRenderedCached = false;
+                if (cached) {
+                    renderHRDashboardUI(cached);
+                    hasRenderedCached = true;
+                    if (typeof ClientCache !== 'undefined' && ClientCache.isFresh('hr_dashboard', 60000)) {
+                        return;
+                    }
+                } else if (!pageElement.innerHTML || pageElement.innerHTML.trim() === '') {
+                    // Shimmer skeleton (non-blocking, no screen freeze)
+                    pageElement.innerHTML = `
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 sm:gap-4 mb-8 animate-pulse">
+                            <div class="bg-slate-100 rounded-2xl h-24"></div>
+                            <div class="bg-slate-100 rounded-2xl h-24"></div>
+                            <div class="bg-slate-100 rounded-2xl h-24"></div>
+                            <div class="bg-slate-100 rounded-2xl h-24"></div>
+                            <div class="bg-slate-100 rounded-2xl h-24"></div>
+                        </div>
+                        <div class="bg-slate-100 rounded-2xl h-72 mb-8 animate-pulse"></div>
+                        <div class="bg-slate-100 rounded-2xl h-96 animate-pulse"></div>
+                    `;
+                }
+
+                // 2. Background revalidation (never uses blocking showLoading modal)
+                try {
+                    const result = await callGoogleScriptFunction('apiGetHRDashboard');
+                    if (result && result.success && result.data) {
+                        if (typeof ClientCache !== 'undefined') {
+                            ClientCache.set('hr_dashboard', result.data, 3 * 60 * 1000);
+                        }
+                        if (window.AppState) window.AppState.hrDashboardData = result.data;
+                        renderHRDashboardUI(result.data);
+                    } else if (!hasRenderedCached) {
+                        pageElement.innerHTML = '<div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center text-red-700">' + ((result && result.error) || 'Failed to load HR data') + '</div>';
+                    }
                 } catch (error) {
-                    hideLoading();
-                    console.error('HR dashboard error:', error);
-                    showToast('error', 'HR Dashboard Failed', error.message);
+                    console.error('HR dashboard background revalidation error:', error);
+                    if (!hasRenderedCached) {
+                        pageElement.innerHTML = '<div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center text-red-700">Failed to load HR dashboard: ' + escapeHtml(error.message) + '</div>';
+                    }
                 }
             }
 
@@ -15206,48 +15323,63 @@
                 }
             }
 
+            async function renderBlackoutItems(container, periods) {
+                if (!container) return;
+                if (!periods || periods.length === 0) {
+                    container.innerHTML = '<p class="text-xs text-gray-500 italic py-3 text-center">No active blackout periods configured. Click "Add Blackout Window" to define peak operational seasons.</p>';
+                    return;
+                }
+                container.innerHTML = periods.map(p => `
+                <div class="flex flex-wrap items-center justify-between p-3.5 rounded-xl border ${p.severity === 'strict' ? 'border-rose-200 bg-rose-50/50' : 'border-amber-200 bg-amber-50/50'} gap-3">
+                    <div class="flex items-center gap-3">
+                        <div class="h-9 w-9 rounded-xl ${p.severity === 'strict' ? 'bg-rose-600 text-white' : 'bg-amber-500 text-white'} flex items-center justify-center text-xs shadow-sm">
+                            <i class="fas ${p.severity === 'strict' ? 'fa-lock' : 'fa-exclamation-triangle'}"></i>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <h4 class="font-bold text-gray-900 text-sm">${escapeHtml(p.name)}</h4>
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${p.severity === 'strict' ? 'bg-rose-100 text-rose-800 border border-rose-300' : 'bg-amber-100 text-amber-800 border border-amber-300'}">${p.severity === 'strict' ? 'Strict Lock' : 'Warning'}</span>
+                                <span class="text-xs text-gray-500">• ${escapeHtml(p.department || 'All')}</span>
+                            </div>
+                            <p class="text-xs text-gray-600 mt-0.5">
+                                <i class="fas fa-calendar-alt text-gray-400 mr-1"></i> ${p.startDate} to ${p.endDate}
+                                ${p.reason ? `<span class="italic text-gray-500 ml-2">&mdash; "${escapeHtml(p.reason)}"</span>` : ''}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button type="button" data-id="${escapeHtml(p.id)}" onclick="deleteBlackoutPeriod(this.dataset.id)" class="px-3 py-1.5 border border-red-200 bg-white hover:bg-red-50 active:scale-95 text-red-600 rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1">
+                            <i class="fas fa-trash-alt text-[10px]"></i> Delete
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+            }
+
             async function renderBlackoutPeriodsList(containerId = 'blackoutPeriodsList') {
                 const container = document.getElementById(containerId);
                 if (!container) return;
+
+                // SWR check
+                const cachedPeriods = (typeof ClientCache !== 'undefined' ? ClientCache.get('blackout_periods') : null) || window.AppState?.blackoutPeriods;
+                if (cachedPeriods && Array.isArray(cachedPeriods)) {
+                    renderBlackoutItems(container, cachedPeriods);
+                    if (typeof ClientCache !== 'undefined' && ClientCache.isFresh('blackout_periods', 60000)) return;
+                }
+
                 try {
                     const res = await callGoogleScriptFunction('apiGetBlackoutPeriods');
-                    if (res.success && Array.isArray(res.data)) {
+                    if (res && res.success && Array.isArray(res.data)) {
                         window.AppState = window.AppState || {};
                         window.AppState.blackoutPeriods = res.data;
-                        const periods = res.data;
-                        if (periods.length === 0) {
-                            container.innerHTML = '<p class="text-xs text-gray-500 italic py-3 text-center">No active blackout periods configured. Click "Add Blackout Window" to define peak operational seasons.</p>';
-                            return;
-                        }
-                        container.innerHTML = periods.map(p => `
-                        <div class="flex flex-wrap items-center justify-between p-3.5 rounded-xl border ${p.severity === 'strict' ? 'border-rose-200 bg-rose-50/50' : 'border-amber-200 bg-amber-50/50'} gap-3">
-                            <div class="flex items-center gap-3">
-                                <div class="h-9 w-9 rounded-xl ${p.severity === 'strict' ? 'bg-rose-600 text-white' : 'bg-amber-500 text-white'} flex items-center justify-center text-xs shadow-sm">
-                                    <i class="fas ${p.severity === 'strict' ? 'fa-lock' : 'fa-exclamation-triangle'}"></i>
-                                </div>
-                                <div>
-                                    <div class="flex items-center gap-2">
-                                        <h4 class="font-bold text-gray-900 text-sm">${escapeHtml(p.name)}</h4>
-                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${p.severity === 'strict' ? 'bg-rose-100 text-rose-800 border border-rose-300' : 'bg-amber-100 text-amber-800 border border-amber-300'}">${p.severity === 'strict' ? 'Strict Lock' : 'Warning'}</span>
-                                        <span class="text-xs text-gray-500">• ${escapeHtml(p.department || 'All')}</span>
-                                    </div>
-                                    <p class="text-xs text-gray-600 mt-0.5">
-                                        <i class="fas fa-calendar-alt text-gray-400 mr-1"></i> ${p.startDate} to ${p.endDate}
-                                        ${p.reason ? `<span class="italic text-gray-500 ml-2">&mdash; "${escapeHtml(p.reason)}"</span>` : ''}
-                                    </p>
-                                </div>
-                            </div>
-                            <div class="flex items-center space-x-2">
-                                <button type="button" data-id="${escapeHtml(p.id)}" onclick="deleteBlackoutPeriod(this.dataset.id)" class="px-3 py-1.5 border border-red-200 bg-white hover:bg-red-50 active:scale-95 text-red-600 rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1">
-                                    <i class="fas fa-trash-alt text-[10px]"></i> Delete
-                                </button>
-                            </div>
-                        </div>
-                    `).join('');
+                        if (typeof ClientCache !== 'undefined') ClientCache.set('blackout_periods', res.data, 5 * 60 * 1000);
+                        renderBlackoutItems(container, res.data);
                     }
                 } catch (err) {
                     console.warn('Failed to load blackout periods list:', err);
-                    container.innerHTML = '<p class="text-xs text-rose-500">Failed to load blackout periods.</p>';
+                    if (!cachedPeriods) {
+                        container.innerHTML = '<p class="text-xs text-rose-500">Failed to load blackout periods.</p>';
+                    }
                 }
             }
 
@@ -15342,35 +15474,11 @@
                 return wallchartStates[containerId];
             }
 
-            async function renderTeamAvailabilityWallchart(containerId = 'teamWallchartContainer', initialDepartment, initialMonth, initialYear) {
-                const container = document.getElementById(containerId);
-                if (!container) return;
-
-                const state = getWallchartState(containerId);
-                if (initialMonth !== undefined) state.month = initialMonth;
-                if (initialYear !== undefined) state.year = initialYear;
-                if (initialDepartment !== undefined) state.department = initialDepartment;
-
+            // Render Wallchart Grid DOM
+            function renderWallchartDOM(container, data, state, isSupervisorScope) {
+                const containerId = container.id || 'teamWallchartContainer';
                 const { month, year, department } = state;
-                const isSupervisorScope = (containerId === 'teamWallchartContainer') || (AppState.userRole === 'supervisor');
-                const scope = isSupervisorScope ? 'supervisor' : 'hr';
-
-                container.innerHTML = `
-                <div class="p-8 text-center text-gray-500">
-                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto mb-3"></div>
-                    <p class="text-xs">Loading availability wallchart...</p>
-                </div>
-            `;
-
-                try {
-                    const res = await callGoogleScriptFunction('apiGetTeamAvailability', { month, year, department, scope, containerId });
-                    if (!res.success || !res.data) {
-                        container.innerHTML = `<div class="p-6 text-center text-rose-500 text-xs">Failed to load team availability: ${escapeHtml(res.error || 'Unknown error')}</div>`;
-                        return;
-                    }
-
-                    const data = res.data;
-                    const daysInMonth = data.daysInMonth || new Date(year, month, 0).getDate();
+                const daysInMonth = data.daysInMonth || new Date(year, month, 0).getDate();
                     const matrix = data.matrix || [];
                     const monthName = new Date(year, month - 1, 1).toLocaleString('default', { month: 'long' });
                     const todayStr = new Date().toISOString().split('T')[0];
@@ -15582,9 +15690,59 @@
                 </div>`;
 
                     container.innerHTML = html;
+            }
+
+            // Render Team Availability Wallchart with SWR Background Hydration
+            async function renderTeamAvailabilityWallchart(containerId = 'teamWallchartContainer', initialDepartment, initialMonth, initialYear) {
+                const container = document.getElementById(containerId);
+                if (!container) return;
+
+                const state = getWallchartState(containerId);
+                if (initialMonth !== undefined) state.month = initialMonth;
+                if (initialYear !== undefined) state.year = initialYear;
+                if (initialDepartment !== undefined) state.department = initialDepartment;
+
+                const { month, year, department } = state;
+                const isSupervisorScope = (containerId === 'teamWallchartContainer') || (AppState.userRole === 'supervisor');
+                const scope = isSupervisorScope ? 'supervisor' : 'hr';
+
+                const cacheKey = `wallchart_${scope}_${department || 'all'}_${year}_${month}`;
+                const cachedData = (typeof ClientCache !== 'undefined') ? ClientCache.get(cacheKey) : null;
+                let hasRenderedCached = false;
+
+                if (cachedData) {
+                    renderWallchartDOM(container, cachedData, state, isSupervisorScope);
+                    hasRenderedCached = true;
+                    if (typeof ClientCache !== 'undefined' && ClientCache.isFresh(cacheKey, 60000)) {
+                        return;
+                    }
+                } else {
+                    container.innerHTML = `
+                        <div class="p-8 text-center text-gray-500">
+                            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto mb-3"></div>
+                            <p class="text-xs">Loading availability wallchart...</p>
+                        </div>
+                    `;
+                }
+
+                try {
+                    const res = await callGoogleScriptFunction('apiGetTeamAvailability', { month, year, department, scope, containerId });
+                    if (!res.success || !res.data) {
+                        if (!hasRenderedCached) {
+                            container.innerHTML = `<div class="p-6 text-center text-rose-500 text-xs">Failed to load team availability: ${escapeHtml(res.error || 'Unknown error')}</div>`;
+                        }
+                        return;
+                    }
+
+                    if (typeof ClientCache !== 'undefined') {
+                        ClientCache.set(cacheKey, res.data, 3 * 60 * 1000);
+                    }
+                    renderWallchartDOM(container, res.data, state, isSupervisorScope);
                 } catch (err) {
                     console.error('Wallchart error:', err);
-                    container.innerHTML = `<div class="p-6 text-center text-rose-500 text-xs">Error rendering wallchart: ${escapeHtml(err.message)}</div>`;
+                    if (!hasRenderedCached) {
+                        container.innerHTML = `<div class="p-6 text-center text-rose-500 text-xs">Error rendering wallchart: ${escapeHtml(err.message)}</div>`;
+                    }
                 }
             }
 
@@ -15690,90 +15848,52 @@
                 }
             }
 
+            function renderHolidayItems(container, holidays) {
+                if (!container) return;
+                if (!holidays || holidays.length === 0) {
+                    container.innerHTML = '<p class="text-xs text-gray-500 italic py-3 text-center">No custom gazetted holidays registered. Standard Kenya public holidays apply automatically.</p>';
+                    return;
+                }
+                container.innerHTML = holidays.map(h => `
+                <div class="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200/80 shadow-2xs">
+                    <div class="flex items-center space-x-3">
+                        <div class="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-xs font-bold">
+                            <i class="fas fa-calendar-day"></i>
+                        </div>
+                        <div>
+                            <div class="text-xs font-bold text-slate-800">${escapeHtml(h.name)}</div>
+                            <div class="text-[11px] text-slate-500">${escapeHtml(h.date)} ${h.description ? ' • ' + escapeHtml(h.description) : ''}</div>
+                        </div>
+                    </div>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Gazetted</span>
+                </div>
+            `).join('');
+            }
+
             async function renderGazettedHolidaysList(containerId = 'gazettedHolidaysListContainer') {
                 const container = document.getElementById(containerId);
                 if (!container) return;
+
+                // SWR check
+                const cachedHolidays = (typeof ClientCache !== 'undefined' ? ClientCache.get('gazetted_holidays') : null) || window.AppState?.gazettedHolidays;
+                if (cachedHolidays && Array.isArray(cachedHolidays)) {
+                    renderHolidayItems(container, cachedHolidays);
+                    if (typeof ClientCache !== 'undefined' && ClientCache.isFresh('gazetted_holidays', 60000)) return;
+                }
+
                 try {
                     const res = await callGoogleScriptFunction('apiGetGazettedHolidays');
-                    if (res.success && Array.isArray(res.data)) {
-                        const holidays = res.data;
-                        if (holidays.length === 0) {
-                            container.innerHTML = '<p class="text-xs text-gray-500 italic py-3 text-center">No custom gazetted holidays registered. Standard Kenya public holidays apply automatically.</p>';
-                            return;
-                        }
-                        container.innerHTML = holidays.map(h => `
-                        <div class="flex flex-wrap items-center justify-between p-3.5 rounded-xl border border-emerald-100 bg-emerald-50/40 gap-3">
-                            <div class="flex items-center gap-3">
-                                <div class="h-9 w-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-xs shadow-sm">
-                                    <i class="fas fa-flag"></i>
-                                </div>
-                                <div>
-                                    <div class="flex items-center gap-2">
-                                        <h4 class="font-bold text-gray-900 text-sm">${escapeHtml(h.name)}</h4>
-                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300">Gazetted</span>
-                                    </div>
-                                    <p class="text-xs text-gray-600 mt-0.5">
-                                        <i class="fas fa-calendar-day text-emerald-600 mr-1"></i> <strong>${h.date}</strong>
-                                        ${h.description ? `<span class="italic text-gray-500 ml-2">&mdash; "${escapeHtml(h.description)}"</span>` : ''}
-                                    </p>
-                                </div>
-                            </div>
-                            <div class="flex items-center space-x-2">
-                                <button type="button" data-date="${escapeHtml(h.date)}" onclick="handleRecalibrateHoliday(this.dataset.date)" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5" title="Recalibrate overlapping leaves and refund days to staff balances">
-                                    <i class="fas fa-sync-alt text-[10px]"></i> Recalibrate Leaves
-                                </button>
-                                <button type="button" data-id="${escapeHtml(h.id)}" onclick="handleDeleteGazettedHoliday(this.dataset.id)" class="px-2.5 py-1.5 border border-red-200 bg-white hover:bg-red-50 active:scale-95 text-red-600 rounded-lg text-xs font-semibold shadow-sm transition-all" title="Delete holiday">
-                                    <i class="fas fa-trash-alt text-[10px]"></i>
-                                </button>
-                            </div>
-                        </div>
-                    `).join('');
+                    if (res && res.success && Array.isArray(res.data)) {
+                        window.AppState = window.AppState || {};
+                        window.AppState.gazettedHolidays = res.data;
+                        if (typeof ClientCache !== 'undefined') ClientCache.set('gazetted_holidays', res.data, 5 * 60 * 1000);
+                        renderHolidayItems(container, res.data);
                     }
-                } catch (err) {
-                    console.warn('Failed to load gazetted holidays:', err);
-                    container.innerHTML = '<p class="text-xs text-red-500">Failed to load gazetted holidays.</p>';
-                }
-            }
-
-            async function handleDeleteGazettedHoliday(id) {
-                if (!confirm('Are you sure you want to remove this gazetted public holiday?')) return;
-                showLoading('Removing holiday...');
-                try {
-                    const res = await callGoogleScriptFunction('apiDeleteGazettedHoliday', id);
-                    hideLoading();
-                    if (res.success) {
-                        showToast('success', 'Holiday Removed', 'Gazetted holiday removed successfully');
-                        if (AppState.currentPage === 'hrDashboard') {
-                            loadHRDashboardPage();
-                        }
-                    } else {
-                        showToast('error', 'Failed', res.error || 'Failed to remove holiday');
+                } catch (e) {
+                    console.error('Failed to load gazetted holidays list:', e);
+                    if (!cachedHolidays) {
+                        container.innerHTML = '<p class="text-xs text-rose-500">Failed to load gazetted holidays.</p>';
                     }
-                } catch (err) {
-                    hideLoading();
-                    showToast('error', 'Error', err.message);
-                }
-            }
-
-            async function handleRecalibrateHoliday(holidayDate) {
-                if (!confirm(`Recalibrate all approved and pending leaves overlapping ${holidayDate}? Overlapping business days will be automatically refunded to employee balances.`)) return;
-                showLoading('Recalibrating overlapping leaves...');
-                try {
-                    const res = await callGoogleScriptFunction('apiRecalibrateOverlappingLeaves', { date: holidayDate });
-                    hideLoading();
-                    if (res.success) {
-                        const affected = res.data?.affectedCount || 0;
-                        const refunded = res.data?.totalDaysRefunded || 0;
-                        showToast('success', 'Recalibration Complete', `Recalibrated ${affected} leave application(s). Refunded ${refunded} day(s) to employee balances.`);
-                        if (AppState.currentPage === 'hrDashboard') {
-                            loadHRDashboardPage();
-                        }
-                    } else {
-                        showToast('error', 'Recalibration Failed', res.error || 'Failed to recalibrate');
-                    }
-                } catch (err) {
-                    hideLoading();
-                    showToast('error', 'Error', err.message);
                 }
             }
 

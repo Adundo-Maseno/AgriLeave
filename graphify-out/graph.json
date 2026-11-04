@@ -6960,6 +6960,50 @@
       "target": "code_apigetallstaff",
       "label": "prepopulates_colleague_list",
       "type": "prepopulates_colleague_list"
+    },
+    {
+      "source": "index_view_hr_dashboard",
+      "target": "index_client_cache",
+      "label": "hydrates_via_swr",
+      "type": "hydrates_via_swr",
+      "relation": "hydrates_via_swr",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "Index.html",
+      "weight": 1
+    },
+    {
+      "source": "index_view_team_overview",
+      "target": "index_client_cache",
+      "label": "hydrates_via_swr",
+      "type": "hydrates_via_swr",
+      "relation": "hydrates_via_swr",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "Index.html",
+      "weight": 1
+    },
+    {
+      "source": "index_availability_wallchart",
+      "target": "index_client_cache",
+      "label": "hydrates_via_swr",
+      "type": "hydrates_via_swr",
+      "relation": "hydrates_via_swr",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "Index.html",
+      "weight": 1
+    },
+    {
+      "source": "index_view_team_applications",
+      "target": "index_client_cache",
+      "label": "hydrates_via_swr",
+      "type": "hydrates_via_swr",
+      "relation": "hydrates_via_swr",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "Index.html",
+      "weight": 1
     }
   ],
   "hyperedges": [
