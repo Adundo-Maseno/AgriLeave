@@ -240,3 +240,19 @@ _Questions this graph is uniquely positioned to answer:_
 - **Resolved `TypeError: Cannot read properties of undefined (reading 'success')`**:
   - Restored explicit `return requestPromise;` in `callGoogleScriptFunction()`. Previously, the coalesced promise was constructed but failed to return to the caller, causing `loadUpcomingHolidaysWidget`, `loadDashboardData`, and `getCurrentUser` to receive `undefined`.
   - All asynchronous callers now resolve cleanly with the proper server response object.
+
+
+### The Web Kitchen (TWK) Craftsman Upgrade: AI Chatbox (Pillars 1, 2, 5 & 6)
+- **Pillar 2 (60fps Spring Motion & Micro-Interactions)**:
+  - **Desktop Spring Pop-In**: Enabled `#aiChatPanel:not(.hidden)` spring pop-in with exponential easing (`cubic-bezier(0.16, 1, 0.3, 1)` at 260ms), scaling from 0.92 to 1 with 14px subtle translation.
+  - **Mobile Native Bottom Sheet**: Configured responsive bottom-sheet slide-up (`twkChatSheetSlideUp` at 300ms) with hardware-accelerated `transform: translateY` and silky backdrop fade (`twkFadeIn`).
+  - **Magnetic Cursor Physics**: Attached `#aiChatToggleBtn` to `initTWKTactileInteractions()`, giving the floating circular action button magnetic cursor-following attraction with subtle spring damping.
+  - **Bubble Entrance**: Decorated user and assistant chat bubbles with silky entrance physics (`twkMessageEnter` at 220ms).
+  - **Organic Audio-Spectrum Waveform**: Replaced static dots with an active 5-bar undulating audio spectrum waveform in `appendTypingIndicator()`.
+- **Pillar 5 (Performance & Core Web Vitals)**:
+  - Switched `scrollToBottom()` to smooth programmatic scrolling: `messagesContainer.scrollTo({ top: ..., behavior: 'smooth' })`.
+  - Added `contain: content;` on dynamic bubble entries to eliminate layout thrashing.
+- **Pillar 6 (WCAG 2.2 AA Accessibility & Inclusivity)**:
+  - Connected assistant responses directly to `#a11yLiveAnnouncer` via `window.announceToScreenReader()` for assistive technology.
+  - Implemented keyboard accessibility: `Escape` key immediately dismisses open chat and safely restores focus to `#aiChatToggleBtn`.
+  - Added high-contrast focus rings (`focus-visible:ring-4 focus-visible:ring-emerald-400`) on FAB, input, and agentic quick action buttons.
