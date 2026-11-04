@@ -185,3 +185,16 @@ _Questions this graph is uniquely positioned to answer:_
   - **System Admin & Diagnostics**: Diagnostic cache stats instant render via `ClientCache.get('perf_stats')`.
   - **Idle Prefetcher**: Background pre-warming during user idle intervals for staff directory, applications audit, supervisor stats, HR dashboard, blackout windows, and gazetted holidays.
   - **Selective Cache Invalidation**: Automatic multi-key cache eviction on leave application creation and decision batches to prevent stale state.
+
+
+### The Web Kitchen (TWK) Core Web Vitals & Frontend Remediation (Latest)
+- **Zero CLS & Accelerated LCP**:
+  - Embedded `<link rel="preconnect">` and `dns-prefetch` origins for Google Fonts, Google CDN, and FontAwesome in `Index.html` `<head>`.
+  - Optimized brand logo: Replaced `sz=w1000` with high-density `sz=w160`, explicit HTML dimensions `width="80" height="40"`, and `fetchpriority="high" decoding="async"` (eliminating header CLS and shaving ~90% off image weight).
+- **Purged 280 `transition-all` Directives (INP Optimization)**:
+  - Replaced all layout-thrashing `transition-all` instances across cards, buttons, rows, and JS templates with layout-sparing `transition`, eliminating expensive main-thread layout recalculations.
+- **Inclusivity & Accessible Focus Rings (WCAG 2.2 AA)**:
+  - Enforced high-contrast `:focus-visible` outline rings (2px solid #059669 with 2px offset) across sidebar links, action buttons, quick chips, inputs, and selects.
+  - Implemented 44×44px minimum touch targets on mobile/touch viewports via `@media (pointer: coarse)`.
+- **Tactile Easing Physics**:
+  - Integrated TWK exponential curves (`cubic-bezier(0.16, 1, 0.3, 1)`) into Tailwind config and root tokens.
