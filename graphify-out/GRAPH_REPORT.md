@@ -256,3 +256,19 @@ _Questions this graph is uniquely positioned to answer:_
   - Connected assistant responses directly to `#a11yLiveAnnouncer` via `window.announceToScreenReader()` for assistive technology.
   - Implemented keyboard accessibility: `Escape` key immediately dismisses open chat and safely restores focus to `#aiChatToggleBtn`.
   - Added high-contrast focus rings (`focus-visible:ring-4 focus-visible:ring-emerald-400`) on FAB, input, and agentic quick action buttons.
+
+
+### The Web Kitchen (TWK) Craftsman Upgrade: Bespoke Initial Page Loader & Splash (Pillars 1, 2, 5 & 6)
+- **Pillar 1 (Bespoke Editorial Atmosphere & Luxury Aesthetics)**:
+  - Transformed the initial page loader into an immersive, bespoke brand prologue with deep forest-obsidian radial surface (`#0d281e` $\to$ `#061712` $\to$ `#020906`).
+  - Elevated frosted glass hero card with `backdrop-filter: blur(20px)`, 1px luminous border highlight, and depth shadow (`box-shadow: 0 32px 64px -16px rgba(0, 0, 0, 0.65)`).
+  - Added an organic glowing emblem badge with continuous halo spin (`twkHaloSpin`), luminous core pulse (`twkGlowPulse`), and ambient breathing orb (`twkAmbientBreath`).
+  - Editorial uppercase typography with crisp letter-spacing (`tracking-[0.22em] text-white` for brand title and `tracking-[0.2em] text-emerald-400/90` for portal subtitle).
+- **Pillar 2 (60fps Spring Motion & Fluid Transitions)**:
+  - Minimalist continuous precision progress track (`twk-progress-bar`) with smooth non-linear gradient shimmer beam (`twkProgressShimmer 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite`).
+  - Eliminated the abrupt layout snap cut in `hideLoading()`: Replaced `display: none` with a silky 350ms exponential curtain lift (`twk-loader-exit`) transitioning `opacity: 0` and subtle `scale(1.02)` via `cubic-bezier(0.16, 1, 0.3, 1)`.
+- **Pillar 5 (Core Web Vitals & FOUC Prevention)**:
+  - Isolated stacking context with `z-[9999]`, `fixed inset-0`, and `will-change: opacity, transform`. Completely shields the viewport during initial resource hydration, preventing Cumulative Layout Shift (CLS) and Flash of Unstyled Content (FOUC).
+- **Pillar 6 (WCAG 2.2 AA Accessibility & Reduced Motion)**:
+  - Accessible semantics: `role="status"` and `aria-live="polite"` on `#loadingOverlay`.
+  - Full `@media (prefers-reduced-motion: reduce)` overrides disabling transforms and ambient loops.

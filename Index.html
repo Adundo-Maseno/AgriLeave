@@ -1692,6 +1692,105 @@
             border-radius: var(--radius-xl);
         }
 
+        /* ── The Web Kitchen (TWK) Luxury Initial Loader & Splash (Pillars 1, 2 & 5) ── */
+        .twk-loader-surface {
+            background: radial-gradient(circle at 50% 38%, #0d281e 0%, #061712 55%, #020906 100%) !important;
+            will-change: opacity, transform;
+            transition: opacity 350ms cubic-bezier(0.16, 1, 0.3, 1), transform 350ms cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .twk-loader-exit {
+            opacity: 0 !important;
+            transform: scale(1.02) !important;
+            pointer-events: none !important;
+        }
+
+        /* Ambient Breathing Radial Glow */
+        .twk-loader-ambient {
+            position: absolute;
+            width: 380px;
+            height: 380px;
+            background: radial-gradient(circle, rgba(16, 185, 129, 0.22) 0%, rgba(20, 184, 166, 0.08) 45%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: twkAmbientBreath 3.6s ease-in-out infinite alternate;
+        }
+
+        @keyframes twkAmbientBreath {
+            0% { transform: scale(0.85); opacity: 0.6; }
+            100% { transform: scale(1.15); opacity: 1; }
+        }
+
+        /* Frosted Glass Hero Card */
+        .twk-loader-card {
+            background: rgba(15, 23, 42, 0.45);
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.02) 100%);
+            box-shadow: 0 32px 64px -16px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+            max-width: 320px;
+            width: 90vw;
+            animation: twkCardFloat 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        @keyframes twkCardFloat {
+            0% { opacity: 0; transform: scale(0.95) translateY(10px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        /* Emblem Halo & Core Pulsing */
+        .twk-emblem-halo {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(20, 184, 166, 0.1));
+            animation: twkHaloSpin 6s linear infinite;
+        }
+
+        .twk-emblem-glow {
+            background: radial-gradient(circle, rgba(52, 211, 153, 0.4) 0%, transparent 70%);
+            animation: twkGlowPulse 2.4s ease-in-out infinite alternate;
+        }
+
+        .twk-emblem-core {
+            box-shadow: 0 12px 28px -6px rgba(16, 185, 129, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.3);
+            animation: twkCoreFloat 3s ease-in-out infinite alternate;
+        }
+
+        @keyframes twkHaloSpin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes twkGlowPulse {
+            0% { transform: scale(0.9); opacity: 0.5; }
+            100% { transform: scale(1.2); opacity: 1; }
+        }
+
+        @keyframes twkCoreFloat {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-4px); }
+        }
+
+        /* Continuous Precision Progress Shimmer */
+        .twk-progress-bar {
+            width: 48%;
+            background: linear-gradient(90deg, transparent, #10b981, #34d399, transparent);
+            animation: twkProgressShimmer 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+
+        @keyframes twkProgressShimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(250%); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .twk-loader-ambient,
+            .twk-loader-card,
+            .twk-emblem-halo,
+            .twk-emblem-glow,
+            .twk-emblem-core,
+            .twk-progress-bar {
+                animation: none !important;
+                transform: none !important;
+            }
+        }
+
         /* ── TWK AI Chatbox Spring Motion & Craft (Pillars 1, 2 & 5) ─────── */
         #aiChatPanel {
             transform-origin: bottom right;
@@ -4062,17 +4161,41 @@
             </div>
         </div>
 
-        <!-- Loading Overlay -->
+        <!-- The Web Kitchen (TWK) Bespoke Initial Page Loader & Splash (Pillars 1, 2, 5 & 6) -->
         <div id="loadingOverlay"
-            class="fixed inset-0 bg-slate-950/40 backdrop-blur-md z-50 flex flex-col items-center justify-center transition duration-300">
-            <div class="bg-white/95 backdrop-blur-lg rounded-3xl p-8 shadow-2xl border border-white/50 flex flex-col items-center max-w-xs text-center ring-1 ring-black/5 animate-slide-up">
-                <div class="relative w-16 h-16 mb-4 flex items-center justify-center">
-                    <div class="absolute inset-0 rounded-full border-4 border-emerald-100 animate-ping opacity-30"></div>
-                    <div class="loading-spinner w-14 h-14 border-3 border-emerald-100 border-t-emerald-600 rounded-full"></div>
-                    <i class="fas fa-leaf text-emerald-600 text-lg absolute"></i>
+            class="twk-loader-surface fixed inset-0 z-[9999] flex flex-col items-center justify-center select-none"
+            role="status" aria-live="polite">
+            <!-- Ambient breathing illumination orb -->
+            <div class="twk-loader-ambient" aria-hidden="true"></div>
+
+            <!-- Elevated Frosted Glass Card -->
+            <div class="twk-loader-card relative z-10 flex flex-col items-center text-center px-10 py-9 rounded-3xl border border-white/10 shadow-2xl backdrop-blur-xl">
+                <!-- Glowing Brand Emblem -->
+                <div class="twk-emblem-wrap relative w-20 h-20 mb-5 flex items-center justify-center">
+                    <div class="twk-emblem-halo absolute inset-0 rounded-2xl"></div>
+                    <div class="twk-emblem-glow absolute inset-1 rounded-2xl"></div>
+                    <div class="twk-emblem-core relative z-10 w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-600 via-emerald-500 to-teal-400 flex items-center justify-center shadow-lg border border-white/20">
+                        <i class="fa-solid fa-leaf text-white text-2xl drop-shadow-md"></i>
+                    </div>
                 </div>
-                <p class="text-base font-bold text-gray-900 tracking-tight">AgriLeave System</p>
-                <p class="text-xs text-emerald-800 font-medium px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 mt-2 shadow-2xs" id="loadingMessage">Initializing application...</p>
+
+                <!-- Editorial Typography -->
+                <h1 class="text-white text-sm font-bold tracking-[0.22em] uppercase leading-tight drop-shadow-sm">
+                    Agri Experience
+                </h1>
+                <p class="text-[10px] font-semibold tracking-[0.2em] uppercase text-emerald-400/90 mt-1">
+                    Leave & Absence Portal
+                </p>
+
+                <!-- Minimalist Precision Progress Track -->
+                <div class="twk-progress-track w-48 h-1 bg-white/10 rounded-full overflow-hidden mt-6 relative" aria-hidden="true">
+                    <div class="twk-progress-bar h-full rounded-full"></div>
+                </div>
+
+                <!-- Dynamic Status Capsule -->
+                <p id="loadingMessage" class="text-xs text-emerald-100/90 font-medium px-4 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md mt-4 shadow-sm tracking-wide">
+                    Initializing application...
+                </p>
             </div>
         </div>
 
@@ -4181,8 +4304,11 @@
             function showLoading(message = 'Loading...') {
                 const overlay = document.getElementById('loadingOverlay');
                 if (overlay) {
+                    overlay.classList.remove('twk-loader-exit');
                     overlay.classList.remove('hidden');
                     overlay.style.display = 'flex';
+                    overlay.style.opacity = '1';
+                    overlay.style.transform = 'scale(1)';
                 }
                 const msgEl = document.getElementById('loadingMessage');
                 if (msgEl) msgEl.textContent = message;
@@ -4190,10 +4316,16 @@
 
             function hideLoading() {
                 const overlay = document.getElementById('loadingOverlay');
-                if (overlay) {
-                    overlay.classList.add('hidden');
-                    overlay.style.display = 'none';
-                }
+                if (!overlay) return;
+                // TWK 60fps exponential fade-out
+                overlay.classList.add('twk-loader-exit');
+                setTimeout(() => {
+                    if (overlay.classList.contains('twk-loader-exit')) {
+                        overlay.classList.add('hidden');
+                        overlay.style.display = 'none';
+                        overlay.classList.remove('twk-loader-exit');
+                    }
+                }, 350);
             }
 
             function showToast(type, title, message, duration = 5000) {
