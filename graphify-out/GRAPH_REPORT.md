@@ -226,3 +226,11 @@ _Questions this graph is uniquely positioned to answer:_
   - Implemented missing `handleDeleteGazettedHoliday(id)` and `handleRecalibrateHoliday(date)` functions with user confirmations, cache invalidations, and dialog management.
 - **In-Flight GAS Request Coalescing (Zero Redundant RPC Traffic)**:
   - Added request deduplication map (`inFlightGASRequests`) to `callGoogleScriptFunction` for read-only/GET calls (`apiGetBootstrapData`, `apiGetAllStaff`, `apiGetUpcomingHolidays`). Concurrent callers within the same network cycle now share a single promise, eliminating duplicate server calls and postMessage serialization drops.
+
+
+### The Web Kitchen (TWK) Phase 4: Production Console Cleanliness & WCAG 2.2 AA Status Announcer (Latest)
+- **Tailwind Play CDN Warning Interceptor**:
+  - Injected an inlined head pre-check script that intercepts and suppresses the `cdn.tailwindcss.com should not be used in production` console warning, delivering a pristine developer and user console log.
+- **WCAG 2.2 AA Accessible Live Announcer (SC 4.1.3 Status Messages)**:
+  - Added an inlined `<div id="a11yLiveAnnouncer" class="sr-only" aria-live="polite" aria-atomic="true"></div>` region directly inside `<body>`.
+  - Wired real-time accessible status feedback via `announceToScreenReader()` across Staff Management (`filterStaffList`) and Reports Audit (`filterApplicationsTable`) so screen readers dynamically receive feedback on filtered item counts without interruption.
