@@ -299,3 +299,13 @@ _Questions this graph is uniquely positioned to answer:_
 - Replaced the placeholder emoji leaf (`🌿`) in the email template header with the official **Agri Experience** corporate logo (`https://drive.google.com/thumbnail?id=1FG3ihsPb06rIDp7DcxtZQsmi9XydO9y4&sz=w320`).
 - Rendered the logo inside an elevated, high-contrast white rounded badge (`border-radius: 12px; padding: 8px 18px; box-shadow: 0 4px 14px rgba(0,0,0,0.12); border: 1px solid rgba(255,255,255,0.35)`).
 - Automatically propagates across all transactional emails (submissions, approvals, declines, handover requests, and HR decision audits).
+
+
+### Bug Fix: Sick & Compensation Leave Property Normalization (Resolving 'undefined' in AI Assistant Balances)
+- **Root Cause**:
+  - `DashboardManager.calculateUserBalance` returned `balance.sick.balance` and `balance.compensation.balance`, but did not include `.available`.
+  - `AIAssistantManager.getRoleScopedContext` attempted to read `b.sick.available` and `b.compensation.available` across personal balances, supervisor direct reports, and the HR/Admin allStaff directory.
+  - This resulted in `undefined` being passed into the AI system context for Sick Leave and Compensation Leave, causing the AI Assistant to output `undefined` when generating the company balance markdown table.
+- **Resolution**:
+  - **Model Normalization**: Added canonical `available: sickBalance` and `allocated: sickAllocation` to `balanceData.sick`, and `available: compensationBalance` to `balanceData.compensation` across eligible and non-eligible branches in `DashboardManager.calculateUserBalance`.
+  - **Defensive Extraction**: Updated `AIAssistantManager.getRoleScopedContext` to safely resolve both property variants: `b.sick.available ?? b.sick.balance ?? 0`, `b.compensation.available ?? b.compensation.balance ?? 0`, and `b.broughtForward?.available ?? 0`.

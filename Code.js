@@ -3836,11 +3836,21 @@ const DashboardManager = {
                     },
                     sick: {
                         allocation: ConfigManager.getSickLeaveAllocation(),
+                        allocated: ConfigManager.getSickLeaveAllocation(),
                         used: 0,
                         balance: ConfigManager.getSickLeaveAllocation(),
+                        available: ConfigManager.getSickLeaveAllocation(),
                         percentage: 0
                     },
                     broughtForward: null,
+                    compensation: {
+                        balance: 0,
+                        available: 0,
+                        used: 0,
+                        total: 0,
+                        totalAwarded: 0,
+                        awards: []
+                    },
                     total: { available: 0, used: 0, allocation: 0, percentage: 0, hasAnnualDeficit: false, annualDeficitAmount: 0 }
                 };
                 EnhancedCacheManager.setBalance(email, balanceData);
@@ -3994,13 +4004,16 @@ const DashboardManager = {
                 },
                 sick: {
                     allocation: sickAllocation,
+                    allocated: sickAllocation,
                     used: sickUsed,
                     balance: sickBalance,
+                    available: sickBalance,
                     percentage: sickPercentage
                 },
                 broughtForward: broughtForwardData,
                 compensation: {
                     balance: compensationBalance,
+                    available: compensationBalance,
                     used: compensationUsedTotal,
                     total: compensationTotal,
                     totalAwarded: compensationTotal,
@@ -8777,16 +8790,24 @@ const AIAssistantManager = {
             if (balance) {
                 context.push(`\n### Current Personal Leave Balances for ${user.Name}:`);
                 if (balance.annual) {
-                    context.push(`- Annual Leave Available: ${balance.annual.available} days (Accrued: ${balance.annual.accrued}, Used: ${balance.annual.used}, Monthly Accrual: ${balance.annual.monthlyRate || 1.75} days/month, Deficit: ${balance.annual.annualDeficit || 0})`);
+                    const annAvail = balance.annual.available !== undefined ? balance.annual.available : (balance.annual.balance !== undefined ? balance.annual.balance : 0);
+                    context.push(`- Annual Leave Available: ${annAvail} days (Accrued: ${balance.annual.accrued || 0}, Used: ${balance.annual.used || 0}, Monthly Accrual: ${balance.annual.monthlyRate || 1.75} days/month, Deficit: ${balance.annual.annualDeficit || 0})`);
                 }
                 if (balance.sick) {
-                    context.push(`- Sick Leave Available: ${balance.sick.available} days (Allocated: ${balance.sick.allocated || 7}, Used: ${balance.sick.used || 0})`);
+                    const sickAvail = balance.sick.available !== undefined ? balance.sick.available : (balance.sick.balance !== undefined ? balance.sick.balance : 0);
+                    const sickAlloc = balance.sick.allocation !== undefined ? balance.sick.allocation : (balance.sick.allocated || 7);
+                    context.push(`- Sick Leave Available: ${sickAvail} days (Allocated: ${sickAlloc}, Used: ${balance.sick.used || 0})`);
                 }
-                if (balance.broughtForward) {
+                if (balance.broughtForward && balance.broughtForward.available !== undefined) {
                     context.push(`- Brought Forward (Carryover) Available: ${balance.broughtForward.available} days (Used: ${balance.broughtForward.used || 0})`);
+                } else {
+                    context.push(`- Brought Forward (Carryover) Available: 0 days`);
                 }
                 if (balance.compensation) {
-                    context.push(`- Compensation Leave Available: ${balance.compensation.available} days (Used: ${balance.compensation.used || 0})`);
+                    const compAvail = balance.compensation.available !== undefined ? balance.compensation.available : (balance.compensation.balance !== undefined ? balance.compensation.balance : 0);
+                    context.push(`- Compensation Leave Available: ${compAvail} days (Used: ${balance.compensation.used || 0})`);
+                } else {
+                    context.push(`- Compensation Leave Available: 0 days`);
                 }
             }
         } catch (e) {
@@ -8867,12 +8888,12 @@ const AIAssistantManager = {
                         try {
                             const b = DashboardManager.calculateUserBalance(m.Email);
                             if (b) {
-                                const ann = b.annual ? b.annual.available : 0;
-                                const annAccrued = b.annual ? b.annual.accrued : 0;
-                                const annUsed = b.annual ? b.annual.used : 0;
-                                const sick = b.sick ? b.sick.available : 0;
-                                const bf = b.broughtForward ? b.broughtForward.available : 0;
-                                const comp = b.compensation ? b.compensation.available : 0;
+                                const ann = b.annual ? (b.annual.available !== undefined ? b.annual.available : (b.annual.balance || 0)) : 0;
+                                const annAccrued = b.annual ? (b.annual.accrued || 0) : 0;
+                                const annUsed = b.annual ? (b.annual.used || 0) : 0;
+                                const sick = b.sick ? (b.sick.available !== undefined ? b.sick.available : (b.sick.balance !== undefined ? b.sick.balance : 0)) : 0;
+                                const bf = b.broughtForward ? (b.broughtForward.available !== undefined ? b.broughtForward.available : 0) : 0;
+                                const comp = b.compensation ? (b.compensation.available !== undefined ? b.compensation.available : (b.compensation.balance !== undefined ? b.compensation.balance : 0)) : 0;
                                 balStr = ` | Balances -> Annual Available: ${ann} days (${annAccrued} accrued, ${annUsed} used), Sick: ${sick} days, Brought Forward: ${bf} days, Comp: ${comp} days`;
                             }
                         } catch (bErr) { }
@@ -8975,12 +8996,12 @@ const AIAssistantManager = {
                     try {
                         const b = DashboardManager.calculateUserBalance(s.Email);
                         if (b) {
-                            const ann = b.annual ? b.annual.available : 0;
-                            const annAccrued = b.annual ? b.annual.accrued : 0;
-                            const annUsed = b.annual ? b.annual.used : 0;
-                            const sick = b.sick ? b.sick.available : 0;
-                            const bf = b.broughtForward ? b.broughtForward.available : 0;
-                            const comp = b.compensation ? b.compensation.available : 0;
+                            const ann = b.annual ? (b.annual.available !== undefined ? b.annual.available : (b.annual.balance || 0)) : 0;
+                            const annAccrued = b.annual ? (b.annual.accrued || 0) : 0;
+                            const annUsed = b.annual ? (b.annual.used || 0) : 0;
+                            const sick = b.sick ? (b.sick.available !== undefined ? b.sick.available : (b.sick.balance !== undefined ? b.sick.balance : 0)) : 0;
+                            const bf = b.broughtForward ? (b.broughtForward.available !== undefined ? b.broughtForward.available : 0) : 0;
+                            const comp = b.compensation ? (b.compensation.available !== undefined ? b.compensation.available : (b.compensation.balance !== undefined ? b.compensation.balance : 0)) : 0;
                             balStr = ` | Annual Available: ${ann} days (Accrued: ${annAccrued}, Used: ${annUsed}), Sick: ${sick} days, Brought Forward: ${bf} days, Compensation: ${comp} days`;
                         }
                     } catch (bErr) { }
