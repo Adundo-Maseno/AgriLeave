@@ -15,14 +15,14 @@
       }
     },
     {
-      "query": "tag:#community/docs_screenshots_01_dashboard_balance_cards__docs_screenshots_01_dashboard_holidays_widget__docs_screenshots_01_dashboard_main_view",
+      "query": "tag:#community/audit_solution_two_tier_read__code_accrualmanager__code_aiassistantmanager",
       "color": {
         "a": 1,
         "rgb": 14767961
       }
     },
     {
-      "query": "tag:#community/audit_solution_two_tier_read__code_accrualmanager__code_aiassistantmanager",
+      "query": "tag:#community/docs_screenshots_01_dashboard_balance_cards__docs_screenshots_01_dashboard_holidays_widget__docs_screenshots_01_dashboard_main_view",
       "color": {
         "a": 1,
         "rgb": 7780274
@@ -71,192 +71,206 @@
       }
     },
     {
-      "query": "tag:#community/code_api_add_gazetted_holiday__code_api_delete_gazetted_holiday__code_api_get_gazetted_holidays",
+      "query": "tag:#community/ClientCache_SWR_Engine__ClientCache_SWR_TeamApps__Staff_Management_View_staffManagementPage",
       "color": {
         "a": 1,
         "rgb": 5142951
+      }
+    },
+    {
+      "query": "tag:#community/code_api_add_gazetted_holiday__code_api_delete_gazetted_holiday__code_api_get_gazetted_holidays",
+      "color": {
+        "a": 1,
+        "rgb": 15896107
       }
     },
     {
       "query": "tag:#community/code_api_get_my_handover_requests__code_api_respond_to_handover__code_api_toggle_handover_task",
       "color": {
         "a": 1,
-        "rgb": 15896107
+        "rgb": 14767961
+      }
+    },
+    {
+      "query": "tag:#community/SheetsDualStoreManager__SheetsSyncDecoupled__scheduledDailyHeartbeat",
+      "color": {
+        "a": 1,
+        "rgb": 7780274
       }
     },
     {
       "query": "tag:#community/code_api_adjust_compensation_leave__code_api_award_compensation_leave__index_modal_compensation",
       "color": {
         "a": 1,
-        "rgb": 14767961
+        "rgb": 5873999
       }
     },
     {
       "query": "tag:#community/code_apifixallstaffleavedata__code_apifixstaffleavedata__code_fixstaffleavedata",
       "color": {
         "a": 1,
-        "rgb": 7780274
+        "rgb": 15583560
       }
     },
     {
       "query": "tag:#community/guide_deduction_priority__guide_entitlement_framework__readme_leave_policies",
       "color": {
         "a": 1,
-        "rgb": 5873999
+        "rgb": 11565729
       }
     },
     {
       "query": "tag:#community/code_api_set_gemini_api_key__index_modal_ai_api_key",
       "color": {
         "a": 1,
-        "rgb": 15583560
+        "rgb": 16752039
       }
     },
     {
       "query": "tag:#community/code_api_submit_compensation_claim__index_modal_toil_claim",
       "color": {
         "a": 1,
-        "rgb": 11565729
+        "rgb": 10253663
       }
     },
     {
       "query": "tag:#community/code_apiexportsystemdata__code_apiexportsystemdata_escapecsv",
       "color": {
         "a": 1,
-        "rgb": 16752039
+        "rgb": 12234924
       }
     },
     {
       "query": "tag:#community/code_fixaccrualforallstaff__code_fixaccrualforallstaff_formatlocaldate",
       "color": {
         "a": 1,
-        "rgb": 10253663
+        "rgb": 5142951
       }
     },
     {
       "query": "tag:#community/code_api_get_current_user",
       "color": {
         "a": 1,
-        "rgb": 12234924
+        "rgb": 15896107
       }
     },
     {
       "query": "tag:#community/drive_compensation_claims_json",
       "color": {
         "a": 1,
-        "rgb": 5142951
+        "rgb": 14767961
       }
     },
     {
       "query": "tag:#community/drive_system_logs_json",
       "color": {
         "a": 1,
-        "rgb": 15896107
+        "rgb": 7780274
       }
     },
     {
       "query": "tag:#community/guide_system_user_guide",
       "color": {
         "a": 1,
-        "rgb": 14767961
+        "rgb": 5873999
       }
     },
     {
       "query": "tag:#community/index_modal_action_confirm",
       "color": {
         "a": 1,
-        "rgb": 7780274
+        "rgb": 15583560
       }
     },
     {
       "query": "tag:#community/index_modal_add_staff",
       "color": {
         "a": 1,
-        "rgb": 5873999
+        "rgb": 11565729
       }
     },
     {
       "query": "tag:#community/index_modal_amend_leave",
       "color": {
         "a": 1,
-        "rgb": 15583560
+        "rgb": 16752039
       }
     },
     {
       "query": "tag:#community/index_modal_application_details",
       "color": {
         "a": 1,
-        "rgb": 11565729
+        "rgb": 10253663
       }
     },
     {
       "query": "tag:#community/index_modal_archived_applications",
       "color": {
         "a": 1,
-        "rgb": 16752039
+        "rgb": 12234924
       }
     },
     {
       "query": "tag:#community/index_modal_edit_staff",
       "color": {
         "a": 1,
-        "rgb": 10253663
+        "rgb": 5142951
       }
     },
     {
       "query": "tag:#community/index_modal_leave_liability",
       "color": {
         "a": 1,
-        "rgb": 12234924
+        "rgb": 15896107
       }
     },
     {
       "query": "tag:#community/index_modal_recalibrate_leave",
       "color": {
         "a": 1,
-        "rgb": 5142951
+        "rgb": 14767961
       }
     },
     {
       "query": "tag:#community/index_modal_system_diagnostics",
       "color": {
         "a": 1,
-        "rgb": 15896107
+        "rgb": 7780274
       }
     },
     {
       "query": "tag:#community/index_modal_vacation_responder",
       "color": {
         "a": 1,
-        "rgb": 14767961
+        "rgb": 5873999
       }
     },
     {
       "query": "tag:#community/readme_agrileave_overview",
       "color": {
         "a": 1,
-        "rgb": 7780274
+        "rgb": 15583560
       }
     },
     {
       "query": "tag:#community/readme_ai_assistant_spec",
       "color": {
         "a": 1,
-        "rgb": 5873999
+        "rgb": 11565729
       }
     },
     {
       "query": "tag:#community/readme_google_workspace_integrations",
       "color": {
         "a": 1,
-        "rgb": 15583560
+        "rgb": 16752039
       }
     },
     {
       "query": "tag:#community/readme_rbac_spec",
       "color": {
         "a": 1,
-        "rgb": 11565729
+        "rgb": 10253663
       }
     }
   ]

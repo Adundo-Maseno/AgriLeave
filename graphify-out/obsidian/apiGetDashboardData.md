@@ -1,12 +1,12 @@
 ---
 source_file: "Code.js"
 type: "code"
-community: "code_api_batch_process_decisions & code_api_cancel_application & code_api_create_staff"
+community: "audit_solution_two_tier_read & code_accrualmanager & code_aiassistantmanager"
 location: "RPC Endpoint"
 tags:
   - graphify/code
   - graphify/EXTRACTED
-  - community/code_api_batch_process_decisions__code_api_cancel_application__code_api_create_staff
+  - community/audit_solution_two_tier_read__code_accrualmanager__code_aiassistantmanager
 ---
 
 # apiGetDashboardData
@@ -14,4 +14,4 @@ tags:
 ## Connections
 - [[Dashboard View (dashboardPage)]] - `calls` [EXTRACTED]
 
-#graphify/code #graphify/EXTRACTED #community/code_api_batch_process_decisions__code_api_cancel_application__code_api_create_staff
+#graphify/code #graphify/EXTRACTED #community/audit_solution_two_tier_read__code_accrualmanager__code_aiassistantmanager

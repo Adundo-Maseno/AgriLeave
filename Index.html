@@ -5869,12 +5869,28 @@
       <p class="text-gray-600">Loading team applications...</p>
     </div>`;
 
-                try {
-                    showLoading('Loading team applications...');
+                const cachedTeamApps = AppState.allTeamApplications || (typeof ClientCache !== 'undefined' ? ClientCache.get('team_applications') : null);
+                let hasRenderedCached = false;
 
-                    // Single unified team apps fetch (derives pending in memory, eliminates 1 redundant RPC)
+                if (cachedTeamApps && Array.isArray(cachedTeamApps) && cachedTeamApps.length > 0) {
+                    hasRenderedCached = true;
+                    // Pre-render immediately from cache
+                    AppState.allTeamApplications = cachedTeamApps;
+                    AppState.teamApplications = cachedTeamApps.filter(a => (a && (a.Status || '').toLowerCase() === 'pending'));
+                    AppState.teamPendingCount = AppState.teamApplications.length;
+                    updateTeamPendingBadge();
+                }
+
+                try {
+                    if (!hasRenderedCached) {
+                        showLoading('Loading team applications...');
+                    }
+
+                    // Single unified team apps fetch with SWR
                     const allResult = await callGoogleScriptFunction('apiGetTeamApplications');
-                    hideLoading();
+                    if (!hasRenderedCached) {
+                        hideLoading();
+                    }
 
                     const rawApps = (allResult && allResult.success) ? (allResult.data?.data || allResult.data || []) : [];
                     const allTeamApps = Array.isArray(rawApps) ? rawApps : [];
@@ -5885,6 +5901,9 @@
 
                     // Store all team apps for view lookups
                     AppState.allTeamApplications = allTeamApps;
+                    if (typeof ClientCache !== 'undefined') {
+                        ClientCache.set('team_applications', allTeamApps, 2 * 60 * 1000);
+                    }
 
                     // Sort newest first
                     allTeamApps.sort((a, b) => new Date(b.DateApplied || 0) - new Date(a.DateApplied || 0));
@@ -7009,12 +7028,9 @@
                     }
                 }
             }
-            function loadStaffList() {
-                callGoogleScriptFunction('apiGetAllStaff')
-                    .then(result => {
-                        if (result.success) {
-                            const staff = result.data.data || [];
-                            const tbody = document.getElementById('staffTableBody');
+            function renderStaffListUI(staff) {
+                if (!staff || !Array.isArray(staff)) return;
+                const tbody = document.getElementById('staffTableBody');
 
                             if (staff.length === 0) {
                                 tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-4 text-center text-gray-500">No staff members found</td></tr>';
@@ -7161,17 +7177,33 @@
                             }
 
                             filterStaffList();
+            }
+
+            function loadStaffList() {
+                // SWR: Render instantly from ClientCache if available (0ms)
+                const cachedStaff = (typeof ClientCache !== 'undefined') ? ClientCache.get('all_staff') : null;
+                if (cachedStaff && Array.isArray(cachedStaff) && cachedStaff.length > 0) {
+                    renderStaffListUI(cachedStaff);
+                }
+
+                callGoogleScriptFunction('apiGetAllStaff')
+                    .then(result => {
+                        if (result.success) {
+                            const staff = result.data.data || [];
+                            if (typeof ClientCache !== 'undefined') {
+                                ClientCache.set('all_staff', staff, 5 * 60 * 1000);
+                            }
+                            renderStaffListUI(staff);
                         }
                     })
                     .catch(error => {
                         console.error('Failed to load staff:', error);
-                        document.getElementById('staffTableBody').innerHTML = `
-        <tr>
-          <td colspan="8" class="px-6 py-4 text-center text-red-500">
-            Failed to load staff data: ${error.message}
-          </td>
-        </tr>
-      `;
+                        if (!cachedStaff) {
+                            const tbody = document.getElementById('staffTableBody');
+                            if (tbody) {
+                                tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-4 text-center text-red-500">Failed to load staff data: ' + escapeHtml(error.message) + '</td></tr>';
+                            }
+                        }
                     });
             }
             // Helper function to escape HTML and prevent XSS (OWASP compliant)
@@ -11437,7 +11469,42 @@
                     commentLabel: isApprove ? 'Approval Notes (Optional)' : 'Decline Reason (Required *)',
                     commentPlaceholder: isApprove ? 'Add an optional note or remarks...' : 'Please explain why this leave request is declined...',
                     onConfirm: async (comment) => {
-                        showLoading(`${isApprove ? 'Approving' : 'Declining'} application...`);
+                        // Immediately close details modal
+                        if (fromModal || !document.getElementById('applicationDetailsModal')?.classList.contains('hidden')) {
+                            document.getElementById('applicationDetailsModal')?.classList.add('hidden');
+                        }
+
+                        // 1. Optimistic State Transition (<5ms)
+                        const originalTeamApps = AppState.teamApplications ? [...AppState.teamApplications] : [];
+                        const originalAllTeamApps = AppState.allTeamApplications ? [...AppState.allTeamApplications] : [];
+                        const originalPendingCount = AppState.teamPendingCount || 0;
+
+                        if (AppState.allTeamApplications) {
+                            const idx = AppState.allTeamApplications.findIndex(a => a.ID === appId);
+                            if (idx !== -1) {
+                                AppState.allTeamApplications[idx] = {
+                                    ...AppState.allTeamApplications[idx],
+                                    Status: isApprove ? 'Approved' : 'Declined',
+                                    ApprovalStage: isApprove ? 'approved' : 'declined'
+                                };
+                            }
+                        }
+                        if (AppState.teamApplications) {
+                            AppState.teamApplications = AppState.teamApplications.filter(a => a.ID !== appId);
+                        }
+                        AppState.teamPendingCount = Math.max(0, originalPendingCount - 1);
+                        updateTeamPendingBadge();
+
+                        // Immediate visual feedback on row/card
+                        const cardEl = document.querySelector(`[data-app-id="${appId}"]`) || document.getElementById(`teamAppCard_${appId}`);
+                        if (cardEl) {
+                            cardEl.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
+                            cardEl.style.opacity = '0';
+                            cardEl.style.transform = 'scale(0.95)';
+                            setTimeout(() => { if (cardEl && cardEl.parentNode) cardEl.remove(); }, 250);
+                        }
+
+                        showToast('info', 'Processing Decision', `Application #${appId} marked as ${decision}d`);
 
                         try {
                             const result = await callGoogleScriptFunction('apiProcessApplicationDecision', {
@@ -11445,24 +11512,37 @@
                                 decision: decision,
                                 comment: comment
                             });
-                            hideLoading();
-
-                            if (fromModal || !document.getElementById('applicationDetailsModal')?.classList.contains('hidden')) {
-                                document.getElementById('applicationDetailsModal')?.classList.add('hidden');
-                            }
 
                             if (result.success) {
-                                showToast('success', `Application ${decision}d`, `Application ${appId} has been ${decision}d successfully`);
-                                loadMyApplicationsPage();
-                                loadTeamApplicationsPage();
+                                showToast('success', `Application ${decision}d`, `Application #${appId} has been successfully ${decision}d`);
+                                if (typeof ClientCache !== 'undefined') {
+                                    ClientCache.invalidate('team_applications');
+                                    ClientCache.invalidate('my_applications');
+                                    ClientCache.invalidate('dashboard');
+                                }
                                 if (AppState.currentPage === 'dashboard') {
                                     loadDashboardData();
                                 }
                             } else {
+                                // Rollback optimistic update
+                                AppState.teamApplications = originalTeamApps;
+                                AppState.allTeamApplications = originalAllTeamApps;
+                                AppState.teamPendingCount = originalPendingCount;
+                                updateTeamPendingBadge();
+                                if (AppState.currentPage === 'teamApplications') {
+                                    loadTeamApplicationsPage();
+                                }
                                 showToast('error', 'Action Failed', result.error || `Failed to ${decision} application`);
                             }
                         } catch (error) {
-                            hideLoading();
+                            // Rollback optimistic update
+                            AppState.teamApplications = originalTeamApps;
+                            AppState.allTeamApplications = originalAllTeamApps;
+                            AppState.teamPendingCount = originalPendingCount;
+                            updateTeamPendingBadge();
+                            if (AppState.currentPage === 'teamApplications') {
+                                loadTeamApplicationsPage();
+                            }
                             showToast('error', 'Action Failed', `Unable to ${decision} application: ${error.message}`);
                         }
                     }

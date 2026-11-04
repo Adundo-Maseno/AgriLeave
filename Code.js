@@ -77,7 +77,8 @@ const SYSTEM = {
             STAFF_BALANCES: 'Staff_Balances',
             GAZETTED_HOLIDAYS: 'Gazetted_Holidays',
             AUDIT_LOG: 'Audit_Log'
-        }
+        },
+        SYNC_ON_WRITE: false // Decoupled: eliminate 3-5s synchronous latency on user transactions; mirrored during scheduledDailyHeartbeat and on-demand
     },
 
     CALENDAR: {
@@ -7556,6 +7557,14 @@ const SheetsDualStoreManager = {
 
     syncOnChange: function (filename, data) {
         try {
+            // Decouple Sheets sync from write path unless explicitly configured
+            if (!SYSTEM.SHEETS_DATABASE.SYNC_ON_WRITE) {
+                try {
+                    PropertiesService.getScriptProperties().setProperty('SHEETS_MIRROR_DIRTY_' + filename, 'true');
+                } catch (propErr) {}
+                return;
+            }
+
             if (filename === SYSTEM.DATA_FILES.APPLICATIONS) {
                 this.syncApplications(data.data || []);
             } else if (filename === SYSTEM.DATA_FILES.STAFF) {
@@ -10152,8 +10161,25 @@ function setupAutomaticAccrual() {
 function scheduledDailyHeartbeat() {
     console.log('⏰ Scheduled daily maintenance heartbeat started...');
     try {
-        EnhancedCacheManager.initialize();
+        // 1. Pre-warm distributed cache (Tier 2) & build search indexes for morning peak
+        DataManager.readDataFile(SYSTEM.DATA_FILES.STAFF);
+        DataManager.readDataFile(SYSTEM.DATA_FILES.APPLICATIONS);
+        DataManager.readDataFile(SYSTEM.DATA_FILES.SETTINGS);
         EnhancedCacheManager.buildIndexes();
+
+        // 2. Mirror dual-store data to Google Sheets Master Database in background
+        if (typeof SheetsDualStoreManager !== 'undefined') {
+            try {
+                SheetsDualStoreManager.syncAll();
+                console.log('✅ Google Sheets Master Mirror database synced in heartbeat');
+                PropertiesService.getScriptProperties().deleteProperty('SHEETS_MIRROR_DIRTY_' + SYSTEM.DATA_FILES.APPLICATIONS);
+                PropertiesService.getScriptProperties().deleteProperty('SHEETS_MIRROR_DIRTY_' + SYSTEM.DATA_FILES.STAFF);
+            } catch (sheetErr) {
+                console.warn('⚠️ Google Sheets mirror sync in heartbeat warning:', sheetErr.message);
+            }
+        }
+
+        // 3. Maintenance checks (Easter expiry, accrual integrity, stale reminders)
         const results = MaintenanceManager.runDailyHeartbeat();
         console.log('✅ Daily heartbeat completed successfully:', JSON.stringify(results));
         return results;
