@@ -1,5 +1,6 @@
 # Local AI Agent & Skill Configurations
 .agents/
+.playwright-mcp/
 scratch/
 node_modules/
 .DS_Store
