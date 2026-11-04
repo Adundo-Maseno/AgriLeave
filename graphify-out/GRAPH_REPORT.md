@@ -208,3 +208,12 @@ _Questions this graph is uniquely positioned to answer:_
   - Eliminates main-thread keyboard lag and prevents heavy DOM table re-filtering from firing on every single keystroke.
 - **Tactile Micro-Interactions & Spring Physics (TWK Pillar 2)**:
   - Implemented delegated magnetic cursor spring physics (`initTWKTactileInteractions`) for fine pointers (`pointer: fine`) across primary CTA buttons (`.btn-primary`, `#btnQuickApply`, `#btnApplyLeaveModal`, and `.quick-chip`), respecting user `prefers-reduced-motion` settings.
+
+
+### The Web Kitchen (TWK) Phase 3: Modal Pop-In Physics, CLS Shimmer Layouts & Live Telemetry (Latest)
+- **Modal Pop-In Physics & Spring Motion (TWK Pillar 2)**:
+  - Replaced abrupt display snapping with `twkModalPopIn` 220ms spring cubic-bezier curves (`scale(0.96) translateY(8px)` to `scale(1) translateY(0)`) across all 15 dialogs, with automatic reduction under `prefers-reduced-motion`.
+- **Full-Dimension Bento Skeletons (CLS Elimination)**:
+  - Replaced the single-spinner cold-start placeholder in Team Applications with a 4-metric Bento card and multi-row table shimmer skeleton matching the final loaded viewport dimensions.
+- **Live SWR Telemetry Badge (TWK Craft Polish)**:
+  - Added an animated live heartbeat pulse badge (`SWR Engine 0ms | Memory Sync`) to the sidebar footer, communicating real-time cache and distributed store synchronization.
