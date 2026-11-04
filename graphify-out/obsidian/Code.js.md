@@ -138,5 +138,6 @@ tags:
 - [[scheduledMonthlyAccrual()]] - `contains` [EXTRACTED]
 - [[scheduledYearEnd()]] - `contains` [EXTRACTED]
 - [[setupAutomaticAccrual()]] - `contains` [EXTRACTED]
+- [[system_logs.json_1]] - `writes_to` [EXTRACTED]
 
 #graphify/code #graphify/EXTRACTED #community/code__code_absencedigestmanager__code_apiaddgazettedholiday

@@ -45,8 +45,8 @@ SORT file.name ASC
 
 ## Connections to other communities
 - 8 edges to [[_COMMUNITY_code & code_absencedigestmanager & code_apiaddgazettedholiday]]
-- 3 edges to [[_COMMUNITY_code_api_batch_process_decisions & code_api_cancel_application & code_api_create_staff]]
-- 2 edges to [[_COMMUNITY_code_adminmanager & code_api_get_system_diagnostics & code_api_process_year_end]]
+- 4 edges to [[_COMMUNITY_code_api_batch_process_decisions & code_api_cancel_application & code_api_create_staff]]
+- 1 edge to [[_COMMUNITY_code_adminmanager & code_api_process_year_end & drive_annual_reset_logs_json]]
 
 ## Top bridge nodes
 - [[System Architecture & GAS Engine]] - degree 8, connects to 1 community

@@ -1,12 +1,12 @@
 ---
 source_file: "Code.js"
 type: "code"
-community: "code_adminmanager & code_api_get_system_diagnostics & code_api_process_year_end"
+community: "code_adminmanager & code_api_process_year_end & drive_annual_reset_logs_json"
 location: "L4254"
 tags:
   - graphify/code
   - graphify/EXTRACTED
-  - community/code_adminmanager__code_api_get_system_diagnostics__code_api_process_year_end
+  - community/code_adminmanager__code_api_process_year_end__drive_annual_reset_logs_json
 ---
 
 # AdminManager
@@ -19,4 +19,4 @@ tags:
 - [[apiProcessYearEnd]] - `calls` [EXTRACTED]
 - [[system_settings.json]] - `shares_data_with` [EXTRACTED]
 
-#graphify/code #graphify/EXTRACTED #community/code_adminmanager__code_api_get_system_diagnostics__code_api_process_year_end
+#graphify/code #graphify/EXTRACTED #community/code_adminmanager__code_api_process_year_end__drive_annual_reset_logs_json

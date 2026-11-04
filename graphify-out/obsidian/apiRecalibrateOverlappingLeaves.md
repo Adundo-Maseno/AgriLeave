@@ -1,12 +1,12 @@
 ---
 source_file: "Code.js"
 type: "code"
-community: "code_adminmanager & code_api_get_system_diagnostics & code_api_process_year_end"
+community: "code_api_recalibrate_overlapping_leaves & code_holidaymanager & drive_gazetted_holidays_json"
 location: "RPC Endpoint"
 tags:
   - graphify/code
   - graphify/EXTRACTED
-  - community/code_adminmanager__code_api_get_system_diagnostics__code_api_process_year_end
+  - community/code_api_recalibrate_overlapping_leaves__code_holidaymanager__drive_gazetted_holidays_json
 ---
 
 # apiRecalibrateOverlappingLeaves
@@ -15,4 +15,4 @@ tags:
 - [[HolidayManager]] - `calls` [EXTRACTED]
 - [[System Administration View (systemAdminPage)]] - `calls` [EXTRACTED]
 
-#graphify/code #graphify/EXTRACTED #community/code_adminmanager__code_api_get_system_diagnostics__code_api_process_year_end
+#graphify/code #graphify/EXTRACTED #community/code_api_recalibrate_overlapping_leaves__code_holidaymanager__drive_gazetted_holidays_json

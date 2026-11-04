@@ -1,11 +1,11 @@
 ---
 source_file: ""
 type: ""
-community: "EnhancedCacheManager.buildIndexes() & apiBatchProcessDecisions() & batchProcessDecisions()"
+community: "Acting_Supervisor_Modal & ClientCache SWR Engine & ClientCache_SWR_TeamApps"
 tags:
   - graphify/document
   - graphify/EXTRACTED
-  - community/EnhancedCacheManagerbuildIndexes__apiBatchProcessDecisions__batchProcessDecisions
+  - community/Acting_Supervisor_Modal__ClientCache_SWR_Engine__ClientCache_SWR_TeamApps
 ---
 
 # updateStaffRecordLeaveBalances()
@@ -13,4 +13,4 @@ tags:
 ## Connections
 - [[batchProcessDecisions()]] - `calls` [EXTRACTED]
 
-#graphify/document #graphify/EXTRACTED #community/EnhancedCacheManagerbuildIndexes__apiBatchProcessDecisions__batchProcessDecisions
+#graphify/document #graphify/EXTRACTED #community/Acting_Supervisor_Modal__ClientCache_SWR_Engine__ClientCache_SWR_TeamApps

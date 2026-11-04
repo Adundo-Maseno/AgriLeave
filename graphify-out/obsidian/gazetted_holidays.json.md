@@ -1,11 +1,11 @@
 ---
 source_file: "Agri Experience Leave System/gazetted_holidays.json"
 type: "document"
-community: "code_adminmanager & code_api_get_system_diagnostics & code_api_process_year_end"
+community: "code_api_recalibrate_overlapping_leaves & code_holidaymanager & drive_gazetted_holidays_json"
 tags:
   - graphify/document
   - graphify/EXTRACTED
-  - community/code_adminmanager__code_api_get_system_diagnostics__code_api_process_year_end
+  - community/code_api_recalibrate_overlapping_leaves__code_holidaymanager__drive_gazetted_holidays_json
 ---
 
 # gazetted_holidays.json
@@ -13,4 +13,4 @@ tags:
 ## Connections
 - [[HolidayManager]] - `shares_data_with` [EXTRACTED]
 
-#graphify/document #graphify/EXTRACTED #community/code_adminmanager__code_api_get_system_diagnostics__code_api_process_year_end
+#graphify/document #graphify/EXTRACTED #community/code_api_recalibrate_overlapping_leaves__code_holidaymanager__drive_gazetted_holidays_json

@@ -131,11 +131,13 @@ SORT file.name ASC
 ## Connections to other communities
 - 8 edges to [[_COMMUNITY_audit_solution_two_tier_read & code_accrualmanager & code_aiassistantmanager]]
 - 3 edges to [[_COMMUNITY_code_apifixallstaffleavedata & code_apifixstaffleavedata & code_fixstaffleavedata]]
-- 2 edges to [[_COMMUNITY_code_adminmanager & code_api_get_system_diagnostics & code_api_process_year_end]]
 - 1 edge to [[_COMMUNITY_code_apiexportsystemdata & code_apiexportsystemdata_escapecsv]]
 - 1 edge to [[_COMMUNITY_code_fixaccrualforallstaff & code_fixaccrualforallstaff_formatlocaldate]]
+- 1 edge to [[_COMMUNITY_code_adminmanager & code_api_process_year_end & drive_annual_reset_logs_json]]
 - 1 edge to [[_COMMUNITY_code_api_delete_blackout_period & code_api_get_blackout_periods & code_api_save_blackout_period]]
+- 1 edge to [[_COMMUNITY_code_api_recalibrate_overlapping_leaves & code_holidaymanager & drive_gazetted_holidays_json]]
 - 1 edge to [[_COMMUNITY_code_api_batch_process_decisions & code_api_cancel_application & code_api_create_staff]]
+- 1 edge to [[_COMMUNITY_apiExportSystemData() & system_logs.json]]
 
 ## Top bridge nodes
-- [[Code.js]] - degree 126, connects to 7 communities
+- [[Code.js]] - degree 127, connects to 9 communities

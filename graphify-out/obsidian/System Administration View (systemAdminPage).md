@@ -1,12 +1,12 @@
 ---
 source_file: "Index.html"
 type: "code"
-community: "code_adminmanager & code_api_get_system_diagnostics & code_api_process_year_end"
+community: "code_api_batch_process_decisions & code_api_cancel_application & code_api_create_staff"
 location: "line 2054"
 tags:
   - graphify/code
   - graphify/EXTRACTED
-  - community/code_adminmanager__code_api_get_system_diagnostics__code_api_process_year_end
+  - community/code_api_batch_process_decisions__code_api_cancel_application__code_api_create_staff
 ---
 
 # System Administration View (#systemAdminPage)
@@ -20,4 +20,4 @@ tags:
 - [[apiSyncSheetsDatabase]] - `calls` [EXTRACTED]
 - [[navigateToPage Navigation Controller]] - `calls` [EXTRACTED]
 
-#graphify/code #graphify/EXTRACTED #community/code_adminmanager__code_api_get_system_diagnostics__code_api_process_year_end
+#graphify/code #graphify/EXTRACTED #community/code_api_batch_process_decisions__code_api_cancel_application__code_api_create_staff

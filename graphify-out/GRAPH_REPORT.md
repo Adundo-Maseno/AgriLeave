@@ -1,12 +1,12 @@
 # Graph Report - AgriLeave  (2026-11-04)
 
 ## Corpus Check
-- 16 files · ~122,621 words
+- 16 files · ~124,241 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 1 file(s) not represented in the graph (top: (none) 1)
 
 ## Summary
-- 294 nodes · 305 edges · 39 communities (14 shown, 25 thin omitted)
+- 308 nodes · 319 edges · 42 communities (15 shown, 27 thin omitted)
 - Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 15 edges (avg confidence: 0.91)
 - Token cost: 0 input · 0 output
 
@@ -15,13 +15,14 @@
 - code_api_batch_process_decisions & code_api_cancel_application & code_api_create_staff
 - audit_solution_two_tier_read & code_accrualmanager & code_aiassistantmanager
 - docs_screenshots_01_dashboard_balance_cards & docs_screenshots_01_dashboard_holidays_widget & docs_screenshots_01_dashboard_main_view
-- code_adminmanager & code_api_get_system_diagnostics & code_api_process_year_end
 - audit_finding_bootstrap_rpc & audit_finding_cacheservice_cliff & audit_finding_cascading_waterfalls
 - docs_screenshots_01_dashboard_supervisor_banner & docs_screenshots_05_team_approvals_actions & docs_screenshots_05_team_approvals_clash_detection
 - code_api_delete_blackout_period & code_api_get_blackout_periods & code_api_save_blackout_period
+- code_adminmanager & code_api_process_year_end & drive_annual_reset_logs_json
 - inventory_customizations_overview & inventory_ecc_plugin & inventory_graphify_skill
 - code_api_add_gazetted_holiday & code_api_delete_gazetted_holiday & code_api_get_gazetted_holidays
 - code_api_get_my_handover_requests & code_api_respond_to_handover & code_api_toggle_handover_task
+- code_api_recalibrate_overlapping_leaves & code_holidaymanager & drive_gazetted_holidays_json
 - code_api_adjust_compensation_leave & code_api_award_compensation_leave & index_modal_compensation
 - code_apifixallstaffleavedata & code_apifixstaffleavedata & code_fixstaffleavedata
 - guide_deduction_priority & guide_entitlement_framework & readme_leave_policies
@@ -85,7 +86,7 @@
 - **Executive Availability and Liability Governance Workflow** — docs_screenshots_01_dashboard_main_view, docs_screenshots_05_team_approvals_clash_detection, docs_screenshots_06_hr_dashboard_wallchart, docs_screenshots_06_hr_dashboard_liability_pool [INFERRED 0.90]
 - **Statutory Entitlement and Year-End Rollover Governance Workflow** — docs_screenshots_03_leave_balance_carryover_easter, docs_screenshots_07_system_admin_year_end_engine, docs_screenshots_07_system_admin_recalibration, docs_screenshots_01_dashboard_holidays_widget [INFERRED 0.90]
 
-## Communities (39 total, 25 thin omitted)
+## Communities (42 total, 27 thin omitted)
 
 ### Community 0 - "code & code_absencedigestmanager & code_apiaddgazettedholiday"
 Cohesion: 0.02
@@ -93,7 +94,7 @@ Nodes (16): AbsenceDigestManager, ArchiveManager, AttachmentManager, CalendarSyn
 
 ### Community 1 - "code_api_batch_process_decisions & code_api_cancel_application & code_api_create_staff"
 Cohesion: 0.08
-Nodes (32): apiBatchProcessDecisions, apiCancelApplication, apiCreateStaff, apiDeleteStaff, apiGetAllStaff, apiGetHRDashboard, apiGetLeaveLiabilityReport, apiGetMyApplications (+24 more)
+Nodes (35): apiBatchProcessDecisions, apiCancelApplication, apiCreateStaff, apiDeleteStaff, apiGetAllStaff, apiGetHRDashboard, apiGetLeaveLiabilityReport, apiGetMyApplications (+27 more)
 
 ### Community 2 - "audit_solution_two_tier_read & code_accrualmanager & code_aiassistantmanager"
 Cohesion: 0.10
@@ -102,10 +103,6 @@ Nodes (20): Solution 2: Two-Tier Data File Caching (Memory + Distributed), Accru
 ### Community 3 - "docs_screenshots_01_dashboard_balance_cards & docs_screenshots_01_dashboard_holidays_widget & docs_screenshots_01_dashboard_main_view"
 Cohesion: 0.11
 Nodes (23): Leave Balance Executive Cards, Kenya Gazetted Public Holidays Widget, AgriLeave Main Dashboard View, Dashboard Quick Actions Hub, Recent Applications Activity Table, Medical Certificate & Attachment Uploader, Business Day Net Duration Calculator, Handover Colleague & Task Assignment (+15 more)
-
-### Community 4 - "code_adminmanager & code_api_get_system_diagnostics & code_api_process_year_end"
-Cohesion: 0.15
-Nodes (10): AdminManager, apiGetSystemDiagnostics, apiProcessYearEnd, apiRecalibrateOverlappingLeaves, HolidayManager, Year-End Processing & Easter Carryover Engine Spec, Kenya Gazetted Public Holidays Management Spec, System Administration & Maintenance Portal Guide (+2 more)
 
 ### Community 5 - "audit_finding_bootstrap_rpc & audit_finding_cacheservice_cliff & audit_finding_cascading_waterfalls"
 Cohesion: 0.17
@@ -119,7 +116,11 @@ Nodes (10): Supervisor Pending Alert Banner, 1-Click Decision & Batch Approvals,
 Cohesion: 0.29
 Nodes (6): apiDeleteBlackoutPeriod, apiGetBlackoutPeriods, apiSaveBlackoutPeriod, BlackoutPeriodManager, Operational Blackout Periods Management Spec, Blackout Period Modal (#blackoutPeriodModal)
 
-### Community 9 - "inventory_customizations_overview & inventory_ecc_plugin & inventory_graphify_skill"
+### Community 9 - "code_adminmanager & code_api_process_year_end & drive_annual_reset_logs_json"
+Cohesion: 0.33
+Nodes (4): AdminManager, apiProcessYearEnd, Year-End Processing & Easter Carryover Engine Spec, Year-End Processing & Dynamic Easter Expiry
+
+### Community 10 - "inventory_customizations_overview & inventory_ecc_plugin & inventory_graphify_skill"
 Cohesion: 0.33
 Nodes (6): Antigravity Customizations & Migration Guide, ECC Agent Harness Framework Plugin (71 Agents, 122 Rules), Graphify Deterministic Knowledge Graph Skill, Configured MCP Servers Infrastructure (15 Servers), OmniRoute Intelligent Gateway & Model Routing Skill, Reverse Engineer Anything (REA) Plugin
 
@@ -131,37 +132,41 @@ Nodes (4): apiAddGazettedHoliday, apiDeleteGazettedHoliday, apiGetGazettedHolida
 Cohesion: 0.50
 Nodes (4): apiGetMyHandoverRequests, apiRespondToHandover, apiToggleHandoverTask, Handover Requests Modal (#handoverRequestsModal)
 
-### Community 14 - "code_api_adjust_compensation_leave & code_api_award_compensation_leave & index_modal_compensation"
+### Community 13 - "code_api_recalibrate_overlapping_leaves & code_holidaymanager & drive_gazetted_holidays_json"
+Cohesion: 0.50
+Nodes (3): apiRecalibrateOverlappingLeaves, HolidayManager, Kenya Gazetted Public Holidays Management Spec
+
+### Community 16 - "code_api_adjust_compensation_leave & code_api_award_compensation_leave & index_modal_compensation"
 Cohesion: 0.67
 Nodes (3): apiAdjustCompensationLeave, apiAwardCompensationLeave, Compensation Modal (#compensationModal)
 
-### Community 15 - "code_apifixallstaffleavedata & code_apifixstaffleavedata & code_fixstaffleavedata"
+### Community 17 - "code_apifixallstaffleavedata & code_apifixstaffleavedata & code_fixstaffleavedata"
 Cohesion: 0.67
 Nodes (3): apiFixAllStaffLeaveData(), apiFixStaffLeaveData(), fixStaffLeaveData()
 
-### Community 16 - "guide_deduction_priority & guide_entitlement_framework & readme_leave_policies"
+### Community 18 - "guide_deduction_priority & guide_entitlement_framework & readme_leave_policies"
 Cohesion: 0.67
 Nodes (3): 4-Tier Leave Deduction Priority Waterfall Spec, Leave Policies & Statutory Entitlements Spec, Statutory Leave Policies & Entitlements
 
 ## Knowledge Gaps
 - **79 isolated node(s):** `apiBatchProcessDecisions`, `apiCancelApplication`, `apiCreateStaff`, `apiDeleteStaff`, `apiGetAllStaff` (+74 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 208 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **25 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 212 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **27 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `navigateToPage Navigation Controller` connect `code_api_batch_process_decisions & code_api_cancel_application & code_api_create_staff` to `audit_solution_two_tier_read & code_accrualmanager & code_aiassistantmanager`, `code_adminmanager & code_api_get_system_diagnostics & code_api_process_year_end`, `audit_finding_bootstrap_rpc & audit_finding_cacheservice_cliff & audit_finding_cascading_waterfalls`?**
-  _High betweenness centrality (0.099) - this node is a cross-community bridge._
+- **Why does `navigateToPage Navigation Controller` connect `code_api_batch_process_decisions & code_api_cancel_application & code_api_create_staff` to `audit_solution_two_tier_read & code_accrualmanager & code_aiassistantmanager`, `audit_finding_bootstrap_rpc & audit_finding_cacheservice_cliff & audit_finding_cascading_waterfalls`?**
+  _High betweenness centrality (0.091) - this node is a cross-community bridge._
 - **Are the 2 inferred relationships involving `Apply for Leave Portal View` (e.g. with `My Applications History View` and `Supervisor Team Approvals Center View`) actually correct?**
   _`Apply for Leave Portal View` has 2 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `apiBatchProcessDecisions`, `apiCancelApplication`, `apiCreateStaff` to the rest of the system?**
   _79 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `code & code_absencedigestmanager & code_apiaddgazettedholiday` be split into smaller, more focused modules?**
   _Cohesion score 0.01818181818181818 - nodes in this community are weakly interconnected._
-- **Why does `System Administration View (#systemAdminPage)` connect `code_adminmanager & code_api_get_system_diagnostics & code_api_process_year_end` to `code_api_batch_process_decisions & code_api_cancel_application & code_api_create_staff`, `audit_solution_two_tier_read & code_accrualmanager & code_aiassistantmanager`?**
-  _High betweenness centrality (0.077) - this node is a cross-community bridge._
+- **Why does `System Administration View (#systemAdminPage)` connect `code_api_batch_process_decisions & code_api_cancel_application & code_api_create_staff` to `code_adminmanager & code_api_process_year_end & drive_annual_reset_logs_json`, `audit_solution_two_tier_read & code_accrualmanager & code_aiassistantmanager`, `code_api_recalibrate_overlapping_leaves & code_holidaymanager & drive_gazetted_holidays_json`?**
+  _High betweenness centrality (0.071) - this node is a cross-community bridge._
 - **Should `code_api_batch_process_decisions & code_api_cancel_application & code_api_create_staff` be split into smaller, more focused modules?**
-  _Cohesion score 0.0846774193548387 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.0773109243697479 - nodes in this community are weakly interconnected._
 - **Why does `Dashboard View (#dashboardPage)` connect `audit_solution_two_tier_read & code_accrualmanager & code_aiassistantmanager` to `code_api_batch_process_decisions & code_api_cancel_application & code_api_create_staff`?**
-  _High betweenness centrality (0.051) - this node is a cross-community bridge._
+  _High betweenness centrality (0.047) - this node is a cross-community bridge._
