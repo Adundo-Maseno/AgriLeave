@@ -4034,8 +4034,19 @@
             window.ClientCache = ClientCache;
 
             // Google Apps Script API Helper
+            const inFlightGASRequests = new Map();
+
             function callGoogleScriptFunction(functionName, params = {}, timeout = 30000) {
-                return new Promise((resolve, reject) => {
+                // In-Flight Promise Coalescing for Idempotent GET / Read-Only RPCs
+                const isReadOnly = functionName.startsWith('apiGet') || functionName.startsWith('get') || functionName.startsWith('check');
+                const reqKey = isReadOnly ? functionName + ':' + JSON.stringify(params) : null;
+
+                if (reqKey && inFlightGASRequests.has(reqKey)) {
+                    console.log(`⚡ Coalescing in-flight GAS request: ${functionName}`);
+                    return inFlightGASRequests.get(reqKey);
+                }
+
+                const requestPromise = new Promise((resolve, reject) => {
                     console.log(`Calling GAS function: ${functionName}`, params);
 
                     // Set timeout
@@ -4276,7 +4287,8 @@
                             }
                             updateTeamPendingBadge();
                             updatePendingAppsBadge();
-                            updateUserInterface();
+                            if (typeof updateUserInfoUI === 'function') updateUserInfoUI();
+                            if (typeof updateUIForUserRole === 'function') updateUIForUserRole();
 
                             navigateToPage('dashboard');
                             updateDashboardUI({
@@ -16507,6 +16519,37 @@
             // Window Exports for Enhancements
             window.openGazettedHolidayModal = openGazettedHolidayModal;
             window.closeGazettedHolidayModal = closeGazettedHolidayModal;
+            
+            async function handleDeleteGazettedHoliday(id) {
+                if (!id) return;
+                const confirmDelete = confirm('Are you sure you want to remove this gazetted public holiday?');
+                if (!confirmDelete) return;
+                try {
+                    if (typeof showLoading === 'function') showLoading('Removing holiday...');
+                    const res = await callGoogleScriptFunction('apiDeleteGazettedHoliday', { id });
+                    if (typeof hideLoading === 'function') hideLoading();
+                    if (res && res.success) {
+                        if (typeof showToast === 'function') showToast('Gazetted holiday removed successfully', 'success');
+                        if (typeof ClientCache !== 'undefined') ClientCache.invalidate('gazetted_holidays');
+                        if (typeof renderGazettedHolidaysList === 'function') renderGazettedHolidaysList();
+                    } else {
+                        if (typeof showToast === 'function') showToast(res?.message || 'Failed to delete holiday', 'error');
+                    }
+                } catch (e) {
+                    if (typeof hideLoading === 'function') hideLoading();
+                    if (typeof showToast === 'function') showToast('Error deleting holiday: ' + e.message, 'error');
+                }
+            }
+
+            function handleRecalibrateHoliday(date) {
+                if (typeof openRecalibrateModal === 'function') openRecalibrateModal();
+                if (date && typeof handleScopeChange === 'function') {
+                    handleScopeChange('single');
+                    const picker = document.getElementById('recalibrateSingleDatePicker');
+                    if (picker) picker.value = date;
+                }
+            }
+
             window.handleSaveGazettedHoliday = handleSaveGazettedHoliday;
             window.renderGazettedHolidaysList = renderGazettedHolidaysList;
             window.handleDeleteGazettedHoliday = handleDeleteGazettedHoliday;

@@ -217,3 +217,12 @@ _Questions this graph is uniquely positioned to answer:_
   - Replaced the single-spinner cold-start placeholder in Team Applications with a 4-metric Bento card and multi-row table shimmer skeleton matching the final loaded viewport dimensions.
 - **Live SWR Telemetry Badge (TWK Craft Polish)**:
   - Added an animated live heartbeat pulse badge (`SWR Engine 0ms | Memory Sync`) to the sidebar footer, communicating real-time cache and distributed store synchronization.
+
+
+### Runtime Resilience & In-Flight Request Deduplication (Latest)
+- **Resolved `ReferenceError: updateUserInterface is not defined`**:
+  - Replaced undefined `updateUserInterface()` in `initializeApp` local cache hydration with safe calls to `updateUserInfoUI()` and `updateUIForUserRole()`. Fast-path 0ms instant cached load now succeeds on startup without falling back to blocking cold RPC.
+- **Resolved `ReferenceError: handleDeleteGazettedHoliday is not defined`**:
+  - Implemented missing `handleDeleteGazettedHoliday(id)` and `handleRecalibrateHoliday(date)` functions with user confirmations, cache invalidations, and dialog management.
+- **In-Flight GAS Request Coalescing (Zero Redundant RPC Traffic)**:
+  - Added request deduplication map (`inFlightGASRequests`) to `callGoogleScriptFunction` for read-only/GET calls (`apiGetBootstrapData`, `apiGetAllStaff`, `apiGetUpcomingHolidays`). Concurrent callers within the same network cycle now share a single promise, eliminating duplicate server calls and postMessage serialization drops.
