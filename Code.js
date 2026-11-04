@@ -12,6 +12,7 @@ const SYSTEM = {
     NAME: 'Agri Experience Leave Management System',
     VERSION: '3.4.0',
     ORGANIZATION: 'Agri Experience',
+    LOGO_URL: 'https://drive.google.com/thumbnail?id=1FG3ihsPb06rIDp7DcxtZQsmi9XydO9y4&sz=w320',
     ADMIN_EMAIL: 'info@agri-experience.com',
     FOLDER_NAME: 'Agri Experience Leave System',
 
@@ -4448,6 +4449,7 @@ const AdminManager = {
 const EmailService = {
     SYSTEM_NAME: SYSTEM.NAME,
     SYSTEM_URL: ScriptApp.getService().getUrl(),
+    LOGO_URL: SYSTEM.LOGO_URL || 'https://drive.google.com/thumbnail?id=1FG3ihsPb06rIDp7DcxtZQsmi9XydO9y4&sz=w320',
 
     // The Web Kitchen (TWK) Modern Editorial Email Styles
     baseStyles: `
@@ -4648,8 +4650,8 @@ const EmailService = {
       <td align="center" style="padding: 24px 12px 36px 12px;">
         <div class="email-container">
           <div class="email-header ${headerClass}">
-            <div style="display:inline-block;width:34px;height:34px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:10px;text-align:center;line-height:34px;margin-bottom:8px;">
-              <span style="font-size:18px;">🌿</span>
+            <div style="display:inline-block;margin-bottom:12px;background:#ffffff;padding:8px 18px;border-radius:12px;box-shadow:0 4px 14px rgba(0,0,0,0.12);border:1px solid rgba(255,255,255,0.35);">
+              <img src="${this.LOGO_URL}" alt="Agri Experience" width="130" height="auto" style="display:block;max-height:40px;width:auto;margin:0 auto;border:0;outline:none;" />
             </div>
             <div class="brand-title">${headerTitle}</div>
             <div class="brand-subtitle">${headerSubtitle}</div>

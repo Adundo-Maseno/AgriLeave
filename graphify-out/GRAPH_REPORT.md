@@ -293,3 +293,9 @@ _Questions this graph is uniquely positioned to answer:_
     - `applicationDeclined`: High-contrast error banner, decline reason callout card, and structured "Suggested Next Steps" box.
     - `notifyHRDecision`: Enterprise decision audit report for HR distribution with supervisor remarks and applied deductions.
     - `notifyHandoverNominated` & `notifyHandoverAssigned`: Professional coverage requests and confirmation briefs for nominated colleagues.
+
+
+### Corporate Branding Upgrade: Official Agri Experience Logo in Email Templates
+- Replaced the placeholder emoji leaf (`🌿`) in the email template header with the official **Agri Experience** corporate logo (`https://drive.google.com/thumbnail?id=1FG3ihsPb06rIDp7DcxtZQsmi9XydO9y4&sz=w320`).
+- Rendered the logo inside an elevated, high-contrast white rounded badge (`border-radius: 12px; padding: 8px 18px; box-shadow: 0 4px 14px rgba(0,0,0,0.12); border: 1px solid rgba(255,255,255,0.35)`).
+- Automatically propagates across all transactional emails (submissions, approvals, declines, handover requests, and HR decision audits).
