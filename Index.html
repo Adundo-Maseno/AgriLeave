@@ -12460,6 +12460,17 @@
                     return;
                 }
 
+                // Prevent self-supervision
+                if (staffData.Supervisor) {
+                    const sLower = staffData.Supervisor.toLowerCase().trim();
+                    const eLower = staffData.Email.toLowerCase().trim();
+                    const nLower = staffData.Name.toLowerCase().trim();
+                    if (sLower === eLower || sLower === nLower) {
+                        showToast('warning', 'Self-Supervision Not Allowed', 'A staff member cannot be assigned to supervise themselves. Please specify an independent supervisor or leave blank.');
+                        return;
+                    }
+                }
+
                 // Validate carried forward days (max 21)
                 if (staffData.daysCarriedFromPreviousYear > 21) {
                     showToast('warning', 'Invalid Value', 'Carried forward days cannot exceed 21');
@@ -12835,6 +12846,17 @@
                 if (!isValidEmail(staffData.Email)) {
                     showToast('warning', 'Invalid Email', 'Please enter a valid email address');
                     return;
+                }
+
+                // Prevent self-supervision
+                if (staffData.Supervisor) {
+                    const sLower = staffData.Supervisor.toLowerCase().trim();
+                    const eLower = staffData.Email.toLowerCase().trim();
+                    const nLower = staffData.Name.toLowerCase().trim();
+                    if (sLower === eLower || sLower === nLower) {
+                        showToast('warning', 'Self-Supervision Not Allowed', 'A staff member cannot be assigned to supervise themselves. Please specify an independent supervisor or leave blank.');
+                        return;
+                    }
                 }
 
                 // Validate carried forward days (max 21)

@@ -799,7 +799,9 @@ const EnhancedCacheManager = {
             const staffData = StaffManager.getAllStaffData();
             this.indexes.staffByEmail.clear();
             staffData.forEach(staff => {
-                if (staff.Email) this.indexes.staffByEmail.set(staff.Email.toLowerCase(), staff);
+                if (staff.Email && staff.Metadata?.active !== false) {
+                    this.indexes.staffByEmail.set(staff.Email.toLowerCase(), staff);
+                }
             });
 
             const applications = ApplicationsManager.getAllApplicationsData({});
@@ -863,12 +865,13 @@ const EnhancedCacheManager = {
         if (!email) return null;
         if (SYSTEM.PERFORMANCE.INDEXES.ENABLED) {
             const indexedUser = this.indexes.staffByEmail.get(email.toLowerCase());
-            if (indexedUser) return indexedUser;
+            if (indexedUser && indexedUser.Metadata?.active !== false) return indexedUser;
         }
         const staffData = StaffManager.getAllStaffData();
-        return staffData.find(member =>
-            member.Email && member.Email.toLowerCase().trim() === email.toLowerCase().trim()
-        ) || null;
+        const member = staffData.find(m =>
+            m.Email && m.Email.toLowerCase().trim() === email.toLowerCase().trim()
+        );
+        return (member && member.Metadata?.active !== false) ? member : null;
     },
 
     getApplicationsByEmail: function (email, filters = {}) {
@@ -1408,6 +1411,29 @@ const StaffManager = {
         try {
             const staffFile = DataManager.readDataFile(SYSTEM.DATA_FILES.STAFF);
             const staffData = staffFile.data || [];
+
+            // Self-healing migration: Patch any self-supervision in stored staff data (e.g. Moses Adundo)
+            let modified = false;
+            staffData.forEach(member => {
+                if (member && member.Supervisor) {
+                    const mEmail = (member.Email || '').toLowerCase().trim();
+                    const mName = (member.Name || '').toLowerCase().trim();
+                    const sVal = String(member.Supervisor || '').toLowerCase().trim();
+                    if (sVal === mEmail || (mName && sVal === mName)) {
+                        console.warn(`[Self-Supervision Patch] Correcting self-supervision for ${member.Email} to Jayne Ngugi`);
+                        member.Supervisor = 'jayne@agri-experience.com';
+                        modified = true;
+                    }
+                }
+            });
+            if (modified) {
+                try {
+                    DataManager.writeDataFile(SYSTEM.DATA_FILES.STAFF, staffFile);
+                } catch (wErr) {
+                    console.warn('[Self-Supervision Patch] Could not persist patch to STAFF file:', wErr);
+                }
+            }
+
             EnhancedCacheManager.set(cacheKey, staffData);
             EnhancedCacheManager.logOperation('getAllStaffData', startTime, { cacheHit: false, count: staffData.length });
             return staffData;
@@ -1416,6 +1442,11 @@ const StaffManager = {
             EnhancedCacheManager.logOperation('getAllStaffData(error)', startTime, { error: error.message });
             return [];
         }
+    },
+
+    getActiveStaff: function () {
+        const staff = this.getAllStaffData();
+        return (staff || []).filter(s => s && s.Metadata?.active !== false);
     },
 
     getUserData: function (email) {
@@ -1467,6 +1498,16 @@ const StaffManager = {
 
             if (!Utils.isValidEmail(staffData.Email)) {
                 return Utils.createErrorResponse('Invalid email format');
+            }
+
+            // Prevent self-supervision
+            if (staffData.Supervisor) {
+                const sLower = String(staffData.Supervisor).toLowerCase().trim();
+                const eLower = staffData.Email.toLowerCase().trim();
+                const nLower = staffData.Name.toLowerCase().trim();
+                if (sLower === eLower || sLower === nLower) {
+                    return Utils.createErrorResponse('A staff member cannot be assigned to supervise themselves');
+                }
             }
 
             const existingStaff = this.getAllStaffData();
@@ -1739,6 +1780,12 @@ const StaffManager = {
                 changes.push('Department');
             }
             if (staffData.Supervisor !== undefined) {
+                const sLower = String(staffData.Supervisor || '').toLowerCase().trim();
+                const targetEmail = (staffData.Email || updatedStaff.Email || '').toLowerCase().trim();
+                const targetName = (staffData.Name || updatedStaff.Name || '').toLowerCase().trim();
+                if (sLower && (sLower === targetEmail || sLower === targetName)) {
+                    return Utils.createErrorResponse('A staff member cannot be assigned to supervise themselves');
+                }
                 updatedStaff.Supervisor = staffData.Supervisor;
                 changes.push('Supervisor');
             }
@@ -2041,11 +2088,43 @@ const StaffManager = {
                 return Utils.createErrorResponse('Staff member not found');
             }
 
+            if (!staffFile.data[staffIndex].Metadata) {
+                staffFile.data[staffIndex].Metadata = {};
+            }
             staffFile.data[staffIndex].Metadata.active = false;
             staffFile.data[staffIndex].Metadata.deactivatedAt = new Date().toISOString();
             staffFile.data[staffIndex].Metadata.deactivatedBy = currentUser;
+            staffFile.data[staffIndex].EligibleForLeave = false;
+            if (staffFile.data[staffIndex].LeaveAccrual) {
+                staffFile.data[staffIndex].LeaveAccrual.eligible = false;
+            }
 
             DataManager.writeDataFile(SYSTEM.DATA_FILES.STAFF, staffFile);
+
+            // Auto-cancel any lingering pending applications for this deactivated staff member
+            try {
+                const appsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.APPLICATIONS);
+                let appsChanged = false;
+                (appsFile.data || []).forEach(app => {
+                    if (app.Email && app.Email.toLowerCase().trim() === email.toLowerCase().trim() && app.Status === SYSTEM.STATUS.PENDING) {
+                        app.Status = SYSTEM.STATUS.CANCELLED;
+                        app.Comment = 'Application automatically cancelled due to staff deactivation';
+                        appsChanged = true;
+                    }
+                });
+                if (appsChanged) {
+                    DataManager.writeDataFile(SYSTEM.DATA_FILES.APPLICATIONS, appsFile);
+                }
+            } catch (appErr) {
+                console.warn('Error cancelling applications for deactivated staff:', appErr);
+            }
+
+            // Invalidate ALL caches and indexes so deactivated staff disappears instantly everywhere
+            EnhancedCacheManager.clear();
+            EnhancedCacheManager.remove(SYSTEM.CACHE_KEYS.ALL_STAFF);
+            if (SYSTEM.PERFORMANCE.INDEXES.ENABLED) {
+                EnhancedCacheManager.buildIndexes();
+            }
 
             Utils.logAction('DELETE_STAFF', { email: email });
 
@@ -2573,11 +2652,19 @@ const ApplicationsManager = {
 
             const appId = 'APP-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9).toUpperCase();
             const currentDate = new Date().toISOString().split('T')[0];
-            const supervisorEmail = user.Supervisor || '';
+            let supervisorEmail = user.Supervisor || '';
             let supervisorName = '';
             if (supervisorEmail) {
+                // Guard against self-supervision (e.g. Moses Adundo supervising Moses Adundo)
+                const sLower = supervisorEmail.toLowerCase().trim();
+                const uLower = userEmail.toLowerCase().trim();
+                const nLower = (user.Name || '').toLowerCase().trim();
+                if (sLower === uLower || sLower === nLower) {
+                    console.warn(`[Self-Supervision Guard] Re-routing self-supervision for ${userEmail} to executive supervisor (Jayne Ngugi)`);
+                    supervisorEmail = 'jayne@agri-experience.com';
+                }
                 const supervisorUser = StaffManager.getUserData(supervisorEmail);
-                supervisorName = supervisorUser ? supervisorUser.Name || '' : '';
+                supervisorName = supervisorUser ? supervisorUser.Name || '' : (supervisorEmail === 'jayne@agri-experience.com' ? 'Jayne Ngugi' : '');
             }
 
             // Handover colleague details
@@ -8956,14 +9043,14 @@ const AIAssistantManager = {
         // 6. HR & ADMIN-ONLY COMPLETE SYSTEM CONTEXT
         if (role === SYSTEM.ROLES.HR || role === SYSTEM.ROLES.ADMIN) {
             try {
-                const allStaff = StaffManager.getAllStaffData() || [];
+                const allStaff = StaffManager.getActiveStaff();
                 const todayStr = new Date().toISOString().split('T')[0];
 
                 const pendingApps = (allApps || []).filter(a => a.Status === SYSTEM.STATUS.PENDING);
                 const onLeaveToday = (allApps || []).filter(a => a.Status === SYSTEM.STATUS.APPROVED && (a.StartDate || '') <= todayStr && (a.EndDate || '') >= todayStr);
 
                 context.push(`\n### Organization-Wide HR & Administrative Summary:`);
-                context.push(`- Total Staff Headcount: ${allStaff.length}`);
+                context.push(`- Total Active Staff Headcount: ${allStaff.length}`);
                 context.push(`- Staff Currently on Approved Leave Today: ${onLeaveToday.length}`);
                 if (onLeaveToday.length > 0) {
                     onLeaveToday.forEach(a => {
@@ -8994,8 +9081,8 @@ const AIAssistantManager = {
                     });
                 }
 
-                // Comprehensive live leave balances for all staff members
-                context.push(`\n### Complete Staff Directory & Live Leave Balances (All ${allStaff.length} Employees):`);
+                // Comprehensive live leave balances for all active staff members
+                context.push(`\n### Complete Active Staff Directory & Live Leave Balances (${allStaff.length} Active Employees):`);
                 allStaff.forEach(s => {
                     let balStr = '';
                     try {
