@@ -7245,13 +7245,13 @@
         <p class="text-[11px] text-emerald-700 font-medium mt-2 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>Active leave accrual</p>
       </div>
 
-      <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-blue-300 transition cursor-pointer staff-kpi-card" data-kpi-filter="supervisor" title="Click to filter Supervisors & Admins">
+      <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-blue-300 transition cursor-pointer staff-kpi-card" data-kpi-filter="supervisor" title="Click to filter Supervisors">
         <div class="flex items-center justify-between pb-2 border-b border-slate-100">
           <span class="text-xs font-semibold text-slate-500">Approvers</span>
           <div class="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xs"><i class="fas fa-user-shield"></i></div>
         </div>
         <p class="text-2xl font-bold text-slate-900 mt-2 tracking-tight tabular-nums" id="smApproverCount">-</p>
-        <p class="text-[11px] text-blue-700 font-medium mt-2 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-blue-500 inline-block"></span>Supervisors, HR & Admin</p>
+        <p class="text-[11px] text-blue-700 font-medium mt-2 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-blue-500 inline-block"></span>Designated supervisors</p>
       </div>
 
       <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 hover:border-indigo-300 transition cursor-pointer staff-kpi-card" data-kpi-filter="comp" title="Click to filter staff with Compensation Days">
@@ -7541,8 +7541,8 @@
                                 const compBal = Number(s.CompensationLeave?.balance || 0);
 
                                 if (isEligible) eligibleCount++;
-                                const roleLower = role.toLowerCase();
-                                if (roleLower.includes('supervisor') || roleLower.includes('admin') || roleLower.includes('hr')) approverCount++;
+                                const roleLower = role.toLowerCase().trim();
+                                if (roleLower === 'supervisor') approverCount++;
                                 if (compBal > 0) compHoldersCount++;
                                 if (department && department !== '-') deptSet.add(department);
 
@@ -7555,6 +7555,8 @@
                                     );
                                     supervisorDisplay = supervisorStaff ? (supervisorStaff.Name || supervisorStaff.name) : supervisor.split('@')[0];
                                 }
+
+                                const isSystemAccount = email.toLowerCase().trim() === 'info@agri-experience.com' || name.toLowerCase().includes('system administrator');
 
                                 // Escape all output to prevent XSS
                                 const escapedName = escapeHtml(name);
@@ -7608,6 +7610,15 @@
                 >
                   <i class="fas fa-edit"></i>
                 </button>
+                ${isSystemAccount ? `
+                <button 
+                  class="px-2 py-1 bg-slate-100 text-slate-400 border border-slate-200 rounded-lg cursor-not-allowed opacity-60" 
+                  title="System Administrator account is protected and cannot be deleted"
+                  disabled
+                >
+                  <i class="fas fa-lock"></i>
+                </button>
+                ` : `
                 <button 
                   class="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200/80 rounded-lg transition delete-staff-btn cursor-pointer" 
                   title="Delete Staff"
@@ -7616,6 +7627,7 @@
                 >
                   <i class="fas fa-trash"></i>
                 </button>
+                `}
               </td>
             </tr>
           `;
@@ -12874,6 +12886,12 @@
                 }
             }
             function deleteStaff(email) {
+                if (!email) return;
+                const emailLower = email.toLowerCase().trim();
+                if (emailLower === 'info@agri-experience.com' || emailLower.includes('system administrator')) {
+                    showToast('error', 'Protected Account', 'The System Administrator account is protected and cannot be deleted.');
+                    return;
+                }
                 openActionConfirmDialog({
                     title: 'Deactivate Staff Member',
                     subtitle: `You are about to deactivate ${email}`,

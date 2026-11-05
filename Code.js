@@ -2027,6 +2027,11 @@ const StaffManager = {
                 return Utils.createErrorResponse('You cannot delete your own account');
             }
 
+            const adminEmail = (SYSTEM.ADMIN_EMAIL || 'info@agri-experience.com').toLowerCase().trim();
+            if (email.toLowerCase().trim() === adminEmail || email.toLowerCase().trim() === 'info@agri-experience.com') {
+                return Utils.createErrorResponse('The primary System Administrator account is protected and cannot be deleted');
+            }
+
             const staffFile = DataManager.readDataFile(SYSTEM.DATA_FILES.STAFF);
             const staffIndex = staffFile.data.findIndex(staff =>
                 staff.Email.toLowerCase().trim() === email.toLowerCase().trim()
