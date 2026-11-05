@@ -9082,7 +9082,7 @@ const AIAssistantManager = {
                 }
 
                 // Comprehensive live leave balances for all active staff members
-                context.push(`\n### Complete Active Staff Directory & Live Leave Balances (${allStaff.length} Active Employees):`);
+                context.push(`\n### Complete Active Staff Directory & Live Leave Balances (All ${allStaff.length} Active Employees):`);
                 allStaff.forEach(s => {
                     let balStr = '';
                     try {
