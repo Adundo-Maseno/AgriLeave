@@ -1899,8 +1899,7 @@ const StaffManager = {
                         updatedStaff.LeaveHistory[currentYear].broughtForwardUsed = newBfUsed;
 
                         const annualUsed = updatedStaff.LeaveHistory[currentYear].annualUsed || 0;
-                        const sickUsed = updatedStaff.LeaveHistory[currentYear].sickUsed || 0;
-                        updatedStaff.LeaveAccrual.usedYearToDate = annualUsed + sickUsed + newBfUsed;
+                        updatedStaff.LeaveAccrual.usedYearToDate = annualUsed + newBfUsed;
 
                         changes.push('broughtForwardUsed');
                     }
@@ -2285,6 +2284,7 @@ const AccrualManager = {
                     staff.LeaveAccrual.nextAccrualDate = Utils.formatLocalDate(nextMonth);
                     staff.LeaveAccrual.lastAccrualDate = Utils.formatLocalDate(firstOfCurrentMonth);
 
+                    if (!staff.Metadata) staff.Metadata = {};
                     staff.Metadata.lastAccrual = {
                         date: currentDate.toISOString().split('T')[0],
                         amount: monthlyRate,
@@ -3563,6 +3563,11 @@ const ApplicationsManager = {
                         staffModified = true;
                         affectedEmails.add(application.Email);
                     }
+                    try {
+                        CalendarSyncManager.syncLeaveToCalendar(application);
+                    } catch (calErr) {
+                        console.warn('Batch calendar sync notice (non-fatal):', calErr.message);
+                    }
                 }
 
                 appsModified = true;
@@ -3599,7 +3604,6 @@ const ApplicationsManager = {
                     } else if (effect.type === 'decisionComplete') {
                         const app = effect.application;
                         if (effect.newStatus === SYSTEM.STATUS.APPROVED) {
-                            try { CalendarSyncManager.syncLeaveToCalendar(app); } catch (e) {}
                             try {
                                 if (typeof GmailSyncManager !== 'undefined') {
                                     GmailSyncManager.configureVacationResponder(app);
@@ -3798,24 +3802,96 @@ const ApplicationsManager = {
             const dayDifference = Number((newDuration - oldDuration).toFixed(3));
 
             // Adjust staff leave balance if duration changed
+            const currentYear = Utils.getCurrentYear().toString();
+            if (!applicantUser.LeaveHistory) applicantUser.LeaveHistory = {};
+            if (!applicantUser.LeaveHistory[currentYear]) {
+                applicantUser.LeaveHistory[currentYear] = { annualUsed: 0, sickUsed: 0, broughtForwardUsed: 0, compensationUsed: 0, totalUsed: 0 };
+            }
+            const yearHistory = applicantUser.LeaveHistory[currentYear];
+
             if (dayDifference > 0) {
-                const available = AccrualManager.calculateAvailableBalance(applicantUser);
-                if (available < dayDifference) {
-                    return Utils.createErrorResponse(
-                        `Insufficient leave balance for requested extension of ${dayDifference} day(s). Available: ${available.toFixed(2)}`
-                    );
+                if (app.LeaveType === SYSTEM.LEAVE_TYPES.SICK) {
+                    const sickAllocation = ConfigManager.getSickLeaveAllocation();
+                    const sickUsed = applicantUser.SickLeave?.used || 0;
+                    const sickAvailable = Math.max(0, sickAllocation - sickUsed);
+                    if (sickAvailable < dayDifference) {
+                        return Utils.createErrorResponse(
+                            `Insufficient sick leave balance for requested extension of ${dayDifference} day(s). Available: ${sickAvailable.toFixed(2)}`
+                        );
+                    }
+                    if (!applicantUser.SickLeave) {
+                        applicantUser.SickLeave = { used: 0, resetDate: `${Utils.getCurrentYear() + 1}-01-01` };
+                    }
+                    applicantUser.SickLeave.used = (applicantUser.SickLeave.used || 0) + dayDifference;
+                    app.DeductFromSick = (app.DeductFromSick || 0) + dayDifference;
+                    yearHistory.sickUsed = (yearHistory.sickUsed || 0) + dayDifference;
+                } else if (app.LeaveType === SYSTEM.LEAVE_TYPES.COMPENSATION) {
+                    const compAvailable = Math.max(0, applicantUser.CompensationLeave?.balance || 0);
+                    if (compAvailable < dayDifference) {
+                        return Utils.createErrorResponse(
+                            `Insufficient compensation leave balance for requested extension of ${dayDifference} day(s). Available: ${compAvailable.toFixed(2)}`
+                        );
+                    }
+                    if (applicantUser.CompensationLeave) {
+                        applicantUser.CompensationLeave.balance = Math.max(0, (applicantUser.CompensationLeave.balance || 0) - dayDifference);
+                        applicantUser.CompensationLeave.used = (applicantUser.CompensationLeave.used || 0) + dayDifference;
+                    }
+                    app.DeductFromCompensation = (app.DeductFromCompensation || 0) + dayDifference;
+                    yearHistory.compensationUsed = (yearHistory.compensationUsed || 0) + dayDifference;
+                } else {
+                    const available = AccrualManager.calculateAvailableBalance(applicantUser);
+                    if (available < dayDifference) {
+                        return Utils.createErrorResponse(
+                            `Insufficient leave balance for requested extension of ${dayDifference} day(s). Available: ${available.toFixed(2)}`
+                        );
+                    }
+                    if (!applicantUser.LeaveAccrual) {
+                        applicantUser.LeaveAccrual = { usedYearToDate: 0, availableBalance: 0 };
+                    }
+                    applicantUser.LeaveAccrual.usedYearToDate = (applicantUser.LeaveAccrual.usedYearToDate || 0) + dayDifference;
+                    applicantUser.LeaveAccrual.availableBalance = Math.max(0, (applicantUser.LeaveAccrual.availableBalance || 0) - dayDifference);
+                    app.DeductFromAnnual = (app.DeductFromAnnual || 0) + dayDifference;
+                    yearHistory.annualUsed = (yearHistory.annualUsed || 0) + dayDifference;
                 }
-                applicantUser.LeaveAccrual.usedYearToDate = (applicantUser.LeaveAccrual.usedYearToDate || 0) + dayDifference;
-                applicantUser.LeaveAccrual.availableBalance = Math.max(0, (applicantUser.LeaveAccrual.availableBalance || 0) - dayDifference);
-                app.DeductFromAnnual = (app.DeductFromAnnual || 0) + dayDifference;
+                yearHistory.totalUsed = (yearHistory.annualUsed || 0) + (yearHistory.sickUsed || 0) + (yearHistory.broughtForwardUsed || 0) + (yearHistory.compensationUsed || 0);
             } else if (dayDifference < 0) {
                 const refundDays = Math.abs(dayDifference);
-                applicantUser.LeaveAccrual.usedYearToDate = Math.max(0, (applicantUser.LeaveAccrual.usedYearToDate || 0) - refundDays);
-                applicantUser.LeaveAccrual.availableBalance = (applicantUser.LeaveAccrual.availableBalance || 0) + refundDays;
-                app.DeductFromAnnual = Math.max(0, (app.DeductFromAnnual || 0) - refundDays);
+                if (app.LeaveType === SYSTEM.LEAVE_TYPES.SICK) {
+                    if (applicantUser.SickLeave) {
+                        applicantUser.SickLeave.used = Math.max(0, (applicantUser.SickLeave.used || 0) - refundDays);
+                    }
+                    app.DeductFromSick = Math.max(0, (app.DeductFromSick || 0) - refundDays);
+                    yearHistory.sickUsed = Math.max(0, (yearHistory.sickUsed || 0) - refundDays);
+                } else if (app.LeaveType === SYSTEM.LEAVE_TYPES.COMPENSATION) {
+                    if (applicantUser.CompensationLeave) {
+                        applicantUser.CompensationLeave.balance = (applicantUser.CompensationLeave.balance || 0) + refundDays;
+                        applicantUser.CompensationLeave.used = Math.max(0, (applicantUser.CompensationLeave.used || 0) - refundDays);
+                    }
+                    app.DeductFromCompensation = Math.max(0, (app.DeductFromCompensation || 0) - refundDays);
+                    yearHistory.compensationUsed = Math.max(0, (yearHistory.compensationUsed || 0) - refundDays);
+                } else {
+                    if (applicantUser.LeaveAccrual) {
+                        applicantUser.LeaveAccrual.usedYearToDate = Math.max(0, (applicantUser.LeaveAccrual.usedYearToDate || 0) - refundDays);
+                        const accrued = applicantUser.LeaveAccrual.accruedYearToDate || 0;
+                        const used = applicantUser.LeaveAccrual.usedYearToDate;
+                        const deficit = applicantUser.LeaveAccrual.annualDeficit?.amount || 0;
+                        applicantUser.LeaveAccrual.availableBalance = Math.max(0, accrued - used + deficit);
+                        if (deficit < 0 && applicantUser.LeaveAccrual.annualDeficit) {
+                            const rawAnnualBalance = accrued - used;
+                            applicantUser.LeaveAccrual.annualDeficit.amount = Math.min(0, rawAnnualBalance);
+                        }
+                    }
+                    app.DeductFromAnnual = Math.max(0, (app.DeductFromAnnual || 0) - refundDays);
+                    yearHistory.annualUsed = Math.max(0, (yearHistory.annualUsed || 0) - refundDays);
+                }
+                yearHistory.totalUsed = (yearHistory.annualUsed || 0) + (yearHistory.sickUsed || 0) + (yearHistory.broughtForwardUsed || 0) + (yearHistory.compensationUsed || 0);
             }
 
-            DataManager.writeDataFile(SYSTEM.DATA_FILES.STAFF, staffFile);
+            if (dayDifference !== 0) {
+                DataManager.writeDataFile(SYSTEM.DATA_FILES.STAFF, staffFile);
+                EnhancedCacheManager.clearBalance(app.Email);
+                EnhancedCacheManager.clear(`${SYSTEM.CACHE_KEYS.DASHBOARD_PREFIX}${app.Email}`);
+            }
 
             app.Metadata = app.Metadata || {};
             app.Metadata.amendments = app.Metadata.amendments || [];
@@ -4361,8 +4437,9 @@ const DashboardManager = {
 const AdminManager = {
     processYearEnd: function (isSystemAutomated = false) {
         try {
+            let currentUser = 'SYSTEM_AUTOMATION';
             if (!isSystemAutomated) {
-                const currentUser = Session.getActiveUser().getEmail();
+                currentUser = Session.getActiveUser().getEmail();
                 const userRole = StaffManager.getUserRole(currentUser);
 
                 if (userRole !== SYSTEM.ROLES.ADMIN && userRole !== SYSTEM.ROLES.HR) {
@@ -9768,6 +9845,7 @@ function apiAwardCompensationLeave(params) {
             revoked: false
         });
 
+        if (!member.Metadata) member.Metadata = {};
         member.Metadata.lastUpdated = new Date().toISOString();
         member.Metadata.updatedBy = currentUser;
 
@@ -9872,6 +9950,7 @@ function apiAdjustCompensationLeave(params) {
             revoked: false
         });
 
+        if (!member.Metadata) member.Metadata = {};
         member.Metadata.lastUpdated = new Date().toISOString();
         member.Metadata.updatedBy = currentUser;
 
@@ -9935,6 +10014,7 @@ function apiRevokeCompensationAward(params) {
         targetAward.revocationReason = reason || 'Award revoked by administrator';
 
         member.CompensationLeave.balance = newBal;
+        if (!member.Metadata) member.Metadata = {};
         member.Metadata.lastUpdated = new Date().toISOString();
         member.Metadata.updatedBy = currentUser;
 
@@ -11016,6 +11096,7 @@ function fixStaffLeaveData(email) {
 
         // 7. Save if changes were made
         if (changes.length > 0) {
+            if (!staff.Metadata) staff.Metadata = {};
             staff.Metadata.lastUpdated = new Date().toISOString();
             staff.Metadata.updatedBy = Session.getActiveUser().getEmail();
             staff.Metadata.fixApplied = {
