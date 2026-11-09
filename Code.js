@@ -1126,11 +1126,117 @@ const ConfigManager = {
             settings.max_carry_forward = settings.max_carry_forward || SYSTEM.LEAVE_POLICY.MAX_CARRY_FORWARD.toString();
             settings.working_hours_per_day = settings.working_hours_per_day || SYSTEM.LEAVE_POLICY.WORKING_HOURS_PER_DAY.toString();
 
+            // Default governance flags
+            const govDefaults = {
+                feature_ai_assistant: 'true',
+                feature_calendar_sync: 'true',
+                feature_vacation_responder: 'true',
+                feature_multi_tier_approval: 'true',
+                feature_blackout_periods: 'true',
+                feature_minimum_staffing: 'true',
+                feature_hourly_leave: 'true',
+                feature_handover_tasks: 'true',
+                feature_compensation_leave: 'true',
+                alert_applicant_status: 'true',
+                alert_supervisor_submission: 'true',
+                alert_hr_escalation: 'true',
+                alert_handover_assignment: 'true',
+                alert_easter_forfeiture: 'true'
+            };
+            for (const [k, v] of Object.entries(govDefaults)) {
+                if (settings[k] === undefined) {
+                    settings[k] = v;
+                }
+            }
+
             EnhancedCacheManager.set(cacheKey, settings);
             return settings;
         } catch (error) {
             console.error('Error getting settings:', error);
             return {};
+        }
+    },
+
+    isFeatureEnabled: function (featureKey, defaultValue = true) {
+        const settings = this.getSettings();
+        if (settings[featureKey] !== undefined) {
+            return settings[featureKey] === 'true' || settings[featureKey] === true;
+        }
+        return defaultValue;
+    },
+
+    isAlertEnabled: function (alertKey, defaultValue = true) {
+        const settings = this.getSettings();
+        if (settings[alertKey] !== undefined) {
+            return settings[alertKey] === 'true' || settings[alertKey] === true;
+        }
+        return defaultValue;
+    },
+
+    getGovernanceSettings: function () {
+        const settings = this.getSettings();
+        const defaults = {
+            feature_ai_assistant: true,
+            feature_calendar_sync: true,
+            feature_vacation_responder: true,
+            feature_multi_tier_approval: true,
+            feature_blackout_periods: true,
+            feature_minimum_staffing: true,
+            feature_hourly_leave: true,
+            feature_handover_tasks: true,
+            feature_compensation_leave: true,
+            alert_applicant_status: true,
+            alert_supervisor_submission: true,
+            alert_hr_escalation: true,
+            alert_handover_assignment: true,
+            alert_easter_forfeiture: true
+        };
+        const result = {};
+        for (const [key, defVal] of Object.entries(defaults)) {
+            result[key] = (settings[key] !== undefined)
+                ? (settings[key] === 'true' || settings[key] === true)
+                : defVal;
+        }
+        return result;
+    },
+
+    updateGovernanceSettings: function (newSettings, updatedBy) {
+        try {
+            const settingsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.SETTINGS);
+            settingsFile.data = settingsFile.data || [];
+
+            if (Array.isArray(settingsFile.data)) {
+                for (const [key, val] of Object.entries(newSettings)) {
+                    const strVal = String(val);
+                    const idx = settingsFile.data.findIndex(s => s && s.key === key);
+                    if (idx !== -1) {
+                        settingsFile.data[idx].value = strVal;
+                    } else {
+                        settingsFile.data.push({ key: key, value: strVal });
+                    }
+                }
+            } else if (typeof settingsFile.data === 'object') {
+                for (const [key, val] of Object.entries(newSettings)) {
+                    settingsFile.data[key] = String(val);
+                }
+            }
+
+            settingsFile.metadata = settingsFile.metadata || {};
+            settingsFile.metadata.lastUpdated = new Date().toISOString();
+            settingsFile.metadata.updatedBy = updatedBy;
+
+            DataManager.writeDataFile(SYSTEM.DATA_FILES.SETTINGS, settingsFile);
+            EnhancedCacheManager.clear(SYSTEM.CACHE_KEYS.SYSTEM_SETTINGS);
+
+            Utils.logAction('UPDATE_GOVERNANCE_SETTINGS', {
+                updatedBy: updatedBy,
+                changes: newSettings
+            });
+
+            return Utils.createSuccessResponse(this.getGovernanceSettings(), 'System governance settings saved successfully');
+        } catch (error) {
+            console.error('Error updating governance settings:', error);
+            return Utils.createErrorResponse('Failed to update governance settings: ' + error.message);
         }
     },
 
@@ -2561,6 +2667,9 @@ const ApplicationsManager = {
             if (!user) return Utils.createErrorResponse('User not found in system');
             if (!user.EligibleForLeave) return Utils.createErrorResponse('You are not eligible for leave');
             if (!applicationData.leaveType) return Utils.createErrorResponse('Leave type is required');
+            if (applicationData.leaveType === SYSTEM.LEAVE_TYPES.COMPENSATION && !ConfigManager.isFeatureEnabled('feature_compensation_leave')) {
+                return Utils.createErrorResponse('Compensation leave requests are currently disabled by policy');
+            }
             if (!applicationData.reason || applicationData.reason.trim().length < 10) {
                 return Utils.createErrorResponse('Please provide a detailed reason (minimum 10 characters)');
             }
@@ -2572,6 +2681,9 @@ const ApplicationsManager = {
             let businessDays = 0;
 
             if (applicationData.leaveMode === 'Hourly') {
+                if (!ConfigManager.isFeatureEnabled('feature_hourly_leave')) {
+                    return Utils.createErrorResponse('Hourly / partial-day leave requests are currently disabled by policy');
+                }
                 hours = parseFloat(applicationData.hours) || 0;
                 if (hours < SYSTEM.LEAVE_POLICY.MIN_LEAVE_HOURS || hours > SYSTEM.LEAVE_POLICY.MAX_LEAVE_HOURS) {
                     return Utils.createErrorResponse(`Hours must be between ${SYSTEM.LEAVE_POLICY.MIN_LEAVE_HOURS} and ${SYSTEM.LEAVE_POLICY.MAX_LEAVE_HOURS}`);
@@ -2625,7 +2737,7 @@ const ApplicationsManager = {
             if (applicationData.leaveMode !== 'Hourly' && startDate && endDate) {
                 const blackoutConflict = BlackoutPeriodManager.checkConflict(user.Department, startDate, endDate);
                 if (blackoutConflict.hasConflict) {
-                    if (blackoutConflict.isStrict && user.Role !== SYSTEM.ROLES.ADMIN && user.Role !== SYSTEM.ROLES.HR) {
+                    if (ConfigManager.isFeatureEnabled('feature_blackout_periods') && blackoutConflict.isStrict && user.Role !== SYSTEM.ROLES.ADMIN && user.Role !== SYSTEM.ROLES.HR) {
                         const firstStrict = blackoutConflict.conflicts.find(c => c.severity === 'strict') || blackoutConflict.conflicts[0];
                         return Utils.createErrorResponse(
                             `Leave blocked: Requested dates fall during a strict company blackout period: "${firstStrict.name}" (${firstStrict.reason || 'Operational peak period'})`
@@ -2634,7 +2746,7 @@ const ApplicationsManager = {
                 }
             }
 
-            const staffingCheck = (applicationData.leaveMode !== 'Hourly' && startDate && endDate)
+            const staffingCheck = (ConfigManager.isFeatureEnabled('feature_minimum_staffing') && applicationData.leaveMode !== 'Hourly' && startDate && endDate)
                 ? BlackoutPeriodManager.checkMinimumStaffing(user.Department, startDate, endDate, userEmail)
                 : { breach: false };
 
@@ -2668,9 +2780,10 @@ const ApplicationsManager = {
             }
 
             // Handover colleague details
-            let handoverEmail = (applicationData.handoverEmail || '').trim();
-            let handoverName = (applicationData.handoverName || '').trim();
-            let handoverNotes = (applicationData.handoverNotes || '').trim();
+            const handoverEnabled = ConfigManager.isFeatureEnabled('feature_handover_tasks');
+            let handoverEmail = handoverEnabled ? (applicationData.handoverEmail || '').trim() : '';
+            let handoverName = handoverEnabled ? (applicationData.handoverName || '').trim() : '';
+            let handoverNotes = handoverEnabled ? (applicationData.handoverNotes || '').trim() : '';
             if (handoverEmail && !handoverName) {
                 const handoverStaff = StaffManager.getUserData(handoverEmail);
                 if (handoverStaff) {
@@ -2680,7 +2793,7 @@ const ApplicationsManager = {
 
             // Handover Tasks
             let handoverTasks = [];
-            if (Array.isArray(applicationData.handoverTasks)) {
+            if (handoverEnabled && Array.isArray(applicationData.handoverTasks)) {
                 handoverTasks = applicationData.handoverTasks.map((t, idx) => {
                     const taskText = typeof t === 'string' ? t.trim() : (t.task || t.title || t.text || '').trim();
                     const taskId = (typeof t === 'object' && t !== null && t.id) ? String(t.id) : ('ht_' + (idx + 1));
@@ -2755,7 +2868,7 @@ const ApplicationsManager = {
                 SYSTEM.LEAVE_TYPES.MATERNITY,
                 SYSTEM.LEAVE_TYPES.PATERNITY
             ].includes(applicationData.leaveType);
-            const requiresDualApproval = (businessDays > 5) || isSpecializedLeave;
+            const requiresDualApproval = ConfigManager.isFeatureEnabled('feature_multi_tier_approval') && ((businessDays > 5) || isSpecializedLeave);
 
             const application = {
                 ID: appId,
@@ -5129,6 +5242,10 @@ const NotificationManager = {
 
     notifyApplicationSubmitted: function (application) {
         try {
+            if (!ConfigManager.isAlertEnabled('alert_supervisor_submission')) {
+                console.log('Supervisor submission alerts disabled by governance');
+                return true;
+            }
             if (!application.SupervisorEmail) return false;
             const supervisor = StaffManager.getUserData(application.SupervisorEmail);
             if (!supervisor) return false;
@@ -5163,6 +5280,10 @@ const NotificationManager = {
 
     notifyApplicationApproved: function (application) {
         try {
+            if (!ConfigManager.isAlertEnabled('alert_applicant_status')) {
+                console.log('Applicant status alerts disabled by governance');
+                return true;
+            }
             return EmailService.sendEmail('applicationApproved',
                 application.Email,
                 application.Name,
@@ -5189,6 +5310,10 @@ const NotificationManager = {
 
     notifyApplicationDeclined: function (application) {
         try {
+            if (!ConfigManager.isAlertEnabled('alert_applicant_status')) {
+                console.log('Applicant status alerts disabled by governance');
+                return true;
+            }
             return EmailService.sendEmail('applicationDeclined',
                 application.Email,
                 application.Name,
@@ -5210,9 +5335,83 @@ const NotificationManager = {
         }
     },
 
+    notifyHREndorsementRequired: function (application) {
+        try {
+            if (!ConfigManager.isAlertEnabled('alert_hr_escalation')) {
+                console.log('HR escalation alerts disabled by governance');
+                return false;
+            }
+            const hrEmails = this.getHREmails();
+            if (hrEmails.length === 0) return false;
+
+            const subject = `[Action Required: Stage 2 Review] Endorsed: ${application.Name} — ${application.LeaveType}`;
+            const body = EmailService.wrapTemplate({
+                title: SYSTEM.NAME,
+                subtitle: 'HR Multi-Tier Endorsement Review',
+                headerTheme: 'warning',
+                actionBtn: { label: 'Open HR Dashboard', url: EmailService.SYSTEM_URL },
+                contentHtml: `
+                  <div class="greeting">Dear HR Team,</div>
+                  <p style="margin: 0 0 16px 0; color: #475569;">
+                    The leave application for <strong>${application.Name}</strong> (${application.Email}) has been endorsed by their supervisor (<strong>${application.Supervisor || application.SupervisorEmail}</strong>) and is awaiting your final review.
+                  </p>
+                  <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="data-table">
+                    <tr>
+                      <td style="width: 50%;">
+                        <div class="label">Leave Type</div>
+                        <div class="value" style="color: #059669;">${application.LeaveType}</div>
+                      </td>
+                      <td style="width: 50%;">
+                        <div class="label">Duration</div>
+                        <div class="value">${application.Duration} business day(s)</div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td colspan="2">
+                        <div class="label">Coverage Period</div>
+                        <div class="value">${Utils.formatDateForDisplay(application.StartDate)} to ${Utils.formatDateForDisplay(application.EndDate)}</div>
+                      </td>
+                    </tr>
+                  </table>
+                  ${application.Reason ? `
+                  <div class="reason-card">
+                    <div class="label">Applicant Reason</div>
+                    <div class="value" style="font-weight: 500; font-size: 13.5px; margin-top: 4px;">${application.Reason}</div>
+                  </div>` : ''}
+                `
+            });
+
+            hrEmails.forEach(email => {
+                try {
+                    const mailOptions = {
+                        to: email,
+                        subject: subject,
+                        htmlBody: body,
+                        name: SYSTEM.NAME
+                    };
+                    const inlineImgs = EmailService.getInlineImages();
+                    if (inlineImgs && Object.keys(inlineImgs).length > 0) {
+                        mailOptions.inlineImages = inlineImgs;
+                    }
+                    MailApp.sendEmail(mailOptions);
+                } catch (e) {
+                    console.error('Failed to notify HR email ' + email, e);
+                }
+            });
+            return true;
+        } catch (error) {
+            console.error('Error in notifyHREndorsementRequired:', error);
+            return false;
+        }
+    },
+
     // Notify all HR staff of every leave decision (approve or decline)
     notifyHRDecision: function (application, decision, comment) {
         try {
+            if (!ConfigManager.isAlertEnabled('alert_hr_escalation')) {
+                console.log('HR decision alerts disabled by governance');
+                return false;
+            }
             const hrEmails = this.getHREmails();
             if (hrEmails.length === 0) return false;
 
@@ -5536,6 +5735,10 @@ const NotificationManager = {
 
     notifyHandoverNominated: function (application) {
         try {
+            if (!ConfigManager.isAlertEnabled('alert_handover_assignment')) {
+                console.log('Handover assignment alerts disabled by governance');
+                return true;
+            }
             if (!application.HandoverEmail) return false;
             const subject = `[Handover Request] You are nominated as reliever for ${application.Name}`;
             const body = EmailService.wrapTemplate({
@@ -5589,6 +5792,10 @@ const NotificationManager = {
 
     notifyHandoverAssigned: function (application) {
         try {
+            if (!ConfigManager.isAlertEnabled('alert_handover_assignment')) {
+                console.log('Handover assignment alerts disabled by governance');
+                return true;
+            }
             if (!application.HandoverEmail) return false;
             const subject = `[Handover Confirmed] Leave Approved for ${application.Name}`;
             const body = EmailService.wrapTemplate({
@@ -5687,6 +5894,10 @@ const NotificationManager = {
 
     notifyEasterExpiryWarning: function (staff, remainingDays, easterDate, daysUntilEaster) {
         try {
+            if (!ConfigManager.isAlertEnabled('alert_easter_forfeiture')) {
+                console.log('Easter expiry warning alerts disabled by governance');
+                return true;
+            }
             const easterStr = Utils.formatDateForDisplay(easterDate);
             const subject = `[Action Required] ${remainingDays} Carried Forward Leave Day(s) Expiring on Easter (${easterStr})`;
             const body = `
@@ -5887,6 +6098,10 @@ const CalendarSyncManager = {
 
     syncLeaveToCalendar: function (application) {
         try {
+            if (!ConfigManager.isFeatureEnabled('feature_calendar_sync')) {
+                console.log('Calendar sync skipped: feature disabled by governance');
+                return null;
+            }
             if (typeof CalendarApp === 'undefined') return null;
             const cal = this.getLeaveCalendar();
             if (!cal) return null;
@@ -6581,6 +6796,10 @@ const BlackoutPeriodManager = {
 const GmailSyncManager = {
     configureVacationResponder: function (application) {
         try {
+            if (!ConfigManager.isFeatureEnabled('feature_vacation_responder')) {
+                console.log('Vacation responder skipped: feature disabled by governance');
+                return { success: false, reason: 'Vacation responder feature disabled by administrator' };
+            }
             if (typeof GmailApp === 'undefined' || !GmailApp.setVacationResponder) {
                 return { success: false, reason: 'GmailApp service not available in current execution context' };
             }
@@ -9222,6 +9441,13 @@ const AIAssistantManager = {
     },
 
     askAssistant: function (userMessage, conversationHistory = []) {
+        if (!ConfigManager.isFeatureEnabled('feature_ai_assistant')) {
+            return {
+                success: false,
+                disabled: true,
+                answer: '⚠️ The AI Assistant has been temporarily disabled by the System Administrator.'
+            };
+        }
         const apiKey = this.getApiKey();
         if (!apiKey) {
             return {
@@ -12299,6 +12525,36 @@ function apiTestCalendarConnection(params) {
         }, `Read & write permissions verified on calendar: "${cal.getName()}"`);
     } catch (error) {
         return Utils.createErrorResponse('Calendar test failed: ' + error.message);
+    }
+}
+
+function apiGetGovernanceSettings() {
+    try {
+        const currentUser = Session.getActiveUser().getEmail();
+        const userRole = StaffManager.getUserRole(currentUser);
+        if (userRole !== SYSTEM.ROLES.ADMIN) {
+            return Utils.createErrorResponse('Unauthorized. Admin access required.');
+        }
+        const settings = ConfigManager.getGovernanceSettings();
+        return Utils.createSuccessResponse(settings, 'Governance settings loaded successfully');
+    } catch (e) {
+        return Utils.createErrorResponse('Failed to load governance settings: ' + e.message);
+    }
+}
+
+function apiSaveGovernanceSettings(params) {
+    try {
+        const currentUser = Session.getActiveUser().getEmail();
+        const userRole = StaffManager.getUserRole(currentUser);
+        if (userRole !== SYSTEM.ROLES.ADMIN) {
+            return Utils.createErrorResponse('Unauthorized. Only administrators can modify governance controls.');
+        }
+        if (!params || typeof params.settings !== 'object') {
+            return Utils.createErrorResponse('Invalid governance settings payload');
+        }
+        return ConfigManager.updateGovernanceSettings(params.settings, currentUser);
+    } catch (e) {
+        return Utils.createErrorResponse('Failed to save governance settings: ' + e.message);
     }
 }
 

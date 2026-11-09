@@ -7711,6 +7711,250 @@
 
                 pageElement.innerHTML = `
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Feature Flags & Alert Governance Section -->
+          <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-6 lg:col-span-2 hover:border-emerald-300 transition">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 mb-6 gap-4">
+              <div>
+                <div class="flex items-center gap-2.5">
+                  <span class="h-9 w-9 rounded-xl bg-emerald-50 border border-emerald-200/60 flex items-center justify-center">
+                    <i class="fas fa-sliders-h text-emerald-600 text-sm"></i>
+                  </span>
+                  <div>
+                    <h3 class="text-base font-bold text-slate-900">Feature Flags & Alert Governance</h3>
+                    <p class="text-xs text-slate-500 mt-0.5">Control operational features, strict compliance rules, and granular email alert triggers across AgriLeave</p>
+                  </div>
+                </div>
+              </div>
+              <div class="flex items-center gap-3">
+                <span id="govDirtyIndicator" class="hidden items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                  <span class="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse"></span> Unsaved Changes
+                </span>
+                <button type="button" id="resetGovBtn" onclick="resetGovernanceDefaults()" class="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer">
+                  Reset Defaults
+                </button>
+                <button type="button" id="saveGovBtn" onclick="saveGovernanceSettings()" class="px-4 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition shadow-xs flex items-center gap-2 cursor-pointer">
+                  <i class="fas fa-save text-[11px]"></i> Save Governance
+                </button>
+              </div>
+            </div>
+
+            <!-- 4 Column Governance Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+              
+              <!-- Column 1: Core Productivity Features -->
+              <div class="bg-slate-50/70 border border-slate-200/80 rounded-xl p-4 flex flex-col justify-between">
+                <div>
+                  <div class="flex items-center gap-2 mb-3 pb-2 border-b border-slate-200/60">
+                    <i class="fas fa-magic text-purple-600 text-xs"></i>
+                    <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Core Productivity</h4>
+                  </div>
+                  <div class="space-y-3.5 text-xs">
+                    <!-- AI Assistant -->
+                    <div class="flex items-start justify-between gap-3">
+                      <div>
+                        <div class="font-semibold text-slate-800">AI Assistant</div>
+                        <p class="text-[11px] text-slate-500 leading-snug">Floating "Ask AgriLeave" assistant & AI queries</p>
+                      </div>
+                      <label class="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5">
+                        <input type="checkbox" id="gov_feature_ai_assistant" class="sr-only peer" onchange="onGovSettingChanged()">
+                        <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                      </label>
+                    </div>
+
+                    <!-- Calendar Sync -->
+                    <div class="flex items-start justify-between gap-3">
+                      <div>
+                        <div class="font-semibold text-slate-800">Google Calendar Sync</div>
+                        <p class="text-[11px] text-slate-500 leading-snug">Sync approved leave directly to company calendar</p>
+                      </div>
+                      <label class="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5">
+                        <input type="checkbox" id="gov_feature_calendar_sync" class="sr-only peer" onchange="onGovSettingChanged()">
+                        <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                      </label>
+                    </div>
+
+                    <!-- Vacation Responder -->
+                    <div class="flex items-start justify-between gap-3">
+                      <div>
+                        <div class="font-semibold text-slate-800">Gmail Out-of-Office</div>
+                        <p class="text-[11px] text-slate-500 leading-snug">Auto-configure Gmail vacation auto-responder</p>
+                      </div>
+                      <label class="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5">
+                        <input type="checkbox" id="gov_feature_vacation_responder" class="sr-only peer" onchange="onGovSettingChanged()">
+                        <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Column 2: Policy & Approvals -->
+              <div class="bg-slate-50/70 border border-slate-200/80 rounded-xl p-4 flex flex-col justify-between">
+                <div>
+                  <div class="flex items-center gap-2 mb-3 pb-2 border-b border-slate-200/60">
+                    <i class="fas fa-shield-alt text-blue-600 text-xs"></i>
+                    <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Policy & Approvals</h4>
+                  </div>
+                  <div class="space-y-3.5 text-xs">
+                    <!-- Multi-tier HR Approval -->
+                    <div class="flex items-start justify-between gap-3">
+                      <div>
+                        <div class="font-semibold text-slate-800">Multi-Tier HR Stage</div>
+                        <p class="text-[11px] text-slate-500 leading-snug">Require HR 2nd stage on leaves > 5 days</p>
+                      </div>
+                      <label class="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5">
+                        <input type="checkbox" id="gov_feature_multi_tier_approval" class="sr-only peer" onchange="onGovSettingChanged()">
+                        <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                      </label>
+                    </div>
+
+                    <!-- Strict Blackout Periods -->
+                    <div class="flex items-start justify-between gap-3">
+                      <div>
+                        <div class="font-semibold text-slate-800">Strict Blackout Enforce</div>
+                        <p class="text-[11px] text-slate-500 leading-snug">Block leave submissions during peak blackout dates</p>
+                      </div>
+                      <label class="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5">
+                        <input type="checkbox" id="gov_feature_blackout_periods" class="sr-only peer" onchange="onGovSettingChanged()">
+                        <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                      </label>
+                    </div>
+
+                    <!-- Minimum Staffing Guard -->
+                    <div class="flex items-start justify-between gap-3">
+                      <div>
+                        <div class="font-semibold text-slate-800">Minimum Staffing Guard</div>
+                        <p class="text-[11px] text-slate-500 leading-snug">Validate department operational threshold</p>
+                      </div>
+                      <label class="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5">
+                        <input type="checkbox" id="gov_feature_minimum_staffing" class="sr-only peer" onchange="onGovSettingChanged()">
+                        <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Column 3: Leave Request Types -->
+              <div class="bg-slate-50/70 border border-slate-200/80 rounded-xl p-4 flex flex-col justify-between">
+                <div>
+                  <div class="flex items-center gap-2 mb-3 pb-2 border-b border-slate-200/60">
+                    <i class="fas fa-calendar-check text-amber-600 text-xs"></i>
+                    <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Leave Types</h4>
+                  </div>
+                  <div class="space-y-3.5 text-xs">
+                    <!-- Hourly Leave -->
+                    <div class="flex items-start justify-between gap-3">
+                      <div>
+                        <div class="font-semibold text-slate-800">Hourly / Partial Leave</div>
+                        <p class="text-[11px] text-slate-500 leading-snug">Allow staff to request partial-day leave in hours</p>
+                      </div>
+                      <label class="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5">
+                        <input type="checkbox" id="gov_feature_hourly_leave" class="sr-only peer" onchange="onGovSettingChanged()">
+                        <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                      </label>
+                    </div>
+
+                    <!-- Handover Tasks -->
+                    <div class="flex items-start justify-between gap-3">
+                      <div>
+                        <div class="font-semibold text-slate-800">Handover Checklists</div>
+                        <p class="text-[11px] text-slate-500 leading-snug">Enable reliever nomination & handover checklists</p>
+                      </div>
+                      <label class="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5">
+                        <input type="checkbox" id="gov_feature_handover_tasks" class="sr-only peer" onchange="onGovSettingChanged()">
+                        <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                      </label>
+                    </div>
+
+                    <!-- Compensation Overtime Leave -->
+                    <div class="flex items-start justify-between gap-3">
+                      <div>
+                        <div class="font-semibold text-slate-800">Compensation Overtime</div>
+                        <p class="text-[11px] text-slate-500 leading-snug">Weekend & public holiday overtime awards</p>
+                      </div>
+                      <label class="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5">
+                        <input type="checkbox" id="gov_feature_compensation_leave" class="sr-only peer" onchange="onGovSettingChanged()">
+                        <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Column 4: Alert Channels -->
+              <div class="bg-slate-50/70 border border-slate-200/80 rounded-xl p-4 flex flex-col justify-between">
+                <div>
+                  <div class="flex items-center gap-2 mb-3 pb-2 border-b border-slate-200/60">
+                    <i class="fas fa-bell text-rose-600 text-xs"></i>
+                    <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Alert Channels</h4>
+                  </div>
+                  <div class="space-y-3.5 text-xs">
+                    <!-- Applicant Status -->
+                    <div class="flex items-start justify-between gap-3">
+                      <div>
+                        <div class="font-semibold text-slate-800">Applicant Decision Emails</div>
+                        <p class="text-[11px] text-slate-500 leading-snug">Approval & decline emails to applicants</p>
+                      </div>
+                      <label class="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5">
+                        <input type="checkbox" id="gov_alert_applicant_status" class="sr-only peer" onchange="onGovSettingChanged()">
+                        <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                      </label>
+                    </div>
+
+                    <!-- Supervisor Submissions -->
+                    <div class="flex items-start justify-between gap-3">
+                      <div>
+                        <div class="font-semibold text-slate-800">Supervisor Review Emails</div>
+                        <p class="text-[11px] text-slate-500 leading-snug">Notify supervisor when a new request is filed</p>
+                      </div>
+                      <label class="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5">
+                        <input type="checkbox" id="gov_alert_supervisor_submission" class="sr-only peer" onchange="onGovSettingChanged()">
+                        <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                      </label>
+                    </div>
+
+                    <!-- HR Escalations -->
+                    <div class="flex items-start justify-between gap-3">
+                      <div>
+                        <div class="font-semibold text-slate-800">HR Review & Decision Emails</div>
+                        <p class="text-[11px] text-slate-500 leading-snug">Stage 2 endorsements & final decision notices</p>
+                      </div>
+                      <label class="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5">
+                        <input type="checkbox" id="gov_alert_hr_escalation" class="sr-only peer" onchange="onGovSettingChanged()">
+                        <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                      </label>
+                    </div>
+
+                    <!-- Handover Colleague -->
+                    <div class="flex items-start justify-between gap-3">
+                      <div>
+                        <div class="font-semibold text-slate-800">Handover Colleague Alerts</div>
+                        <p class="text-[11px] text-slate-500 leading-snug">Reliever nomination & confirmation notices</p>
+                      </div>
+                      <label class="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5">
+                        <input type="checkbox" id="gov_alert_handover_assignment" class="sr-only peer" onchange="onGovSettingChanged()">
+                        <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                      </label>
+                    </div>
+
+                    <!-- Easter Expiration -->
+                    <div class="flex items-start justify-between gap-3">
+                      <div>
+                        <div class="font-semibold text-slate-800">Easter Expiry Warnings</div>
+                        <p class="text-[11px] text-slate-500 leading-snug">Remind staff before carried days forfeit</p>
+                      </div>
+                      <label class="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5">
+                        <input type="checkbox" id="gov_alert_easter_forfeiture" class="sr-only peer" onchange="onGovSettingChanged()">
+                        <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
           <div class="stat-card stat-card-elevated bg-white rounded-2xl shadow-xs border border-slate-200/90 p-6 hover:border-amber-300 transition flex flex-col justify-between">
             <div>
               <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
@@ -7815,7 +8059,128 @@
 
                 attachSystemAdminEventListeners();
                 getCacheStats();
+                loadGovernanceSettings();
             }
+
+            // Governance Settings Functions
+            let activeGovernanceSettings = {};
+            let isGovernanceDirty = false;
+
+            const GOVERNANCE_KEY_LIST = [
+                'feature_ai_assistant',
+                'feature_calendar_sync',
+                'feature_vacation_responder',
+                'feature_multi_tier_approval',
+                'feature_blackout_periods',
+                'feature_minimum_staffing',
+                'feature_hourly_leave',
+                'feature_handover_tasks',
+                'feature_compensation_leave',
+                'alert_applicant_status',
+                'alert_supervisor_submission',
+                'alert_hr_escalation',
+                'alert_handover_assignment',
+                'alert_easter_forfeiture'
+            ];
+
+            function loadGovernanceSettings() {
+                callGoogleScriptFunction('apiGetGovernanceSettings')
+                    .then(result => {
+                        if (result && result.success && result.data) {
+                            activeGovernanceSettings = result.data;
+                            GOVERNANCE_KEY_LIST.forEach(key => {
+                                const input = document.getElementById('gov_' + key);
+                                if (input) {
+                                    input.checked = Boolean(activeGovernanceSettings[key]);
+                                }
+                            });
+                            setGovernanceDirty(false);
+                            applyGovernanceUiEffects(activeGovernanceSettings);
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Failed to load governance settings:', err);
+                    });
+            }
+
+            function onGovSettingChanged() {
+                setGovernanceDirty(true);
+            }
+
+            function setGovernanceDirty(dirty) {
+                isGovernanceDirty = dirty;
+                const ind = document.getElementById('govDirtyIndicator');
+                if (ind) {
+                    ind.classList.toggle('hidden', !dirty);
+                    ind.classList.toggle('inline-flex', dirty);
+                }
+            }
+
+            function resetGovernanceDefaults() {
+                GOVERNANCE_KEY_LIST.forEach(key => {
+                    const input = document.getElementById('gov_' + key);
+                    if (input) input.checked = true;
+                });
+                setGovernanceDirty(true);
+                showToast('info', 'Defaults Staged', 'Default settings staged. Click Save Governance to apply.');
+            }
+
+            function saveGovernanceSettings() {
+                const btn = document.getElementById('saveGovBtn');
+                const origHtml = btn ? btn.innerHTML : '';
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin text-[11px]"></i> Saving...';
+                }
+
+                const newSettings = {};
+                GOVERNANCE_KEY_LIST.forEach(key => {
+                    const input = document.getElementById('gov_' + key);
+                    newSettings[key] = input ? input.checked : true;
+                });
+
+                callGoogleScriptFunction('apiSaveGovernanceSettings', { settings: newSettings })
+                    .then(result => {
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.innerHTML = origHtml;
+                        }
+                        if (result && result.success) {
+                            activeGovernanceSettings = result.data || newSettings;
+                            setGovernanceDirty(false);
+                            applyGovernanceUiEffects(activeGovernanceSettings);
+                            showToast('success', 'Governance Updated', 'System feature flags and alert triggers have been successfully updated.');
+                        } else {
+                            showToast('error', 'Save Failed', result?.message || 'Could not save governance settings');
+                        }
+                    })
+                    .catch(err => {
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.innerHTML = origHtml;
+                        }
+                        showToast('error', 'Error', 'Failed to save settings: ' + err.message);
+                    });
+            }
+
+            function applyGovernanceUiEffects(settings) {
+                if (!settings) return;
+                // AI Assistant widget toggle
+                const aiBtn = document.getElementById('askAIAssistantBtn');
+                if (aiBtn) {
+                    aiBtn.style.display = (settings.feature_ai_assistant === false) ? 'none' : '';
+                }
+                // Hourly toggle on leave modal
+                const hourlyTab = document.querySelector('[data-leave-mode="Hourly"]');
+                if (hourlyTab) {
+                    hourlyTab.style.display = (settings.feature_hourly_leave === false) ? 'none' : '';
+                }
+            }
+
+            window.loadGovernanceSettings = loadGovernanceSettings;
+            window.onGovSettingChanged = onGovSettingChanged;
+            window.resetGovernanceDefaults = resetGovernanceDefaults;
+            window.saveGovernanceSettings = saveGovernanceSettings;
 
             function renderCacheStatsUI(stats) {
                 const el = document.getElementById('cacheStats');
