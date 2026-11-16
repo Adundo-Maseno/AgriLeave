@@ -4166,9 +4166,18 @@
             </div>
         </div>
 
+        <!-- Non-Blocking Top Progress Bar & Floating Status Pill -->
+        <div id="topProgressBar" class="hidden fixed top-0 inset-x-0 h-1 z-[9998] pointer-events-none overflow-hidden bg-emerald-100/40" aria-hidden="true">
+            <div class="h-full w-1/2 bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-600 animate-pulse rounded-r-full"></div>
+        </div>
+        <div id="nonBlockingStatusPill" class="hidden fixed top-3 right-3 sm:top-4 sm:right-5 z-[9998] pointer-events-none items-center gap-2 px-3.5 py-2 rounded-full bg-slate-900/90 text-white text-xs font-medium shadow-lg border border-white/10 backdrop-blur-md" role="status" aria-live="polite">
+            <i class="fas fa-spinner fa-spin text-emerald-400 text-xs"></i>
+            <span id="nonBlockingStatusText">Loading...</span>
+        </div>
+
         <!-- The Web Kitchen (TWK) Bespoke Initial Page Loader & Splash (Pillars 1, 2, 5 & 6) -->
         <div id="loadingOverlay"
-            class="twk-loader-surface fixed inset-0 z-[9999] flex flex-col items-center justify-center select-none"
+            class="twk-loader-surface fixed inset-0 z-[9999] hidden flex-col items-center justify-center select-none"
             role="status" aria-live="polite">
             <!-- Ambient breathing illumination orb -->
             <div class="twk-loader-ambient" aria-hidden="true"></div>
@@ -4261,21 +4270,32 @@
             };
             window.ClientCache = ClientCache;
 
-            // Google Apps Script API Helper
+            // Google Apps Script API Helper & Two-Lane Priority Scheduler
             const inFlightGASRequests = new Map();
+            let activeInteractiveGASCount = 0;
+            let activeBackgroundGASCount = 0;
+            const lowPriorityGASQueue = [];
+            let lowPriorityDrainScheduled = false;
 
-            function callGoogleScriptFunction(functionName, params = {}, timeout = 30000) {
-                // In-Flight Promise Coalescing for Idempotent GET / Read-Only RPCs
-                const isReadOnly = functionName.startsWith('apiGet') || functionName.startsWith('get') || functionName.startsWith('check');
-                const reqKey = isReadOnly ? functionName + ':' + JSON.stringify(params) : null;
+            function updateTopProgressBar() {
+                const topBar = document.getElementById('topProgressBar');
+                if (!topBar) return;
+                const pill = document.getElementById('nonBlockingStatusPill');
+                const pillVisible = pill && !pill.classList.contains('hidden');
+                topBar.classList.toggle('hidden', activeInteractiveGASCount === 0 && !pillVisible);
+            }
 
-                if (reqKey && inFlightGASRequests.has(reqKey)) {
-                    console.log(`⚡ Coalescing in-flight GAS request: ${functionName}`);
-                    return inFlightGASRequests.get(reqKey);
+            function executeGASCall(functionName, params, timeout, priority) {
+                const isInteractive = priority !== 'low';
+                if (isInteractive) {
+                    activeInteractiveGASCount++;
+                    updateTopProgressBar();
+                } else {
+                    activeBackgroundGASCount++;
                 }
 
-                const requestPromise = new Promise((resolve, reject) => {
-                    console.log(`Calling GAS function: ${functionName}`, params);
+                return new Promise((resolve, reject) => {
+                    console.log(`Calling GAS function (${priority}): ${functionName}`, params);
 
                     // Set timeout
                     const timeoutId = setTimeout(() => {
@@ -4300,30 +4320,136 @@
                             reject(error);
                         })[functionName](params);
                 }).finally(() => {
-                    if (reqKey) inFlightGASRequests.delete(reqKey);
+                    if (isInteractive) {
+                        activeInteractiveGASCount = Math.max(0, activeInteractiveGASCount - 1);
+                        updateTopProgressBar();
+                    } else {
+                        activeBackgroundGASCount = Math.max(0, activeBackgroundGASCount - 1);
+                    }
+                    drainLowPriorityGASQueue();
                 });
-
-                if (reqKey) inFlightGASRequests.set(reqKey, requestPromise);
-                return requestPromise;
             }
 
-            // Utility Functions
-            function showLoading(message = 'Loading...') {
-                const overlay = document.getElementById('loadingOverlay');
-                if (overlay) {
-                    overlay.classList.remove('twk-loader-exit');
-                    overlay.classList.remove('hidden');
-                    overlay.style.display = 'flex';
-                    overlay.style.opacity = '1';
-                    overlay.style.transform = 'scale(1)';
+            function scheduleIdleDrain(cb) {
+                if (typeof requestIdleCallback === 'function') {
+                    requestIdleCallback(cb, { timeout: 300 });
+                } else {
+                    setTimeout(cb, 80);
                 }
-                const msgEl = document.getElementById('loadingMessage');
-                if (msgEl) msgEl.textContent = message;
+            }
+
+            function drainLowPriorityGASQueue() {
+                if (lowPriorityDrainScheduled) return;
+                if (lowPriorityGASQueue.length === 0) return;
+                if (activeInteractiveGASCount > 0 || activeBackgroundGASCount >= 1) return;
+
+                lowPriorityDrainScheduled = true;
+                scheduleIdleDrain(() => {
+                    lowPriorityDrainScheduled = false;
+                    if (activeInteractiveGASCount > 0 || activeBackgroundGASCount >= 1) return;
+                    const task = lowPriorityGASQueue.shift();
+                    if (!task) return;
+                    task('low');
+                });
+            }
+
+            function callGoogleScriptFunction(functionName, params = {}, timeout = 30000, options = {}) {
+                const priority = (options && options.priority === 'low') ? 'low' : 'high';
+                // In-Flight Promise Coalescing for Idempotent GET / Read-Only RPCs
+                const isReadOnly = functionName.startsWith('apiGet') || functionName.startsWith('get') || functionName.startsWith('check');
+                const reqKey = isReadOnly ? functionName + ':' + JSON.stringify(params) : null;
+
+                if (reqKey && inFlightGASRequests.has(reqKey)) {
+                    const existing = inFlightGASRequests.get(reqKey);
+                    if (priority !== 'low' && typeof existing._promote === 'function') {
+                        existing._promote();
+                    }
+                    console.log(`⚡ Coalescing in-flight GAS request: ${functionName}`);
+                    return existing;
+                }
+
+                let trackedPromise;
+                if (priority === 'low') {
+                    let started = false;
+                    let runTask = null;
+                    const execPromise = new Promise((resolve, reject) => {
+                        runTask = (runPriority = 'low') => {
+                            if (started) return;
+                            started = true;
+                            executeGASCall(functionName, params, timeout, runPriority).then(resolve, reject);
+                        };
+                        lowPriorityGASQueue.push(runTask);
+                        drainLowPriorityGASQueue();
+                    });
+                    trackedPromise = execPromise.finally(() => {
+                        if (reqKey) inFlightGASRequests.delete(reqKey);
+                    });
+                    trackedPromise._promote = () => {
+                        if (!started && runTask) {
+                            const qIdx = lowPriorityGASQueue.indexOf(runTask);
+                            if (qIdx !== -1) lowPriorityGASQueue.splice(qIdx, 1);
+                            runTask('high');
+                        }
+                    };
+                } else {
+                    trackedPromise = executeGASCall(functionName, params, timeout, 'high').finally(() => {
+                        if (reqKey) inFlightGASRequests.delete(reqKey);
+                    });
+                }
+
+                if (reqKey) inFlightGASRequests.set(reqKey, trackedPromise);
+                return trackedPromise;
+            }
+
+            function callGoogleScriptBackground(functionName, params = {}, timeout = 30000) {
+                return callGoogleScriptFunction(functionName, params, timeout, { priority: 'low' });
+            }
+            window.callGoogleScriptBackground = callGoogleScriptBackground;
+
+            // Utility Functions
+            function showLoading(message = 'Loading...', options = {}) {
+                const useBlockingOverlay = Boolean(options && options.blocking === true);
+                if (useBlockingOverlay) {
+                    const overlay = document.getElementById('loadingOverlay');
+                    if (overlay) {
+                        overlay.classList.remove('twk-loader-exit');
+                        overlay.classList.remove('hidden');
+                        overlay.style.display = 'flex';
+                        overlay.style.opacity = '1';
+                        overlay.style.transform = 'scale(1)';
+                    }
+                    const msgEl = document.getElementById('loadingMessage');
+                    if (msgEl) msgEl.textContent = message;
+                    return;
+                }
+
+                const topBar = document.getElementById('topProgressBar');
+                if (topBar) topBar.classList.remove('hidden');
+
+                const pill = document.getElementById('nonBlockingStatusPill');
+                const pillText = document.getElementById('nonBlockingStatusText');
+                if (pillText) pillText.textContent = message || 'Loading...';
+                if (pill) {
+                    pill.classList.remove('hidden');
+                    pill.classList.add('flex');
+                }
             }
 
             function hideLoading() {
+                const pill = document.getElementById('nonBlockingStatusPill');
+                if (pill) {
+                    pill.classList.add('hidden');
+                    pill.classList.remove('flex');
+                }
+                if (typeof updateTopProgressBar === 'function') {
+                    updateTopProgressBar();
+                } else {
+                    const topBar = document.getElementById('topProgressBar');
+                    if (topBar) topBar.classList.add('hidden');
+                }
+
                 const overlay = document.getElementById('loadingOverlay');
-                if (!overlay) return;
+                if (!overlay || overlay.classList.contains('hidden')) return;
                 // TWK 60fps exponential fade-out
                 overlay.classList.add('twk-loader-exit');
                 setTimeout(() => {
@@ -4334,6 +4460,42 @@
                     }
                 }, 350);
             }
+
+            function observeLazyWidget(containerOrId, loaderFn) {
+                const el = typeof containerOrId === 'string'
+                    ? document.getElementById(containerOrId)
+                    : containerOrId;
+                if (!el || typeof loaderFn !== 'function') return;
+
+                if (el.dataset && el.dataset.lazyLoaded === 'true') return;
+                if (typeof IntersectionObserver !== 'function') {
+                    if (el.dataset) el.dataset.lazyLoaded = 'true';
+                    loaderFn(el);
+                    return;
+                }
+
+                if (el._lazyObserver) {
+                    el._lazyObserver.disconnect();
+                }
+
+                const observer = new IntersectionObserver((entries) => {
+                    for (const entry of entries) {
+                        if (entry.isIntersecting || entry.intersectionRatio > 0) {
+                            observer.disconnect();
+                            el._lazyObserver = null;
+                            if (!el.dataset || el.dataset.lazyLoaded !== 'true') {
+                                if (el.dataset) el.dataset.lazyLoaded = 'true';
+                                loaderFn(el);
+                            }
+                            break;
+                        }
+                    }
+                }, { rootMargin: '150px 0px', threshold: 0.01 });
+
+                el._lazyObserver = observer;
+                observer.observe(el);
+            }
+            window.observeLazyWidget = observeLazyWidget;
 
             function showToast(type, title, message, duration = 5000) {
                 const toast = document.getElementById('toast');
@@ -4549,7 +4711,7 @@
                 }
 
                 if (!hasLocalHydration) {
-                    showLoading('Loading Agri Experience Leave System...');
+                    showLoading('Loading Agri Experience Leave System...', { blocking: true });
                 }
 
                 try {
@@ -5261,8 +5423,8 @@
     `;
                 }
                 dashboardPage.innerHTML = dashboardHTML;
-                loadUpcomingHolidaysWidget();
-                renderTodayAbsenceWidget('todayAbsencesWidget');
+                observeLazyWidget('upcomingHolidaysDashboardWidget', () => loadUpcomingHolidaysWidget());
+                observeLazyWidget('todayAbsencesWidget', () => renderTodayAbsenceWidget('todayAbsencesWidget'));
                 loadMyHandoverRequestsCount();
                 if (typeof applyGovernanceUiEffects === 'function' && activeGovernanceSettings && Object.keys(activeGovernanceSettings).length > 0) {
                     applyGovernanceUiEffects(activeGovernanceSettings);
@@ -8288,7 +8450,7 @@
                             showToast('error', 'Authorization Failed', 'You must type "CONFIRM" in capital letters to authorize the annual rollover.');
                             return;
                         }
-                        showLoading('Executing annual year-end rollover...');
+                        showLoading('Executing annual year-end rollover...', { blocking: true });
                         try {
                             const result = await callGoogleScriptFunction('apiProcessYearEnd');
                             hideLoading();
@@ -8404,7 +8566,7 @@
                 if (!confirm('⚠️ WARNING: This will completely reset the system and delete all data. This action cannot be undone. Are you absolutely sure?')) return;
                 if (!prompt('Type "RESET" to confirm:') === 'RESET') return;
 
-                showLoading('Resetting system...');
+                showLoading('Resetting system...', { blocking: true });
                 callGoogleScriptFunction('resetSystem')
                     .then(result => {
                         hideLoading();
@@ -8498,7 +8660,7 @@
   `;
 
                 loadTeamOverviewData();
-                renderTeamAvailabilityWallchart('teamWallchartContainer');
+                observeLazyWidget('teamWallchartContainer', () => renderTeamAvailabilityWallchart('teamWallchartContainer'));
 
                 // Add export button listener
                 document.getElementById('exportTeamOverviewBtn')?.addEventListener('click', exportTeamOverviewToCSV);
@@ -9248,7 +9410,7 @@
                 }
             }
 
-            // Prefetch Staff and Reports data in background for instant sub-page navigation
+            // Prefetch Staff and Reports data in low-priority background lane
             function prefetchAdminReportsData() {
                 try {
                     const role = (window.AppState?.userRole || '').toLowerCase();
@@ -9257,7 +9419,7 @@
                     // Privileged supervisor, HR & Admin prefetching
                     if (role === 'admin' || role === 'hr' || role === 'supervisor') {
                         if (!ClientCache.get('all_staff')) {
-                            callGoogleScriptFunction('apiGetAllStaff').then(res => {
+                            callGoogleScriptBackground('apiGetAllStaff').then(res => {
                                 if (res && res.success) {
                                     const s = res.data?.data || res.data || [];
                                     ClientCache.set('all_staff', s, 5 * 60 * 1000);
@@ -9266,7 +9428,7 @@
                             }).catch(() => {});
                         }
                         if (!ClientCache.get('all_applications')) {
-                            callGoogleScriptFunction('apiGetAllApplications').then(res => {
+                            callGoogleScriptBackground('apiGetAllApplications').then(res => {
                                 if (res && res.success) {
                                     const a = res.data?.data || res.data || [];
                                     ClientCache.set('all_applications', a, 3 * 60 * 1000);
@@ -9275,7 +9437,7 @@
                             }).catch(() => {});
                         }
                         if (!ClientCache.get('supervisor_stats')) {
-                            callGoogleScriptFunction('apiGetSupervisorStats').then(res => {
+                            callGoogleScriptBackground('apiGetSupervisorStats').then(res => {
                                 if (res && res.success && res.data) {
                                     ClientCache.set('supervisor_stats', res.data, 3 * 60 * 1000);
                                 }
@@ -9286,7 +9448,7 @@
                     // HR & Admin dashboard governance prefetching
                     if (role === 'admin' || role === 'hr') {
                         if (!ClientCache.get('hr_dashboard')) {
-                            callGoogleScriptFunction('apiGetHRDashboard').then(res => {
+                            callGoogleScriptBackground('apiGetHRDashboard').then(res => {
                                 if (res && res.success && res.data) {
                                     ClientCache.set('hr_dashboard', res.data, 3 * 60 * 1000);
                                     if (window.AppState) window.AppState.hrDashboardData = res.data;
@@ -9294,7 +9456,7 @@
                             }).catch(() => {});
                         }
                         if (!ClientCache.get('blackout_periods')) {
-                            callGoogleScriptFunction('apiGetBlackoutPeriods').then(res => {
+                            callGoogleScriptBackground('apiGetBlackoutPeriods').then(res => {
                                 if (res && res.success && Array.isArray(res.data)) {
                                     ClientCache.set('blackout_periods', res.data, 5 * 60 * 1000);
                                     if (window.AppState) window.AppState.blackoutPeriods = res.data;
@@ -9302,7 +9464,7 @@
                             }).catch(() => {});
                         }
                         if (!ClientCache.get('gazetted_holidays')) {
-                            callGoogleScriptFunction('apiGetGazettedHolidays').then(res => {
+                            callGoogleScriptBackground('apiGetGazettedHolidays').then(res => {
                                 if (res && res.success && Array.isArray(res.data)) {
                                     ClientCache.set('gazetted_holidays', res.data, 5 * 60 * 1000);
                                     if (window.AppState) window.AppState.gazettedHolidays = res.data;
@@ -10787,6 +10949,105 @@
             window.loadReportsPage = loadReportsPage;
             window.generateReport = generateReport;
             window.exportReportToCSV = exportReportToCSV;
+            // On-intent low-priority page prefetching (hover > 100ms or touch)
+            const prefetchedOnIntentAt = {};
+            function prefetchPageOnIntent(page) {
+                if (!page || typeof ClientCache === 'undefined') return;
+                const normalizedPage = String(page).replace(/Page$/, '');
+                const now = Date.now();
+                if (prefetchedOnIntentAt[normalizedPage] && now - prefetchedOnIntentAt[normalizedPage] < 30000) {
+                    return;
+                }
+                prefetchedOnIntentAt[normalizedPage] = now;
+
+                switch (normalizedPage) {
+                    case 'myBalance':
+                        if (!ClientCache.get('user_balance')) {
+                            callGoogleScriptBackground('apiGetUserBalance').then(res => {
+                                if (res && res.success && res.data) {
+                                    ClientCache.set('user_balance', res.data, 5 * 60 * 1000);
+                                    AppState.leaveBalance = res.data;
+                                }
+                            }).catch(() => {});
+                        }
+                        break;
+                    case 'myApplications':
+                        if (!ClientCache.get('my_applications')) {
+                            callGoogleScriptBackground('apiGetMyApplications').then(res => {
+                                if (res && res.success) {
+                                    ClientCache.set('my_applications', res.data?.data || [], 3 * 60 * 1000);
+                                }
+                            }).catch(() => {});
+                        }
+                        break;
+                    case 'teamApplications':
+                        if (!ClientCache.get('team_applications')) {
+                            callGoogleScriptBackground('apiGetTeamApplications').then(res => {
+                                if (res && res.success) {
+                                    ClientCache.set('team_applications', res.data?.data || res.data || [], 2 * 60 * 1000);
+                                }
+                            }).catch(() => {});
+                        }
+                        break;
+                    case 'teamOverview':
+                        if (!ClientCache.get('supervisor_stats')) {
+                            callGoogleScriptBackground('apiGetSupervisorStats').then(res => {
+                                if (res && res.success && res.data) ClientCache.set('supervisor_stats', res.data, 3 * 60 * 1000);
+                            }).catch(() => {});
+                        }
+                        break;
+                    case 'staffManagement':
+                        if (!ClientCache.get('all_staff')) {
+                            callGoogleScriptBackground('apiGetAllStaff').then(res => {
+                                if (res && res.success) {
+                                    const s = res.data?.data || res.data || [];
+                                    ClientCache.set('all_staff', s, 5 * 60 * 1000);
+                                    AppState.allStaff = s;
+                                }
+                            }).catch(() => {});
+                        }
+                        break;
+                    case 'reports':
+                        if (!ClientCache.get('all_staff')) {
+                            callGoogleScriptBackground('apiGetAllStaff').then(res => {
+                                if (res && res.success) {
+                                    const s = res.data?.data || res.data || [];
+                                    ClientCache.set('all_staff', s, 5 * 60 * 1000);
+                                    AppState.allStaff = s;
+                                }
+                            }).catch(() => {});
+                        }
+                        if (!ClientCache.get('all_applications')) {
+                            callGoogleScriptBackground('apiGetAllApplications').then(res => {
+                                if (res && res.success) {
+                                    const a = res.data?.data || res.data || [];
+                                    ClientCache.set('all_applications', a, 3 * 60 * 1000);
+                                    AppState.allApplicationsAdmin = a;
+                                }
+                            }).catch(() => {});
+                        }
+                        break;
+                    case 'hrDashboard':
+                        if (!ClientCache.get('hr_dashboard')) {
+                            callGoogleScriptBackground('apiGetHRDashboard').then(res => {
+                                if (res && res.success && res.data) {
+                                    ClientCache.set('hr_dashboard', res.data, 3 * 60 * 1000);
+                                    AppState.hrDashboardData = res.data;
+                                }
+                            }).catch(() => {});
+                        }
+                        break;
+                    case 'systemAdmin':
+                        if (!ClientCache.get('perf_stats')) {
+                            callGoogleScriptBackground('apiGetPerformanceStats').then(res => {
+                                if (res && res.success && res.data) ClientCache.set('perf_stats', res.data, 60000);
+                            }).catch(() => {});
+                        }
+                        break;
+                }
+            }
+            window.prefetchPageOnIntent = prefetchPageOnIntent;
+
             // Event Listeners Setup
             // Event Listeners Setup - CLEAN VERSION with ONLY delegation
             function setupEventListeners() {
@@ -10799,10 +11060,22 @@
                     initActionConfirmModalEvents();
                 }
 
-                // Sidebar navigation
+                // Sidebar navigation & on-intent hover/touch prefetching
                 document.querySelectorAll('.sidebar-link').forEach(link => {
+                    let hoverTimer = null;
+                    link.addEventListener('mouseenter', function () {
+                        const page = this.getAttribute('data-page');
+                        hoverTimer = setTimeout(() => prefetchPageOnIntent(page), 110);
+                    });
+                    link.addEventListener('mouseleave', function () {
+                        if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = null; }
+                    });
+                    link.addEventListener('touchstart', function () {
+                        prefetchPageOnIntent(this.getAttribute('data-page'));
+                    }, { passive: true });
                     link.addEventListener('click', function (e) {
                         e.preventDefault();
+                        if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = null; }
                         const page = this.getAttribute('data-page');
                         navigateToPage(page);
                     });
@@ -10811,6 +11084,10 @@
                 // ── Mobile bottom nav: use event delegation on the nav element ──
                 const mobileBottomNav = document.getElementById('mobileBottomNav');
                 if (mobileBottomNav) {
+                    mobileBottomNav.addEventListener('touchstart', function (e) {
+                        const btn = e.target.closest('.nav-item[data-page]');
+                        if (btn) prefetchPageOnIntent(btn.getAttribute('data-page'));
+                    }, { passive: true });
                     mobileBottomNav.addEventListener('click', function (e) {
                         // Walk up from click target to find a nav-item button
                         const btn = e.target.closest('.nav-item[data-page]');
@@ -12290,11 +12567,21 @@
                     applicationData.endDate = endDate;
                 }
 
-                showLoading('Submitting leave application...');
+                const modalEl = document.getElementById('applyLeaveModal');
+                const isModalOpen = Boolean(modalEl && modalEl.classList && !modalEl.classList.contains('hidden'));
+                const submitBtn = isModalOpen
+                    ? (document.getElementById('submitLeaveApplication') || document.getElementById('pageSubmitLeaveApplication'))
+                    : (AppState.currentPage === 'applyLeave'
+                        ? (document.getElementById('pageSubmitLeaveApplication') || document.getElementById('submitLeaveApplication'))
+                        : (document.getElementById('submitLeaveApplication') || document.getElementById('pageSubmitLeaveApplication')));
+                const origSubmitHtml = submitBtn ? submitBtn.innerHTML : '';
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Submitting...';
+                }
 
                 try {
                     const result = await callGoogleScriptFunction('apiSubmitLeaveApplication', applicationData);
-                    hideLoading();
 
                     if (result.success) {
                         showToast('success', 'Application Submitted', result.message || 'Your leave application has been submitted successfully');
@@ -12319,9 +12606,13 @@
                         return false;
                     }
                 } catch (error) {
-                    hideLoading();
                     showToast('error', 'Submission Failed', (error && error.message) || 'Unable to submit leave application. Please try again.');
                     return false;
+                } finally {
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = origSubmitHtml;
+                    }
                 }
             }
 
@@ -12373,14 +12664,31 @@
                 }
             }
 
-            // Shared function to check leave balance
+            // Shared function to check leave balance with scoped inline loader
             async function checkLeaveBalanceCore(email, leaveType, leaveMode, duration, isHourly, updateUI) {
                 if (!leaveType) {
                     showToast('warning', 'Missing Information', 'Please select a leave type first');
                     return;
                 }
 
-                showLoading('Checking leave balance...');
+                const isPage = (typeof updatePageBalanceCheckUI === 'function' && updateUI === updatePageBalanceCheckUI);
+                const btn = document.getElementById(isPage ? 'pageCheckBalanceBtn' : 'checkBalanceBtn');
+                const resultBox = document.getElementById(isPage ? 'pageBalanceCheckResult' : 'balanceCheckResult');
+                const msgEl = document.getElementById(isPage ? 'pageBalanceCheckMessage' : 'balanceCheckMessage');
+                const iconEl = document.getElementById(isPage ? 'pageBalanceCheckStatusIcon' : 'balanceCheckStatusIcon');
+                const detailsEl = document.getElementById(isPage ? 'pageBalanceCheckDetails' : 'balanceCheckDetails');
+
+                const origBtnHtml = btn ? btn.innerHTML : '';
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1.5"></i> Checking...';
+                }
+                if (resultBox) {
+                    resultBox.classList.remove('hidden');
+                    if (msgEl) msgEl.textContent = 'Checking leave balance...';
+                    if (iconEl) iconEl.innerHTML = '<i class="fas fa-spinner fa-spin text-emerald-600 text-xl"></i>';
+                    if (detailsEl) detailsEl.innerHTML = '<div class="h-12 bg-slate-100/80 rounded-lg animate-pulse"></div>';
+                }
 
                 const params = {
                     email: email,
@@ -12391,14 +12699,18 @@
 
                 try {
                     const result = await callGoogleScriptFunction('apiCheckLeaveBalance', params);
-                    hideLoading();
                     updateUI(result, duration, isHourly);
                 } catch (error) {
-                    hideLoading();
                     if (error && (error.result || (error.message && !error.message.startsWith('Request timeout')))) {
                         updateUI(error.result || { success: false, error: error.message }, duration, isHourly);
                     } else {
+                        if (resultBox) resultBox.classList.add('hidden');
                         showToast('error', 'Balance Check Failed', 'Unable to check leave balance. Please try again.');
+                    }
+                } finally {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = origBtnHtml;
                     }
                 }
             }
@@ -12925,12 +13237,37 @@
                 return emailRegex.test(email);
             }
 
-            // Edit Staff function
+            // Edit Staff function (Instant Cache Hydration + Background Refresh)
             async function editStaff(email) {
                 console.log('Editing staff with email:', email);
 
                 if (!email) {
                     showToast('error', 'Error', 'No email provided');
+                    return;
+                }
+
+                const searchEmail = String(email).toLowerCase().trim();
+                const findStaffInList = (list) => (Array.isArray(list) ? list : []).find(s => {
+                    const staffEmail = (s && (s.Email || s.email) || '').toLowerCase().trim();
+                    return staffEmail === searchEmail;
+                });
+
+                const cachedList = (window.AppState && Array.isArray(window.AppState.allStaff) && window.AppState.allStaff.length > 0)
+                    ? window.AppState.allStaff
+                    : ((typeof ClientCache !== 'undefined' && ClientCache.get('all_staff')) || []);
+                const cachedStaff = findStaffInList(cachedList);
+
+                if (cachedStaff) {
+                    populateEditForm(cachedStaff);
+                    document.getElementById('editStaffModal')?.classList.remove('hidden');
+
+                    callGoogleScriptBackground('apiGetAllStaff').then(result => {
+                        if (result && result.success) {
+                            const staffList = result.data?.data || result.data || [];
+                            if (typeof ClientCache !== 'undefined') ClientCache.set('all_staff', staffList, 5 * 60 * 1000);
+                            if (window.AppState) window.AppState.allStaff = staffList;
+                        }
+                    }).catch(() => {});
                     return;
                 }
 
@@ -12943,15 +13280,11 @@
                     hideLoading();
 
                     if (result.success) {
-                        const staffList = result.data.data || [];
-                        console.log('Staff list:', staffList);
+                        const staffList = result.data?.data || result.data || [];
+                        if (typeof ClientCache !== 'undefined') ClientCache.set('all_staff', staffList, 5 * 60 * 1000);
+                        if (window.AppState) window.AppState.allStaff = staffList;
 
-                        // Convert email to string and trim for comparison
-                        const searchEmail = String(email).toLowerCase().trim();
-                        const staff = staffList.find(s => {
-                            const staffEmail = (s.Email || s.email || '').toLowerCase().trim();
-                            return staffEmail === searchEmail;
-                        });
+                        const staff = findStaffInList(staffList);
 
                         if (!staff) {
                             console.error('Staff not found for email:', email);
@@ -12959,13 +13292,11 @@
                             return;
                         }
 
-                        console.log('Found staff:', staff);
-
                         // Populate the edit form
                         populateEditForm(staff);
 
                         // Show the modal
-                        document.getElementById('editStaffModal').classList.remove('hidden');
+                        document.getElementById('editStaffModal')?.classList.remove('hidden');
                     } else {
                         showToast('error', 'Failed to Load', 'Could not load staff data');
                     }
@@ -13836,8 +14167,6 @@
             }
 
             async function viewApplicationDetails(appId, isTeamView = false) {
-                showLoading('Loading application details...');
-
                 const cleanAppId = String(appId || '').trim();
                 const matchesId = a => a && (
                     String(a.ID || '').trim() === cleanAppId ||
@@ -13862,12 +14191,21 @@
                     application = AppState.applications.find(matchesId);
                 }
 
-                // 3. Fallback to team applications even if isTeamView was false
+                // 3. Fallback to team & admin applications caches
                 if (!application && Array.isArray(AppState.allTeamApplications)) {
                     application = AppState.allTeamApplications.find(matchesId);
                 }
                 if (!application && Array.isArray(AppState.teamApplications)) {
                     application = AppState.teamApplications.find(matchesId);
+                }
+                if (!application && Array.isArray(AppState.allApplicationsAdmin)) {
+                    application = AppState.allApplicationsAdmin.find(matchesId);
+                }
+                if (!application && typeof ClientCache !== 'undefined') {
+                    const cachedAllApps = ClientCache.get('all_applications');
+                    if (Array.isArray(cachedAllApps)) {
+                        application = cachedAllApps.find(matchesId);
+                    }
                 }
 
                 // 4. Check archived applications partition if loaded
@@ -13875,8 +14213,9 @@
                     application = currentArchivedData.find(matchesId);
                 }
 
-                // 5. Query backend directly by ID if not in memory
+                // 5. Query backend directly by ID only on cache miss (non-blocking indicator)
                 if (!application && cleanAppId) {
+                    showLoading('Loading application details...');
                     try {
                         const res = await callGoogleScriptFunction('apiGetApplicationById', { appId: cleanAppId });
                         if (res && res.success && res.data) {
@@ -13884,11 +14223,12 @@
                         }
                     } catch (fetchErr) {
                         console.warn('apiGetApplicationById fetch failed:', fetchErr);
+                    } finally {
+                        hideLoading();
                     }
                 }
 
                 if (!application) {
-                    hideLoading();
                     showToast('error', 'Not Found', 'Application details could not be loaded. Please refresh the page.');
                     return;
                 }
@@ -14411,7 +14751,7 @@
                     html += '</div></div></div>';
 
                     pageElement.innerHTML = html;
-                    renderTeamAvailabilityWallchart('hrWallchartContainer');
+                    observeLazyWidget('hrWallchartContainer', () => renderTeamAvailabilityWallchart('hrWallchartContainer'));
                     renderBlackoutPeriodsList('blackoutPeriodsList');
                     renderGazettedHolidaysList('gazettedHolidaysListContainer');
                     setupHRDashboardTableFilters(staffList);
@@ -14602,7 +14942,7 @@
                 const confirmed = confirm('⚠️ DISASTER RECOVERY: Are you sure you want to restore the system JSON database from the Google Sheets Master mirror?\n\nThis will re-import applications and records directly from the Google Spreadsheet in your project folder.');
                 if (!confirmed) return;
 
-                showLoading('Restoring database from Google Sheets mirror...');
+                showLoading('Restoring database from Google Sheets mirror...', { blocking: true });
                 try {
                     const res = await callGoogleScriptFunction('apiRestoreFromSheets', { source: 'sheets' });
                     hideLoading();
