@@ -2734,6 +2734,7 @@ const AccrualManager = {
                 staff.CompensationLeave.balance = (staff.CompensationLeave.balance || 0) + compRef;
                 staff.CompensationLeave.used = Math.max(0, (staff.CompensationLeave.used || 0) - compRef);
                 yearHistory.compensationUsed = Math.max(0, (yearHistory.compensationUsed || 0) - compRef);
+                this.syncAnnualPool(staff);
             }
         } else {
             let rem = refundDays;
