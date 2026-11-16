@@ -730,16 +730,20 @@ const EnhancedCacheManager = {
         this.memory.delete(key);
         this.timestamps.delete(key);
         this.removeDistributedCache(key);
-        if (key.includes('staff') || key === SYSTEM.CACHE_KEYS.ALL_STAFF) {
+        if (key && (key.includes('staff') || key === SYSTEM.CACHE_KEYS.ALL_STAFF)) {
             this.clearPattern('balance_');
             this.clearBalanceIndexes();
         }
-        if (key.includes('file_')) {
+        if (key && key.includes('file_')) {
             this.fileCache.clear();
             this.fileCacheTimestamps.clear();
             this.fileCacheOrder = [];
         }
         return true;
+    },
+
+    remove: function (key) {
+        return this.clear(key);
     },
 
     clearPattern: function (pattern) {
@@ -1717,6 +1721,7 @@ const StaffManager = {
                     // ✅ CHANGED: Set initial deficit from staffData
                     annualDeficit: {
                         amount: initialDeficit,
+                        initialCarried: initialDeficit,
                         fromYear: initialDeficit !== 0 ? (currentYear - 1) : null,
                         recoveryHistory: []
                     },
@@ -1924,11 +1929,13 @@ const StaffManager = {
                     changes.push('accruedYearToDate (from recalculation)');
 
                     // Immediately recalculate available balance with new accrued
-                    const used = updatedStaff.LeaveAccrual.usedYearToDate || 0;
+                    const netPos = AccrualManager.calculateNetAnnualPosition(updatedStaff);
+                    if (!updatedStaff.LeaveAccrual.annualDeficit) {
+                        updatedStaff.LeaveAccrual.annualDeficit = { amount: 0, fromYear: null, recoveryHistory: [] };
+                    }
+                    updatedStaff.LeaveAccrual.annualDeficit.amount = Math.min(0, netPos);
                     const broughtForward = updatedStaff.LeaveBroughtForward?.daysCarriedFromPreviousYear || 0;
-                    const deficit = updatedStaff.LeaveAccrual.annualDeficit?.amount || 0;
-
-                    const newAvailable = Math.max(0, newAccrued - used + broughtForward + deficit);
+                    const newAvailable = Math.max(0, netPos) + broughtForward;
 
                     if (Math.abs((updatedStaff.LeaveAccrual.availableBalance || 0) - newAvailable) > 0.01) {
                         updatedStaff.LeaveAccrual.availableBalance = newAvailable;
@@ -1965,10 +1972,9 @@ const StaffManager = {
                 if (Math.abs(newAnnualUsed - oldAnnualUsed) > 0.01) {
                     updatedStaff.LeaveHistory[currentYear].annualUsed = newAnnualUsed;
 
-                    // usedYearToDate tracks annual pool only (annualUsed + bfUsed).
-                    // Sick leave is a separate pool and must NOT be included here.
-                    const bfUsed = updatedStaff.LeaveHistory[currentYear].broughtForwardUsed || 0;
-                    updatedStaff.LeaveAccrual.usedYearToDate = newAnnualUsed + bfUsed;
+                    // usedYearToDate tracks the annual accrual pool only.
+                    // Brought-forward usage is tracked separately in LeaveBroughtForward & LeaveHistory.broughtForwardUsed.
+                    updatedStaff.LeaveAccrual.usedYearToDate = newAnnualUsed;
 
                     changes.push('annualUsed');
                 }
@@ -2003,10 +2009,6 @@ const StaffManager = {
 
                     if (Math.abs(newBfUsed - oldBfUsed) > 0.01) {
                         updatedStaff.LeaveHistory[currentYear].broughtForwardUsed = newBfUsed;
-
-                        const annualUsed = updatedStaff.LeaveHistory[currentYear].annualUsed || 0;
-                        updatedStaff.LeaveAccrual.usedYearToDate = annualUsed + newBfUsed;
-
                         changes.push('broughtForwardUsed');
                     }
                 }
@@ -2046,21 +2048,24 @@ const StaffManager = {
                     if (!updatedStaff.LeaveAccrual.annualDeficit) {
                         updatedStaff.LeaveAccrual.annualDeficit = {
                             amount: 0,
+                            initialCarried: 0,
                             fromYear: null,
                             recoveryHistory: []
                         };
                     }
 
                     updatedStaff.LeaveAccrual.annualDeficit.amount = newDeficit;
+                    updatedStaff.LeaveAccrual.annualDeficit.initialCarried = newDeficit;
 
                     // Set fromYear if deficit exists and wasn't set before
                     if (newDeficit !== 0 && !updatedStaff.LeaveAccrual.annualDeficit.fromYear) {
                         updatedStaff.LeaveAccrual.annualDeficit.fromYear = Utils.getCurrentYear() - 1;
                     }
 
-                    // If deficit becomes zero, optionally clear fromYear
+                    // If deficit becomes zero, clear fromYear and carried amount
                     if (newDeficit === 0) {
                         updatedStaff.LeaveAccrual.annualDeficit.fromYear = null;
+                        updatedStaff.LeaveAccrual.annualDeficit.initialCarried = 0;
                     }
 
                     changes.push('annualDeficit');
@@ -2096,15 +2101,15 @@ const StaffManager = {
                 (updatedStaff.LeaveHistory[currentYear].broughtForwardUsed || 0);
 
             // =============================================
-            // RECALCULATE AVAILABLE BALANCE (includes deficit)
+            // RECALCULATE AVAILABLE BALANCE (includes prior-year deficit cleanly)
             // =============================================
-
-            const accrued = updatedStaff.LeaveAccrual.accruedYearToDate || 0;
-            const used = updatedStaff.LeaveAccrual.usedYearToDate || 0;
+            const netPos = AccrualManager.calculateNetAnnualPosition(updatedStaff);
+            if (!updatedStaff.LeaveAccrual.annualDeficit) {
+                updatedStaff.LeaveAccrual.annualDeficit = { amount: 0, fromYear: null, recoveryHistory: [] };
+            }
+            updatedStaff.LeaveAccrual.annualDeficit.amount = Math.min(0, netPos);
             const broughtForward = updatedStaff.LeaveBroughtForward?.daysCarriedFromPreviousYear || 0;
-            const deficit = updatedStaff.LeaveAccrual.annualDeficit?.amount || 0;
-
-            const correctAvailable = Math.max(0, accrued - used + broughtForward + deficit);
+            const correctAvailable = Math.max(0, netPos) + broughtForward;
 
             if (Math.abs((updatedStaff.LeaveAccrual.availableBalance || 0) - correctAvailable) > 0.01) {
                 updatedStaff.LeaveAccrual.availableBalance = correctAvailable;
@@ -2225,8 +2230,7 @@ const StaffManager = {
             }
 
             // Invalidate ALL caches and indexes so deactivated staff disappears instantly everywhere
-            EnhancedCacheManager.clear();
-            EnhancedCacheManager.remove(SYSTEM.CACHE_KEYS.ALL_STAFF);
+            EnhancedCacheManager.clearAll();
             if (SYSTEM.PERFORMANCE.INDEXES.ENABLED) {
                 EnhancedCacheManager.buildIndexes();
             }
@@ -2344,6 +2348,9 @@ const AccrualManager = {
                 // Check if we need to accrue for the current month
                 if (currentDate >= nextAccrualDate) {
                     const monthlyRate = staff.LeaveAccrual.monthlyRate || 1.75;
+                    if (staff.LeaveAccrual.annualDeficit?.fromYear && staff.LeaveAccrual.annualDeficit.initialCarried === undefined) {
+                        staff.LeaveAccrual.annualDeficit.initialCarried = staff.LeaveAccrual.annualDeficit.amount || 0;
+                    }
                     const netBefore = AccrualManager.calculateNetAnnualPosition(staff);
 
                     // Increment gross accrual for the month
@@ -2373,18 +2380,8 @@ const AccrualManager = {
                         deficitRemaining += Math.abs(Math.min(0, netAfter));
                     }
 
-                    if (!staff.LeaveAccrual.annualDeficit) {
-                        staff.LeaveAccrual.annualDeficit = { amount: 0, fromYear: null, recoveryHistory: [] };
-                    }
-                    staff.LeaveAccrual.annualDeficit.amount = Math.min(0, netAfter);
-                    if (netAfter >= 0 && staff.LeaveAccrual.annualDeficit.fromYear) {
-                        staff.LeaveAccrual.annualDeficit.fromYear = null;
-                        staff.LeaveAccrual.annualDeficit.initialCarried = 0;
-                    }
-
-                    // Calculate available balance — annual pool plus any remaining brought-forward days
-                    const broughtForwardRemaining = staff.LeaveBroughtForward?.daysCarriedFromPreviousYear || 0;
-                    staff.LeaveAccrual.availableBalance = Math.max(0, netAfter) + broughtForwardRemaining;
+                    // Keep initialCarried/fromYear intact through the calendar year; only sync amount & availableBalance
+                    AccrualManager.syncAnnualPool(staff);
 
                     // CRITICAL FIX: Set next accrual date to the FIRST of NEXT month
                     // This ensures we accrue for each month as we enter it
@@ -2406,12 +2403,12 @@ const AccrualManager = {
                         email: staff.Email,
                         name: staff.Name,
                         monthlyRate: monthlyRate,
-                        accrued: newAccrued,
+                        accrued: Math.max(0, monthlyRate - deficitRecovery),
                         deficitRecovered: deficitRecovery,
                         totalAccruedYTD: staff.LeaveAccrual.accruedYearToDate,
                         usedYTD: staff.LeaveAccrual.usedYearToDate,
                         availableBalance: staff.LeaveAccrual.availableBalance,
-                        deficitBefore: deficitBefore,
+                        deficitBefore: Math.min(0, netBefore),
                         deficitAfter: staff.LeaveAccrual.annualDeficit?.amount || 0
                     });
 
@@ -2539,18 +2536,130 @@ const AccrualManager = {
         if (!staff.LeaveAccrual) return staff;
         const oldUsed = staff.LeaveAccrual.usedYearToDate || 0;
         staff.LeaveAccrual.usedYearToDate = oldUsed + daysTaken;
-        
+        this.syncAnnualPool(staff);
+        return staff;
+    },
+
+    /**
+     * Recompute availableBalance and annualDeficit from calculateNetAnnualPosition without double-counting
+     * and without clearing prior-year initialCarried mid-year (which persists until processYearEnd).
+     */
+    syncAnnualPool: function (staff) {
+        if (!staff || !staff.LeaveAccrual) return staff;
+        if (staff.LeaveAccrual.annualDeficit?.fromYear && staff.LeaveAccrual.annualDeficit.initialCarried === undefined) {
+            staff.LeaveAccrual.annualDeficit.initialCarried = staff.LeaveAccrual.annualDeficit.amount || 0;
+        }
         const netPosition = this.calculateNetAnnualPosition(staff);
-        staff.LeaveAccrual.availableBalance = Math.max(0, netPosition);
         if (!staff.LeaveAccrual.annualDeficit) {
             staff.LeaveAccrual.annualDeficit = { amount: 0, fromYear: null, recoveryHistory: [] };
         }
         staff.LeaveAccrual.annualDeficit.amount = Math.min(0, netPosition);
-        if (netPosition >= 0 && staff.LeaveAccrual.annualDeficit.fromYear) {
-            staff.LeaveAccrual.annualDeficit.fromYear = null;
-            staff.LeaveAccrual.annualDeficit.initialCarried = 0;
+        let broughtForward = 0;
+        if (staff.LeaveBroughtForward) {
+            const bfEaster = Utils.getEasterExpiryDate(staff.LeaveBroughtForward);
+            const isBfExpired = Boolean(staff.LeaveBroughtForward.isExpired) || (new Date() > bfEaster);
+            if (!isBfExpired) {
+                broughtForward = staff.LeaveBroughtForward.daysCarriedFromPreviousYear || 0;
+            }
         }
+        staff.LeaveAccrual.availableBalance = Math.max(0, netPosition) + broughtForward;
         return staff;
+    },
+
+    /**
+     * Refund leave days back across application deduction fields and (when approved) staff balance pools
+     * using reverse waterfall order: Annual -> Brought Forward -> Compensation (or Sick / Compensation direct).
+     */
+    refundApplicationDeductions: function (app, staff, refundDays, creditStaff = true) {
+        if (!app || refundDays <= 0) return false;
+        const nonPoolTypes = [
+            SYSTEM.LEAVE_TYPES.MATERNITY,
+            SYSTEM.LEAVE_TYPES.PATERNITY,
+            SYSTEM.LEAVE_TYPES.COMPASSIONATE,
+            SYSTEM.LEAVE_TYPES.STUDY
+        ];
+        if (nonPoolTypes.includes(app.LeaveType)) return false;
+
+        let yearHistory = null;
+        if (creditStaff && staff) {
+            const currentYear = Utils.getCurrentYear().toString();
+            if (!staff.LeaveHistory) staff.LeaveHistory = {};
+            if (!staff.LeaveHistory[currentYear]) {
+                staff.LeaveHistory[currentYear] = { annualUsed: 0, sickUsed: 0, broughtForwardUsed: 0, compensationUsed: 0, totalUsed: 0 };
+            }
+            yearHistory = staff.LeaveHistory[currentYear];
+        }
+
+        if (app.LeaveType === SYSTEM.LEAVE_TYPES.SICK) {
+            const sickRef = (app.DeductFromSick || 0) > 0 ? Math.min(app.DeductFromSick, refundDays) : refundDays;
+            app.DeductFromSick = Math.max(0, (app.DeductFromSick || 0) - sickRef);
+            if (creditStaff && staff) {
+                if (staff.SickLeave) {
+                    staff.SickLeave.used = Math.max(0, (staff.SickLeave.used || 0) - sickRef);
+                }
+                yearHistory.sickUsed = Math.max(0, (yearHistory.sickUsed || 0) - sickRef);
+            }
+        } else if (app.LeaveType === SYSTEM.LEAVE_TYPES.COMPENSATION) {
+            const compRef = (app.DeductFromCompensation || 0) > 0 ? Math.min(app.DeductFromCompensation, refundDays) : refundDays;
+            app.DeductFromCompensation = Math.max(0, (app.DeductFromCompensation || 0) - compRef);
+            if (creditStaff && staff) {
+                if (!staff.CompensationLeave) staff.CompensationLeave = { balance: 0, used: 0, awards: [] };
+                staff.CompensationLeave.balance = (staff.CompensationLeave.balance || 0) + compRef;
+                staff.CompensationLeave.used = Math.max(0, (staff.CompensationLeave.used || 0) - compRef);
+                yearHistory.compensationUsed = Math.max(0, (yearHistory.compensationUsed || 0) - compRef);
+            }
+        } else {
+            let rem = refundDays;
+            if (rem > 0 && (app.DeductFromAnnual || 0) > 0) {
+                const annRef = Math.min(app.DeductFromAnnual, rem);
+                app.DeductFromAnnual = Math.max(0, app.DeductFromAnnual - annRef);
+                rem -= annRef;
+                if (creditStaff && staff) {
+                    yearHistory.annualUsed = Math.max(0, (yearHistory.annualUsed || 0) - annRef);
+                    if (staff.LeaveAccrual) {
+                        staff.LeaveAccrual.usedYearToDate = Math.max(0, (staff.LeaveAccrual.usedYearToDate || 0) - annRef);
+                    }
+                }
+            }
+            if (rem > 0 && (app.DeductFromBroughtForward || 0) > 0) {
+                const bfRef = Math.min(app.DeductFromBroughtForward, rem);
+                app.DeductFromBroughtForward = Math.max(0, app.DeductFromBroughtForward - bfRef);
+                rem -= bfRef;
+                if (creditStaff && staff) {
+                    yearHistory.broughtForwardUsed = Math.max(0, (yearHistory.broughtForwardUsed || 0) - bfRef);
+                    if (!staff.LeaveBroughtForward) {
+                        staff.LeaveBroughtForward = {
+                            daysCarriedFromPreviousYear: 0,
+                            expiryDate: Utils.getEasterExpiryDate().toISOString().split('T')[0],
+                            yearEarned: Utils.getCurrentYear() - 1,
+                            yearExpires: Utils.getCurrentYear(),
+                            isExpired: false,
+                            note: 'Restored from leave recalibration/amendment'
+                        };
+                    }
+                    staff.LeaveBroughtForward.daysCarriedFromPreviousYear = (staff.LeaveBroughtForward.daysCarriedFromPreviousYear || 0) + bfRef;
+                }
+            }
+            if (rem > 0 && (app.DeductFromCompensation || 0) > 0) {
+                const compRef = Math.min(app.DeductFromCompensation, rem);
+                app.DeductFromCompensation = Math.max(0, app.DeductFromCompensation - compRef);
+                rem -= compRef;
+                if (creditStaff && staff) {
+                    yearHistory.compensationUsed = Math.max(0, (yearHistory.compensationUsed || 0) - compRef);
+                    if (!staff.CompensationLeave) staff.CompensationLeave = { balance: 0, used: 0, awards: [] };
+                    staff.CompensationLeave.balance = (staff.CompensationLeave.balance || 0) + compRef;
+                    staff.CompensationLeave.used = Math.max(0, (staff.CompensationLeave.used || 0) - compRef);
+                }
+            }
+            if (creditStaff && staff) {
+                this.syncAnnualPool(staff);
+            }
+        }
+
+        if (creditStaff && staff && yearHistory) {
+            yearHistory.totalUsed = (yearHistory.annualUsed || 0) + (yearHistory.sickUsed || 0) + (yearHistory.broughtForwardUsed || 0) + (yearHistory.compensationUsed || 0);
+        }
+        return true;
     }
 };
 
@@ -2813,7 +2922,7 @@ const ApplicationsManager = {
                         completedAt: (t && t.completedAt) || null
                     };
                 }).filter(t => t.task.length > 0);
-            } else if (typeof applicationData.handoverTasks === 'string' && applicationData.handoverTasks.trim()) {
+            } else if (handoverEnabled && typeof applicationData.handoverTasks === 'string' && applicationData.handoverTasks.trim()) {
                 handoverTasks = applicationData.handoverTasks.split(/[\n,;]+/).map((t, idx) => {
                     const taskText = t.trim();
                     return {
@@ -3030,6 +3139,9 @@ const ApplicationsManager = {
                 deductions.sick = duration;
 
             } else if (isCompensationLeave) {
+                if (!ConfigManager.isFeatureEnabled('feature_compensation_leave')) {
+                    return Utils.createErrorResponse('Compensation leave requests are currently disabled by policy');
+                }
                 // Compensation leave draws from its own pool only
                 if (availableCompensation < duration) {
                     return Utils.createErrorResponse(
@@ -3037,6 +3149,27 @@ const ApplicationsManager = {
                     );
                 }
                 deductions.compensation = duration;
+
+            } else if (leaveType === SYSTEM.LEAVE_TYPES.MATERNITY) {
+                // Maternity leave: statutory entitlement up to 90 calendar days, does not deduct annual pool
+                if (duration > 90) {
+                    return Utils.createErrorResponse('Maternity leave cannot exceed 90 days per occurrence');
+                }
+
+            } else if (leaveType === SYSTEM.LEAVE_TYPES.PATERNITY) {
+                // Paternity leave: statutory entitlement up to 14 calendar days, does not deduct annual pool
+                if (duration > 14) {
+                    return Utils.createErrorResponse('Paternity leave cannot exceed 14 days per occurrence');
+                }
+
+            } else if (leaveType === SYSTEM.LEAVE_TYPES.COMPASSIONATE) {
+                // Compassionate leave: up to 5 working days per occurrence, does not deduct annual pool
+                if (duration > 5) {
+                    return Utils.createErrorResponse('Compassionate leave cannot exceed 5 working days per occurrence');
+                }
+
+            } else if (leaveType === SYSTEM.LEAVE_TYPES.STUDY) {
+                // Study leave: approved at supervisor/HR discretion without deducting annual pool
 
             } else {
                 // Annual leave — deduction priority:
@@ -3225,7 +3358,7 @@ const ApplicationsManager = {
                 SYSTEM.LEAVE_TYPES.MATERNITY,
                 SYSTEM.LEAVE_TYPES.PATERNITY
             ].includes(application.LeaveType);
-            const requiresDualApproval = Boolean(application.RequiresDualApproval || (application.Duration > 5) || isSpecializedLeave);
+            const requiresDualApproval = ConfigManager.isFeatureEnabled('feature_multi_tier_approval') && Boolean(application.RequiresDualApproval || (application.Duration > 5) || isSpecializedLeave);
 
             // If dual approval is required, decision is approve, and current user is Supervisor (not Admin/HR):
             const isSupervisorApproval = (isSupervisor || isActingSupervisor) && !isAdmin && !isHR;
@@ -3473,16 +3606,6 @@ const ApplicationsManager = {
             yearHistory.annualUsed += application.DeductFromAnnual;
             if (staff.LeaveAccrual) {
                 staff.LeaveAccrual.usedYearToDate += application.DeductFromAnnual;
-                const netPosition = AccrualManager.calculateNetAnnualPosition(staff);
-                staff.LeaveAccrual.availableBalance = Math.max(0, netPosition);
-                if (!staff.LeaveAccrual.annualDeficit) {
-                    staff.LeaveAccrual.annualDeficit = { amount: 0, fromYear: null, recoveryHistory: [] };
-                }
-                staff.LeaveAccrual.annualDeficit.amount = Math.min(0, netPosition);
-                if (netPosition >= 0 && staff.LeaveAccrual.annualDeficit.fromYear) {
-                    staff.LeaveAccrual.annualDeficit.fromYear = null;
-                    staff.LeaveAccrual.annualDeficit.initialCarried = 0;
-                }
             }
         }
 
@@ -3497,6 +3620,10 @@ const ApplicationsManager = {
                     staff.LeaveBroughtForward = null;
                 }
             }
+        }
+
+        if ((application.DeductFromAnnual > 0 || application.DeductFromBroughtForward > 0) && staff.LeaveAccrual) {
+            AccrualManager.syncAnnualPool(staff);
         }
 
         if (application.DeductFromSick > 0) {
@@ -3633,7 +3760,7 @@ const ApplicationsManager = {
                     SYSTEM.LEAVE_TYPES.MATERNITY,
                     SYSTEM.LEAVE_TYPES.PATERNITY
                 ].includes(application.LeaveType);
-                const requiresDualApproval = Boolean(application.RequiresDualApproval || (application.Duration > 5) || isSpecializedLeave);
+                const requiresDualApproval = ConfigManager.isFeatureEnabled('feature_multi_tier_approval') && Boolean(application.RequiresDualApproval || (application.Duration > 5) || isSpecializedLeave);
                 const isSupervisorApproval = (isSupervisor || isActingSupervisor) && !isAdmin && !isHR;
                 const isStage1 = application.ApprovalStage === 'pending_supervisor' || !application.ApprovalStage;
 
@@ -3798,16 +3925,6 @@ const ApplicationsManager = {
                 yearHistory.annualUsed = Math.max(0, (yearHistory.annualUsed || 0) - application.DeductFromAnnual);
                 if (staff.LeaveAccrual) {
                     staff.LeaveAccrual.usedYearToDate = Math.max(0, (staff.LeaveAccrual.usedYearToDate || 0) - application.DeductFromAnnual);
-                    const netPosition = AccrualManager.calculateNetAnnualPosition(staff);
-                    staff.LeaveAccrual.availableBalance = Math.max(0, netPosition);
-                    if (!staff.LeaveAccrual.annualDeficit) {
-                        staff.LeaveAccrual.annualDeficit = { amount: 0, fromYear: null, recoveryHistory: [] };
-                    }
-                    staff.LeaveAccrual.annualDeficit.amount = Math.min(0, netPosition);
-                    if (netPosition >= 0 && staff.LeaveAccrual.annualDeficit.fromYear) {
-                        staff.LeaveAccrual.annualDeficit.fromYear = null;
-                        staff.LeaveAccrual.annualDeficit.initialCarried = 0;
-                    }
                 }
             }
 
@@ -3825,6 +3942,10 @@ const ApplicationsManager = {
                         note: 'Restored from cancelled leave application'
                     };
                 }
+            }
+
+            if ((application.DeductFromAnnual > 0 || application.DeductFromBroughtForward > 0) && staff.LeaveAccrual) {
+                AccrualManager.syncAnnualPool(staff);
             }
 
             // Rollback sick leave
@@ -3935,6 +4056,13 @@ const ApplicationsManager = {
             }
             const yearHistory = applicantUser.LeaveHistory[currentYear];
 
+            const nonPoolTypes = [
+                SYSTEM.LEAVE_TYPES.MATERNITY,
+                SYSTEM.LEAVE_TYPES.PATERNITY,
+                SYSTEM.LEAVE_TYPES.COMPASSIONATE,
+                SYSTEM.LEAVE_TYPES.STUDY
+            ];
+
             if (dayDifference > 0) {
                 if (app.LeaveType === SYSTEM.LEAVE_TYPES.SICK) {
                     const sickAllocation = ConfigManager.getSickLeaveAllocation();
@@ -3964,6 +4092,16 @@ const ApplicationsManager = {
                     }
                     app.DeductFromCompensation = (app.DeductFromCompensation || 0) + dayDifference;
                     yearHistory.compensationUsed = (yearHistory.compensationUsed || 0) + dayDifference;
+                } else if (nonPoolTypes.includes(app.LeaveType)) {
+                    if (app.LeaveType === SYSTEM.LEAVE_TYPES.MATERNITY && newDuration > 90) {
+                        return Utils.createErrorResponse('Maternity leave cannot exceed 90 days per occurrence');
+                    }
+                    if (app.LeaveType === SYSTEM.LEAVE_TYPES.PATERNITY && newDuration > 14) {
+                        return Utils.createErrorResponse('Paternity leave cannot exceed 14 days per occurrence');
+                    }
+                    if (app.LeaveType === SYSTEM.LEAVE_TYPES.COMPASSIONATE && newDuration > 5) {
+                        return Utils.createErrorResponse('Compassionate leave cannot exceed 5 working days per occurrence');
+                    }
                 } else {
                     const available = AccrualManager.calculateAvailableBalance(applicantUser);
                     if (available < dayDifference) {
@@ -3975,44 +4113,14 @@ const ApplicationsManager = {
                         applicantUser.LeaveAccrual = { usedYearToDate: 0, availableBalance: 0 };
                     }
                     applicantUser.LeaveAccrual.usedYearToDate = (applicantUser.LeaveAccrual.usedYearToDate || 0) + dayDifference;
-                    applicantUser.LeaveAccrual.availableBalance = Math.max(0, (applicantUser.LeaveAccrual.availableBalance || 0) - dayDifference);
+                    AccrualManager.syncAnnualPool(applicantUser);
                     app.DeductFromAnnual = (app.DeductFromAnnual || 0) + dayDifference;
                     yearHistory.annualUsed = (yearHistory.annualUsed || 0) + dayDifference;
                 }
                 yearHistory.totalUsed = (yearHistory.annualUsed || 0) + (yearHistory.sickUsed || 0) + (yearHistory.broughtForwardUsed || 0) + (yearHistory.compensationUsed || 0);
             } else if (dayDifference < 0) {
                 const refundDays = Math.abs(dayDifference);
-                if (app.LeaveType === SYSTEM.LEAVE_TYPES.SICK) {
-                    if (applicantUser.SickLeave) {
-                        applicantUser.SickLeave.used = Math.max(0, (applicantUser.SickLeave.used || 0) - refundDays);
-                    }
-                    app.DeductFromSick = Math.max(0, (app.DeductFromSick || 0) - refundDays);
-                    yearHistory.sickUsed = Math.max(0, (yearHistory.sickUsed || 0) - refundDays);
-                } else if (app.LeaveType === SYSTEM.LEAVE_TYPES.COMPENSATION) {
-                    if (applicantUser.CompensationLeave) {
-                        applicantUser.CompensationLeave.balance = (applicantUser.CompensationLeave.balance || 0) + refundDays;
-                        applicantUser.CompensationLeave.used = Math.max(0, (applicantUser.CompensationLeave.used || 0) - refundDays);
-                    }
-                    app.DeductFromCompensation = Math.max(0, (app.DeductFromCompensation || 0) - refundDays);
-                    yearHistory.compensationUsed = Math.max(0, (yearHistory.compensationUsed || 0) - refundDays);
-                } else {
-                    if (applicantUser.LeaveAccrual) {
-                        applicantUser.LeaveAccrual.usedYearToDate = Math.max(0, (applicantUser.LeaveAccrual.usedYearToDate || 0) - refundDays);
-                        const netPosition = AccrualManager.calculateNetAnnualPosition(applicantUser);
-                        applicantUser.LeaveAccrual.availableBalance = Math.max(0, netPosition);
-                        if (!applicantUser.LeaveAccrual.annualDeficit) {
-                            applicantUser.LeaveAccrual.annualDeficit = { amount: 0, fromYear: null, recoveryHistory: [] };
-                        }
-                        applicantUser.LeaveAccrual.annualDeficit.amount = Math.min(0, netPosition);
-                        if (netPosition >= 0 && applicantUser.LeaveAccrual.annualDeficit.fromYear) {
-                            applicantUser.LeaveAccrual.annualDeficit.fromYear = null;
-                            applicantUser.LeaveAccrual.annualDeficit.initialCarried = 0;
-                        }
-                    }
-                    app.DeductFromAnnual = Math.max(0, (app.DeductFromAnnual || 0) - refundDays);
-                    yearHistory.annualUsed = Math.max(0, (yearHistory.annualUsed || 0) - refundDays);
-                }
-                yearHistory.totalUsed = (yearHistory.annualUsed || 0) + (yearHistory.sickUsed || 0) + (yearHistory.broughtForwardUsed || 0) + (yearHistory.compensationUsed || 0);
+                AccrualManager.refundApplicationDeductions(app, applicantUser, refundDays, true);
             }
 
             if (dayDifference !== 0) {
@@ -5606,6 +5714,10 @@ const NotificationManager = {
     // Warn staff (and HR) 2 weeks before their BF days expire at Easter
     notifyBFWarning: function (staff, easterDate) {
         try {
+            if (!ConfigManager.isAlertEnabled('alert_easter_forfeiture')) {
+                console.log('BF warning alerts disabled by governance');
+                return true;
+            }
             const easterStr = Utils.formatDateForDisplay(easterDate.toISOString().split('T')[0]);
             const bfDays = staff.LeaveBroughtForward.daysCarriedFromPreviousYear;
             const yearEarned = staff.LeaveBroughtForward.yearEarned;
@@ -5694,6 +5806,10 @@ const NotificationManager = {
     // Notify staff (and HR) that their BF days have been forfeited at Easter
     notifyBFExpired: function (staff, forfeitedDays, easterDate) {
         try {
+            if (!ConfigManager.isAlertEnabled('alert_easter_forfeiture')) {
+                console.log('BF expired alerts disabled by governance');
+                return true;
+            }
             const easterStr = Utils.formatDateForDisplay(easterDate.toISOString().split('T')[0]);
             const systemUrl = EmailService.SYSTEM_URL;
 
@@ -5888,6 +6004,7 @@ const NotificationManager = {
 
     notifyHandoverResponse: function (application, decision, notes) {
         try {
+            if (!ConfigManager.isAlertEnabled('alert_handover_assignment')) return true;
             if (!application.Email) return false;
             const isAccepted = decision === 'Accepted' || decision === 'accept';
             const subject = isAccepted
@@ -5912,6 +6029,7 @@ const NotificationManager = {
 
     notifyLeaveRecalibrated: function (application, refundedDays, holidayName) {
         try {
+            if (!ConfigManager.isAlertEnabled('alert_applicant_status')) return true;
             if (!application.Email) return false;
             const subject = `[Leave Balance Refund] ${refundedDays} day(s) credited due to Gazetted Public Holiday`;
             const body = `
@@ -5957,6 +6075,7 @@ const NotificationManager = {
 
     notifySupervisorStaleApplications: function (supervisorEmail, applications) {
         try {
+            if (!ConfigManager.isAlertEnabled('alert_supervisor_submission')) return true;
             if (!supervisorEmail || !applications || applications.length === 0) return false;
             const subject = `[Reminder] You have ${applications.length} pending leave application(s) awaiting review`;
             const appRows = applications.map(a =>
@@ -5980,6 +6099,7 @@ const NotificationManager = {
 
     notifyCompensationClaimSubmitted: function (claim) {
         try {
+            if (!ConfigManager.isAlertEnabled('alert_supervisor_submission')) return true;
             if (!claim.SupervisorEmail) return false;
             const subject = `[Compensation Claim] New TOIL Claim from ${claim.Name} (${claim.DaysEarned} day(s))`;
             const body = `
@@ -6007,6 +6127,7 @@ const NotificationManager = {
 
     notifyCompensationClaimDecision: function (claim, decision, comment) {
         try {
+            if (!ConfigManager.isAlertEnabled('alert_applicant_status')) return true;
             const isApproved = decision === 'approve';
             const subject = `[${isApproved ? 'Approved' : 'Declined'}] Compensation Leave Claim (${claim.DaysEarned} day(s))`;
             const body = `
@@ -6042,10 +6163,12 @@ const NotificationManager = {
                     </ul>
                 </div>
             `;
-            if (application.SupervisorEmail) {
+            if (application.SupervisorEmail && ConfigManager.isAlertEnabled('alert_supervisor_submission')) {
                 MailApp.sendEmail({ to: application.SupervisorEmail, subject: subject, htmlBody: body, name: SYSTEM.NAME });
             }
-            MailApp.sendEmail({ to: application.Email, subject: subject, htmlBody: body, name: SYSTEM.NAME });
+            if (ConfigManager.isAlertEnabled('alert_applicant_status')) {
+                MailApp.sendEmail({ to: application.Email, subject: subject, htmlBody: body, name: SYSTEM.NAME });
+            }
             return true;
         } catch (e) {
             console.error('notifyLeaveAmended error:', e);
@@ -6067,10 +6190,17 @@ const CalendarSyncManager = {
             const propId = scriptProps.getProperty(key);
             if (propId && propId.trim()) return propId.trim();
 
-            // 2. system_settings.json
+            // 2. system_settings.json (supports both array-of-pairs and plain object stores)
             const settingsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.SETTINGS);
-            if (settingsFile && settingsFile.data && settingsFile.data.calendarId && settingsFile.data.calendarId.trim()) {
-                return settingsFile.data.calendarId.trim();
+            if (settingsFile && settingsFile.data) {
+                if (Array.isArray(settingsFile.data)) {
+                    const calEntry = settingsFile.data.find(s => s && s.key === 'calendarId');
+                    if (calEntry && typeof calEntry.value === 'string' && calEntry.value.trim()) {
+                        return calEntry.value.trim();
+                    }
+                } else if (typeof settingsFile.data.calendarId === 'string' && settingsFile.data.calendarId.trim()) {
+                    return settingsFile.data.calendarId.trim();
+                }
             }
 
             // 3. SYSTEM constant default
@@ -6389,6 +6519,9 @@ const MaintenanceManager = {
 const CompensationManager = {
     submitClaim: function (claimData) {
         try {
+            if (!ConfigManager.isFeatureEnabled('feature_compensation_leave')) {
+                return Utils.createErrorResponse('Compensation leave / TOIL claims are currently disabled by policy');
+            }
             const currentUser = Session.getActiveUser().getEmail();
             const user = StaffManager.getUserData(currentUser);
             if (!user) return Utils.createErrorResponse('User not found');
@@ -6421,6 +6554,18 @@ const CompensationManager = {
                 daysEarned = Number((hoursWorked / 8).toFixed(2));
             }
 
+            // Guard against self-supervision routing
+            let supervisorEmail = user.Supervisor || '';
+            if (supervisorEmail) {
+                const sLower = supervisorEmail.toLowerCase().trim();
+                const uLower = currentUser.toLowerCase().trim();
+                const nLower = (user.Name || '').toLowerCase().trim();
+                if (sLower === uLower || sLower === nLower) {
+                    console.warn(`[Self-Supervision Guard] Re-routing self-supervision TOIL claim for ${currentUser} to executive supervisor (Jayne Ngugi)`);
+                    supervisorEmail = 'jayne@agri-experience.com';
+                }
+            }
+
             const claimId = 'TOIL-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6).toUpperCase();
             const claim = {
                 ID: claimId,
@@ -6432,7 +6577,7 @@ const CompensationManager = {
                 DaysEarned: daysEarned,
                 Reason: reason,
                 Location: location,
-                SupervisorEmail: user.Supervisor || '',
+                SupervisorEmail: supervisorEmail,
                 Status: SYSTEM.STATUS.PENDING,
                 DateSubmitted: new Date().toISOString(),
                 ProcessedDate: null,
@@ -6530,10 +6675,21 @@ const CompensationManager = {
                 const sIdx = staffFile.data.findIndex(s => s.Email.toLowerCase() === claim.Email.toLowerCase());
                 if (sIdx !== -1) {
                     const staff = staffFile.data[sIdx];
-                    staff.CompensationLeave = staff.CompensationLeave || { balance: 0, used: 0 };
+                    staff.CompensationLeave = staff.CompensationLeave || { balance: 0, used: 0, awards: [] };
                     staff.CompensationLeave.balance = Number(((staff.CompensationLeave.balance || 0) + claim.DaysEarned).toFixed(2));
                     staff.CompensationLeave.earnedYearToDate = Number(((staff.CompensationLeave.earnedYearToDate || 0) + claim.DaysEarned).toFixed(2));
                     staff.CompensationLeave.lastCredited = new Date().toISOString();
+                    staff.CompensationLeave.awards = staff.CompensationLeave.awards || [];
+                    staff.CompensationLeave.awards.push({
+                        id: claim.ID,
+                        date: new Date().toISOString().split('T')[0],
+                        workDate: claim.DateWorked,
+                        hoursWorked: claim.HoursWorked,
+                        days: claim.DaysEarned,
+                        reason: claim.Reason,
+                        location: claim.Location,
+                        awardedBy: currentUser
+                    });
 
                     DataManager.writeDataFile(SYSTEM.DATA_FILES.STAFF, staffFile);
                     EnhancedCacheManager.clearBalance(claim.Email);
@@ -7326,190 +7482,141 @@ const HolidayManager = {
         }
     },
 
+    _recalibrateApplications: function (holidayDate, holidayLabel, callerEmail = null) {
+        const currentUser = (callerEmail || Session.getActiveUser().getEmail() || '').trim();
+        const user = StaffManager.getUserData(currentUser);
+        const isAdminOrHR = user && (user.Role === SYSTEM.ROLES.ADMIN || user.Role === SYSTEM.ROLES.HR);
+        if (!isAdminOrHR) {
+            return Utils.createErrorResponse('Only HR or System Administrators can recalibrate leave applications');
+        }
+
+        let holDate = null;
+        let isWeekend = false;
+        if (holidayDate) {
+            holDate = Utils.parseLocalDate(holidayDate);
+            if (!holDate) return Utils.createErrorResponse('Valid holiday date is required');
+            const dayOfWeek = holDate.getDay();
+            isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+        }
+
+        const appsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.APPLICATIONS);
+        const applications = appsFile.data || [];
+        const staffFile = DataManager.readDataFile(SYSTEM.DATA_FILES.STAFF);
+        let staffModified = false;
+        const affectedApps = [];
+        let totalDaysRefunded = 0;
+
+        const nonPoolTypes = [
+            SYSTEM.LEAVE_TYPES.MATERNITY,
+            SYSTEM.LEAVE_TYPES.PATERNITY,
+            SYSTEM.LEAVE_TYPES.COMPASSIONATE,
+            SYSTEM.LEAVE_TYPES.STUDY
+        ];
+
+        applications.forEach(app => {
+            if (app.LeaveMode === 'Hourly') return;
+            if (app.Status !== SYSTEM.STATUS.PENDING && app.Status !== SYSTEM.STATUS.APPROVED) return;
+            if (nonPoolTypes.includes(app.LeaveType)) return;
+
+            const start = Utils.parseLocalDate(app.StartDate);
+            const end = Utils.parseLocalDate(app.EndDate);
+            if (!start || !end) return;
+            if (holDate && (holDate < start || holDate > end)) return;
+
+            const oldDuration = app.Duration;
+            const accurateBusinessDays = Utils.getBusinessDays(app.StartDate, app.EndDate);
+
+            if (accurateBusinessDays < oldDuration) {
+                const dayDiff = Number((oldDuration - accurateBusinessDays).toFixed(3));
+                app.Duration = accurateBusinessDays;
+                totalDaysRefunded = Number((totalDaysRefunded + dayDiff).toFixed(3));
+
+                if (!app.Metadata) app.Metadata = {};
+                if (!Array.isArray(app.Metadata.recalibrations)) app.Metadata.recalibrations = [];
+
+                app.Metadata.recalibrations.push({
+                    holidayDate: holidayDate || 'ALL_GAZETTED_HOLIDAYS',
+                    refund: dayDiff,
+                    oldDuration,
+                    newDuration: accurateBusinessDays,
+                    timestamp: new Date().toISOString()
+                });
+
+                const isApproved = app.Status === SYSTEM.STATUS.APPROVED;
+                const staffMember = isApproved
+                    ? (staffFile.data || []).find(s => s.Email && app.Email && s.Email.toLowerCase().trim() === app.Email.toLowerCase().trim())
+                    : null;
+
+                AccrualManager.refundApplicationDeductions(app, staffMember, dayDiff, isApproved);
+
+                if (isApproved && staffMember) {
+                    staffModified = true;
+                    EnhancedCacheManager.clearBalance(app.Email);
+                    EnhancedCacheManager.clear(`${SYSTEM.CACHE_KEYS.DASHBOARD_PREFIX}${app.Email}`);
+                } else if (isApproved) {
+                    EnhancedCacheManager.clearBalance(app.Email);
+                }
+
+                affectedApps.push({
+                    id: app.ID,
+                    email: app.Email,
+                    name: app.Name,
+                    oldDuration,
+                    newDuration: accurateBusinessDays,
+                    refunded: dayDiff,
+                    status: app.Status
+                });
+
+                try {
+                    NotificationManager.notifyLeaveRecalibrated(app, dayDiff, holidayLabel);
+                } catch (nErr) { }
+            }
+        });
+
+        if (staffModified) {
+            DataManager.writeDataFile(SYSTEM.DATA_FILES.STAFF, staffFile);
+        }
+        if (affectedApps.length > 0) {
+            DataManager.writeDataFile(SYSTEM.DATA_FILES.APPLICATIONS, appsFile);
+            EnhancedCacheManager.buildIndexes();
+            Utils.logAction(holidayDate ? 'RECALIBRATE_LEAVES_HOLIDAY' : 'RECALIBRATE_ALL_LEAVES', {
+                holidayDate: holidayDate || 'ALL',
+                recalibratedBy: currentUser,
+                affectedCount: affectedApps.length,
+                totalDaysRefunded
+            });
+        }
+
+        const payload = {
+            affectedCount: affectedApps.length,
+            totalDaysRefunded,
+            affectedApplications: affectedApps
+        };
+        if (holidayDate) {
+            payload.holidayDate = holidayDate;
+            payload.isWeekend = isWeekend;
+        }
+        return Utils.createSuccessResponse(
+            payload,
+            `Recalibrated ${affectedApps.length} leave application(s). Refunded ${totalDaysRefunded} total day(s) to staff balances.`
+        );
+    },
+
     recalibrateLeavesForHoliday: function (holidayDate, callerEmail = null) {
         try {
-            const currentUser = (callerEmail || Session.getActiveUser().getEmail() || '').trim();
-            const user = StaffManager.getUserData(currentUser);
-            const isAdminOrHR = user && (user.Role === SYSTEM.ROLES.ADMIN || user.Role === SYSTEM.ROLES.HR);
-            if (!isAdminOrHR) {
-                return Utils.createErrorResponse('Only HR or System Administrators can recalibrate leave applications');
-            }
-
-            const holDate = Utils.parseLocalDate(holidayDate);
-            if (!holDate) return Utils.createErrorResponse('Valid holiday date is required');
-
-            // Check if holiday is on a weekend
-            const dayOfWeek = holDate.getDay();
-            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-
-            const appsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.APPLICATIONS);
-            const applications = appsFile.data || [];
-            const affectedApps = [];
-
-            applications.forEach(app => {
-                if (app.LeaveMode === 'Hourly') return;
-                if (app.Status !== SYSTEM.STATUS.PENDING && app.Status !== SYSTEM.STATUS.APPROVED) return;
-
-                const start = Utils.parseLocalDate(app.StartDate);
-                const end = Utils.parseLocalDate(app.EndDate);
-                if (!start || !end) return;
-
-                if (holDate >= start && holDate <= end) {
-                    const oldDuration = app.Duration;
-                    const accurateBusinessDays = Utils.getBusinessDays(app.StartDate, app.EndDate);
-
-                    if (accurateBusinessDays < oldDuration) {
-                        const dayDiff = oldDuration - accurateBusinessDays;
-                        app.Duration = accurateBusinessDays;
-                        if (!app.Metadata) app.Metadata = {};
-                        if (!Array.isArray(app.Metadata.recalibrations)) app.Metadata.recalibrations = [];
-
-                        app.Metadata.recalibrations.push({
-                            holidayDate,
-                            refund: dayDiff,
-                            oldDuration,
-                            newDuration: accurateBusinessDays,
-                            timestamp: new Date().toISOString()
-                        });
-
-                        // If approved, refund the deducted day
-                        if (app.Status === SYSTEM.STATUS.APPROVED) {
-                            if (app.DeductFromAnnual >= dayDiff) {
-                                app.DeductFromAnnual -= dayDiff;
-                            } else if (app.DeductFromBroughtForward >= dayDiff) {
-                                app.DeductFromBroughtForward -= dayDiff;
-                            } else if (app.DeductFromCompensation >= dayDiff) {
-                                app.DeductFromCompensation -= dayDiff;
-                            } else {
-                                app.DeductFromAnnual = Math.max(0, app.DeductFromAnnual - dayDiff);
-                            }
-                            EnhancedCacheManager.clearBalance(app.Email);
-                        }
-
-                        affectedApps.push({
-                            id: app.ID,
-                            email: app.Email,
-                            name: app.Name,
-                            oldDuration,
-                            newDuration: accurateBusinessDays,
-                            refunded: dayDiff,
-                            status: app.Status
-                        });
-
-                        try {
-                            NotificationManager.notifyLeaveRecalibrated(app, dayDiff, holidayDate);
-                        } catch (nErr) {}
-                    }
-                }
-            });
-
-            if (affectedApps.length > 0) {
-                DataManager.writeDataFile(SYSTEM.DATA_FILES.APPLICATIONS, appsFile);
-                EnhancedCacheManager.buildIndexes();
-                Utils.logAction('RECALIBRATE_LEAVES_HOLIDAY', {
-                    holidayDate,
-                    recalibratedBy: currentUser,
-                    affectedCount: affectedApps.length
-                });
-            }
-
-            return Utils.createSuccessResponse({
-                holidayDate,
-                affectedCount: affectedApps.length,
-                affectedApplications: affectedApps,
-                isWeekend
-            }, `Recalibrated ${affectedApps.length} overlapping application(s). Days refunded.`);
+            return this._recalibrateApplications(holidayDate, holidayDate, callerEmail);
         } catch (error) {
             return Utils.createErrorResponse('Failed to recalibrate applications: ' + error.message);
         }
     },
 
+    recalibrateOverlappingLeaves: function (holidayDate, callerEmail = null) {
+        return this.recalibrateLeavesForHoliday(holidayDate, callerEmail);
+    },
+
     recalibrateAllLeaves: function (callerEmail = null) {
         try {
-            const currentUser = (callerEmail || Session.getActiveUser().getEmail() || '').trim();
-            const user = StaffManager.getUserData(currentUser);
-            const isAdminOrHR = user && (user.Role === SYSTEM.ROLES.ADMIN || user.Role === SYSTEM.ROLES.HR);
-            if (!isAdminOrHR) {
-                return Utils.createErrorResponse('Only HR or System Administrators can recalibrate leave applications');
-            }
-
-            const appsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.APPLICATIONS);
-            const applications = appsFile.data || [];
-            const affectedApps = [];
-            let totalDaysRefunded = 0;
-
-            applications.forEach(app => {
-                if (app.LeaveMode === 'Hourly') return;
-                if (app.Status !== SYSTEM.STATUS.PENDING && app.Status !== SYSTEM.STATUS.APPROVED) return;
-
-                const start = Utils.parseLocalDate(app.StartDate);
-                const end = Utils.parseLocalDate(app.EndDate);
-                if (!start || !end) return;
-
-                const oldDuration = app.Duration;
-                const accurateBusinessDays = Utils.getBusinessDays(app.StartDate, app.EndDate);
-
-                if (accurateBusinessDays < oldDuration) {
-                    const dayDiff = oldDuration - accurateBusinessDays;
-                    app.Duration = accurateBusinessDays;
-                    totalDaysRefunded += dayDiff;
-
-                    if (!app.Metadata) app.Metadata = {};
-                    if (!Array.isArray(app.Metadata.recalibrations)) app.Metadata.recalibrations = [];
-
-                    app.Metadata.recalibrations.push({
-                        holidayDate: 'ALL_GAZETTED_HOLIDAYS',
-                        refund: dayDiff,
-                        oldDuration,
-                        newDuration: accurateBusinessDays,
-                        timestamp: new Date().toISOString()
-                    });
-
-                    // If approved, refund the deducted day
-                    if (app.Status === SYSTEM.STATUS.APPROVED) {
-                        if (app.DeductFromAnnual >= dayDiff) {
-                            app.DeductFromAnnual -= dayDiff;
-                        } else if (app.DeductFromBroughtForward >= dayDiff) {
-                            app.DeductFromBroughtForward -= dayDiff;
-                        } else if (app.DeductFromCompensation >= dayDiff) {
-                            app.DeductFromCompensation -= dayDiff;
-                        } else {
-                            app.DeductFromAnnual = Math.max(0, app.DeductFromAnnual - dayDiff);
-                        }
-                        EnhancedCacheManager.clearBalance(app.Email);
-                    }
-
-                    affectedApps.push({
-                        id: app.ID,
-                        email: app.Email,
-                        name: app.Name,
-                        oldDuration,
-                        newDuration: accurateBusinessDays,
-                        refunded: dayDiff,
-                        status: app.Status
-                    });
-
-                    try {
-                        NotificationManager.notifyLeaveRecalibrated(app, dayDiff, 'Gazetted Public Holidays');
-                    } catch (nErr) {}
-                }
-            });
-
-            if (affectedApps.length > 0) {
-                DataManager.writeDataFile(SYSTEM.DATA_FILES.APPLICATIONS, appsFile);
-                EnhancedCacheManager.buildIndexes();
-                Utils.logAction('RECALIBRATE_ALL_LEAVES', {
-                    recalibratedBy: currentUser,
-                    affectedCount: affectedApps.length,
-                    totalDaysRefunded
-                });
-            }
-
-            return Utils.createSuccessResponse({
-                affectedCount: affectedApps.length,
-                totalDaysRefunded,
-                affectedApplications: affectedApps
-            }, `Recalibrated ${affectedApps.length} leave application(s). Refunded ${totalDaysRefunded} total day(s) to staff balances.`);
+            return this._recalibrateApplications(null, 'Gazetted Public Holidays', callerEmail);
         } catch (error) {
             return Utils.createErrorResponse('Failed to recalibrate applications: ' + error.message);
         }
@@ -11035,10 +11142,7 @@ function scheduledEasterExpiry() {
             member.LeaveBroughtForward.note = `${bfDays} days carried forward from ${member.LeaveBroughtForward.yearEarned || 'previous year'} forfeited at Easter (${bfExpiry.toISOString().split('T')[0]})`;
 
             // Recalculate available balance — remove the now-expired BF days
-            const accrued = member.LeaveAccrual.accruedYearToDate || 0;
-            const used = member.LeaveAccrual.usedYearToDate || 0;
-            const deficit = member.LeaveAccrual.annualDeficit?.amount || 0;
-            member.LeaveAccrual.availableBalance = Math.max(0, accrued - used + deficit);
+            AccrualManager.syncAnnualPool(member);
 
             // Notify individual + HR
             NotificationManager.notifyBFExpired(member, bfDays, bfExpiry);
@@ -11179,16 +11283,17 @@ function fixAccruedDaysForAllStaff() {
 
             // Calculate correct accrued days for current year
             let correctAccrued = 0;
+            const rate = staff.LeaveAccrual.monthlyRate || 1.75;
 
-            if (joinYear === currentYear) {
+            if (joinYear === currentYear && joinMonth <= currentMonth) {
                 // Joined this year - months from join month to current month (inclusive)
                 for (let month = joinMonth; month <= currentMonth; month++) {
-                    correctAccrued += 1.75;
+                    correctAccrued += rate;
                 }
-            } else {
-                // Joined in previous year - all months in current year up to (but not including) current month
-                for (let month = 0; month < currentMonth; month++) {
-                    correctAccrued += 1.75;
+            } else if (joinYear < currentYear) {
+                // Joined in previous year - all months in current year up to and including current month
+                for (let month = 0; month <= currentMonth; month++) {
+                    correctAccrued += rate;
                 }
             }
 
@@ -11198,16 +11303,17 @@ function fixAccruedDaysForAllStaff() {
             if (Math.abs(currentAccrued - correctAccrued) > 0.01) {
                 staff.LeaveAccrual.accruedYearToDate = correctAccrued;
 
-                // Recalculate available balance. BF is a separate pool — add it explicitly
-                // since calculateAvailableBalance only covers the annual pool.
-                const used = staff.LeaveAccrual.usedYearToDate || 0;
+                // Recalculate net annual position and available balance cleanly (BF is a separate pool)
+                const netPos = AccrualManager.calculateNetAnnualPosition(staff);
+                if (!staff.LeaveAccrual.annualDeficit) {
+                    staff.LeaveAccrual.annualDeficit = { amount: 0, fromYear: null, recoveryHistory: [] };
+                }
+                staff.LeaveAccrual.annualDeficit.amount = Math.min(0, netPos);
                 const bfEaster = Utils.getEasterExpiryDate(staff.LeaveBroughtForward);
                 const isBfExpired = Boolean(staff.LeaveBroughtForward?.isExpired) || (new Date() > bfEaster);
                 const broughtForward = (!isBfExpired && staff.LeaveBroughtForward) ? (staff.LeaveBroughtForward.daysCarriedFromPreviousYear || 0) : 0;
 
-                staff.LeaveAccrual.availableBalance = Math.max(0,
-                    correctAccrued - used + deficit + broughtForward
-                );
+                staff.LeaveAccrual.availableBalance = Math.max(0, netPos) + broughtForward;
 
                 // Update total accrued since join (optional)
                 staff.LeaveAccrual.totalAccruedSinceJoin = correctAccrued;
@@ -11294,29 +11400,30 @@ function fixStaffLeaveData(email) {
             }
         }
 
-        // 4. Update brought forward balance based on usage
-        if (staff.LeaveBroughtForward && history.broughtForwardUsed > 0) {
-            const originalBroughtForward = staff.LeaveBroughtForward.daysCarriedFromPreviousYear;
-            const remainingBroughtForward = Math.max(0, originalBroughtForward - history.broughtForwardUsed);
-
-            if (staff.LeaveBroughtForward.daysCarriedFromPreviousYear !== remainingBroughtForward) {
-                changes.push({
-                    field: 'LeaveBroughtForward.daysCarriedFromPreviousYear',
-                    old: staff.LeaveBroughtForward.daysCarriedFromPreviousYear,
-                    new: remainingBroughtForward
-                });
-                staff.LeaveBroughtForward.daysCarriedFromPreviousYear = remainingBroughtForward;
-
-                // Update note
-                staff.LeaveBroughtForward.note = `${remainingBroughtForward} days remaining, ${history.broughtForwardUsed} used`;
+        // 4. Synchronize brought forward note (daysCarriedFromPreviousYear already stores remaining balance)
+        if (staff.LeaveBroughtForward) {
+            const remainingBroughtForward = Math.max(0, staff.LeaveBroughtForward.daysCarriedFromPreviousYear || 0);
+            const expectedNote = `${remainingBroughtForward} days remaining, ${history.broughtForwardUsed || 0} used`;
+            if (staff.LeaveBroughtForward.note !== expectedNote) {
+                staff.LeaveBroughtForward.note = expectedNote;
             }
         }
 
-        // 5. Recalculate available balance correctly
-        const accrued = staff.LeaveAccrual.accruedYearToDate || 0;
-        const annualUsed = staff.LeaveAccrual.usedYearToDate || 0;
-        const deficit = staff.LeaveAccrual.annualDeficit?.amount || 0;
-        const annualAvailable = Math.max(0, accrued - annualUsed + deficit);
+        // 5. Recalculate available balance and annual deficit cleanly
+        const netPos = AccrualManager.calculateNetAnnualPosition(staff);
+        if (!staff.LeaveAccrual.annualDeficit) {
+            staff.LeaveAccrual.annualDeficit = { amount: 0, fromYear: null, recoveryHistory: [] };
+        }
+        const expectedDeficit = Math.min(0, netPos);
+        if (Math.abs((staff.LeaveAccrual.annualDeficit.amount || 0) - expectedDeficit) > 0.01) {
+            changes.push({
+                field: 'LeaveAccrual.annualDeficit.amount',
+                old: staff.LeaveAccrual.annualDeficit.amount || 0,
+                new: expectedDeficit
+            });
+            staff.LeaveAccrual.annualDeficit.amount = expectedDeficit;
+        }
+        const annualAvailable = Math.max(0, netPos);
         const bfEaster = Utils.getEasterExpiryDate(staff.LeaveBroughtForward);
         const isBfExpired = Boolean(staff.LeaveBroughtForward?.isExpired) || (new Date() > bfEaster);
         const broughtForward = (!isBfExpired && staff.LeaveBroughtForward) ? (staff.LeaveBroughtForward.daysCarriedFromPreviousYear || 0) : 0;
@@ -12238,6 +12345,7 @@ function apiGetBootstrapData(params) {
             hrQueue,
             holidays: holidays.slice(0, 10),
             allStaffLight,
+            governanceSettings: ConfigManager.getGovernanceSettings(),
             sheetsStatus,
             systemYear: Utils.getCurrentYear(),
             serverTimestamp: new Date().toISOString()
@@ -12500,8 +12608,17 @@ function apiSaveCalendarSettings(params) {
         // Also update system_settings.json for persistent dual-store configuration
         try {
             const settingsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.SETTINGS);
-            settingsFile.data = settingsFile.data || {};
-            settingsFile.data.calendarId = rawCalId || null;
+            settingsFile.data = settingsFile.data || [];
+            if (Array.isArray(settingsFile.data)) {
+                const idx = settingsFile.data.findIndex(s => s && s.key === 'calendarId');
+                if (idx !== -1) {
+                    settingsFile.data[idx].value = rawCalId || '';
+                } else if (rawCalId) {
+                    settingsFile.data.push({ key: 'calendarId', value: rawCalId });
+                }
+            } else {
+                settingsFile.data.calendarId = rawCalId || null;
+            }
             settingsFile.metadata = settingsFile.metadata || {};
             settingsFile.metadata.lastUpdated = new Date().toISOString();
             DataManager.writeDataFile(SYSTEM.DATA_FILES.SETTINGS, settingsFile);
@@ -12570,9 +12687,9 @@ function apiTestCalendarConnection(params) {
 function apiGetGovernanceSettings() {
     try {
         const currentUser = Session.getActiveUser().getEmail();
-        const userRole = StaffManager.getUserRole(currentUser);
-        if (userRole !== SYSTEM.ROLES.ADMIN) {
-            return Utils.createErrorResponse('Unauthorized. Admin access required.');
+        const user = StaffManager.getUserData(currentUser);
+        if (!user && currentUser.toLowerCase().trim() !== SYSTEM.ADMIN_EMAIL.toLowerCase().trim()) {
+            return Utils.createErrorResponse('Unauthorized. Active staff session required.');
         }
         const settings = ConfigManager.getGovernanceSettings();
         return Utils.createSuccessResponse(settings, 'Governance settings loaded successfully');

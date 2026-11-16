@@ -4530,13 +4530,15 @@
                             updatePendingAppsBadge();
                             if (typeof updateUserInfoUI === 'function') updateUserInfoUI();
                             if (typeof updateUIForUserRole === 'function') updateUIForUserRole();
-
                             navigateToPage('dashboard');
                             updateDashboardUI({
                                 balance: cached.balances,
                                 applications: cached.recentApplications || [],
                                 supervisedData: { pendingCount: cached.supervisorQueue ? cached.supervisorQueue.count : 0 }
                             });
+                            if (cached.governanceSettings && typeof applyGovernanceUiEffects === 'function') {
+                                applyGovernanceUiEffects(cached.governanceSettings);
+                            }
                             hasLocalHydration = true;
                         }
                     }
@@ -4591,6 +4593,9 @@
                             applications: data.recentApplications || [],
                             supervisedData: { pendingCount: data.supervisorQueue ? data.supervisorQueue.count : 0 }
                         });
+                        if (data.governanceSettings && typeof applyGovernanceUiEffects === 'function') {
+                            applyGovernanceUiEffects(data.governanceSettings);
+                        }
 
                         setTimeout(() => {
                             hideLoading();
@@ -5257,6 +5262,9 @@
                 loadUpcomingHolidaysWidget();
                 renderTodayAbsenceWidget('todayAbsencesWidget');
                 loadMyHandoverRequestsCount();
+                if (typeof applyGovernanceUiEffects === 'function' && activeGovernanceSettings && Object.keys(activeGovernanceSettings).length > 0) {
+                    applyGovernanceUiEffects(activeGovernanceSettings);
+                }
                 console.log('Dashboard UI updated');
             }
 
@@ -5955,6 +5963,9 @@
       `;
 
                         pageElement.innerHTML = pageHTML;
+                        if (typeof applyGovernanceUiEffects === 'function' && activeGovernanceSettings && Object.keys(activeGovernanceSettings).length > 0) {
+                            applyGovernanceUiEffects(activeGovernanceSettings);
+                        }
             }
 
             // Load balance page - SWR with instant 0ms local render
@@ -7219,6 +7230,11 @@
 
                 // Populate handover colleague dropdown
                 populateHandoverDropdown('pageHandoverColleague');
+
+                // Apply active governance UI toggles to dynamically rendered controls
+                if (typeof applyGovernanceUiEffects === 'function' && activeGovernanceSettings && Object.keys(activeGovernanceSettings).length > 0) {
+                    applyGovernanceUiEffects(activeGovernanceSettings);
+                }
             }
             // Staff Management Functions
             function loadStaffManagementPage() {
@@ -8165,16 +8181,46 @@
 
             function applyGovernanceUiEffects(settings) {
                 if (!settings) return;
-                // AI Assistant widget toggle
-                const aiBtn = document.getElementById('askAIAssistantBtn');
-                if (aiBtn) {
-                    aiBtn.style.display = (settings.feature_ai_assistant === false) ? 'none' : '';
+                activeGovernanceSettings = settings;
+                // 1. AI Assistant floating widget toggle
+                const aiContainer = document.getElementById('aiChatFloatingBtnContainer');
+                if (aiContainer) {
+                    aiContainer.style.display = (settings.feature_ai_assistant === false) ? 'none' : '';
                 }
-                // Hourly toggle on leave modal
-                const hourlyTab = document.querySelector('[data-leave-mode="Hourly"]');
-                if (hourlyTab) {
-                    hourlyTab.style.display = (settings.feature_hourly_leave === false) ? 'none' : '';
+                if (settings.feature_ai_assistant === false) {
+                    const aiPanel = document.getElementById('aiChatPanel');
+                    const aiBackdrop = document.getElementById('aiChatBackdrop');
+                    if (aiPanel) aiPanel.classList.add('hidden');
+                    if (aiBackdrop) aiBackdrop.classList.add('hidden');
                 }
+                // 2. Hourly leave mode toggle on modal and page
+                const hourlyInputs = document.querySelectorAll('input[name="leaveMode"][value="Hourly"], input[name="pageLeaveMode"][value="Hourly"]');
+                hourlyInputs.forEach(input => {
+                    const label = input.closest('label');
+                    if (label) {
+                        label.style.display = (settings.feature_hourly_leave === false) ? 'none' : '';
+                    }
+                    if (settings.feature_hourly_leave === false && input.checked) {
+                        const dailyInput = document.querySelector(`input[name="${input.name}"][value="Daily"]`);
+                        if (dailyInput) {
+                            dailyInput.checked = true;
+                            dailyInput.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
+                    }
+                });
+                // 3. Compensation / TOIL claim buttons toggle
+                const toilButtons = document.querySelectorAll('#quickClaimToil, button[onclick="openTOILClaimModal()"]');
+                toilButtons.forEach(btn => {
+                    btn.style.display = (settings.feature_compensation_leave === false) ? 'none' : '';
+                });
+                // 4. Handover colleague containers toggle
+                ['handoverColleague', 'pageHandoverColleague'].forEach(id => {
+                    const el = document.getElementById(id);
+                    const section = el ? el.closest('.bg-emerald-50\\/40, .p-4') : null;
+                    if (section) {
+                        section.style.display = (settings.feature_handover_tasks === false) ? 'none' : '';
+                    }
+                });
             }
 
             window.loadGovernanceSettings = loadGovernanceSettings;
@@ -8275,7 +8321,7 @@
                     for (let month = joinMonth; month <= currentMonth; month++) {
                         accruedDays += 1.75;
                     }
-                } else {
+                } else if (joinYear < currentYear) {
                     // Joined in previous year - count all months in current year up to current month
                     for (let month = 0; month <= currentMonth; month++) {
                         accruedDays += 1.75;
@@ -12976,13 +13022,26 @@
                 const joinDateField = document.getElementById('editJoinDate');
                 const form = document.getElementById('editStaffForm');
 
-                // Check if we already added the accrued display
-                if (!document.getElementById('accruedDaysDisplay')) {
-                    // Create display element
-                    const accruedDisplay = document.createElement('div');
+                // Reset stale dataset values from previous edit modal sessions
+                delete form.dataset.recalculatedAccrued;
+                delete form.dataset.preservedDeficit;
+                form.dataset.previousAccrued = currentAccrued;
+                const priorYearDeficit = staff.LeaveAccrual?.annualDeficit?.fromYear
+                    ? (staff.LeaveAccrual.annualDeficit.initialCarried !== undefined
+                        ? staff.LeaveAccrual.annualDeficit.initialCarried
+                        : (staff.LeaveAccrual.annualDeficit.amount || 0))
+                    : 0;
+                form.dataset.priorYearDeficit = priorYearDeficit;
+
+                // Create display element if missing, and always refresh content for the selected staff
+                let accruedDisplay = document.getElementById('accruedDaysDisplay');
+                if (!accruedDisplay) {
+                    accruedDisplay = document.createElement('div');
                     accruedDisplay.id = 'accruedDaysDisplay';
                     accruedDisplay.className = 'mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg';
-                    accruedDisplay.innerHTML = `
+                    joinDateField.closest('.grid').after(accruedDisplay);
+                }
+                accruedDisplay.innerHTML = `
       <div class="flex items-center justify-between">
         <div>
           <p class="text-sm font-medium text-blue-800">Current Accrued Days</p>
@@ -12994,10 +13053,6 @@
       </div>
     `;
 
-                    // Insert after join date field
-                    joinDateField.closest('.grid').after(accruedDisplay);
-                }
-
                 // Add recalculate button if not exists
                 if (!document.getElementById('recalcAccruedBtn')) {
                     const recalcBtn = document.createElement('button');
@@ -13006,8 +13061,6 @@
                     recalcBtn.className = 'mt-3 w-full px-4 py-2 bg-secondary-600 text-white rounded-lg text-sm font-medium hover:bg-secondary-700 transition-colors flex items-center justify-center';
                     recalcBtn.innerHTML = '<i class="fas fa-calculator mr-2"></i> Recalculate Accrued Days';
 
-                    // Add click handler
-                    // In your populateEditForm function, update the recalc button handler
                     recalcBtn.addEventListener('click', function () {
                         const newJoinDate = document.getElementById('editJoinDate').value;
                         if (!newJoinDate) {
@@ -13015,25 +13068,19 @@
                             return;
                         }
 
-                        // Get current values including deficit
-                        const currentDeficit = parseFloat(document.getElementById('editAnnualDeficit').value) || 0;
+                        const activeForm = document.getElementById('editStaffForm');
+                        const prevAccrued = parseFloat(activeForm.dataset.previousAccrued) || 0;
+                        const priorDeficit = parseFloat(activeForm.dataset.priorYearDeficit) || 0;
                         const currentUsed = parseFloat(document.getElementById('editAnnualUsed').value) || 0;
                         const currentBf = parseFloat(document.getElementById('editCarriedForward').value) || 0;
 
                         // Calculate new accrued based on join date
                         const recalculated = recalculateAccruedDays(newJoinDate);
 
-                        console.log('=== RECALCULATION DEBUG ===');
-                        console.log('New join date:', newJoinDate);
-                        console.log('Recalculated accrued:', recalculated);
-                        console.log('Current deficit:', currentDeficit);
-                        console.log('Current used:', currentUsed);
-                        console.log('Current BF:', currentBf);
-
-                        // Calculate new available including deficit
-                        const newAvailable = Math.max(0, recalculated - currentUsed + currentBf + currentDeficit);
-
-                        console.log('New available balance:', newAvailable);
+                        // Compute net position without double-counting in-year deficit
+                        const netPos = recalculated - currentUsed + priorDeficit;
+                        const projectedDeficit = Math.min(0, netPos);
+                        const newAvailable = Math.max(0, netPos) + currentBf;
 
                         // Update the display
                         const display = document.getElementById('accruedDaysDisplay');
@@ -13050,25 +13097,21 @@
     <div class="mt-3 grid grid-cols-2 gap-2 text-xs bg-gray-50 p-2 rounded">
       <div><span class="font-medium">Used days:</span> ${currentUsed.toFixed(2)}</div>
       <div><span class="font-medium">Brought forward:</span> ${currentBf.toFixed(2)}</div>
-      <div><span class="font-medium text-red-600">Deficit:</span> ${currentDeficit.toFixed(2)}</div>
+      <div><span class="font-medium text-red-600">Projected deficit:</span> ${projectedDeficit.toFixed(2)}</div>
       <div><span class="font-medium">New available:</span> ${newAvailable.toFixed(2)}</div>
     </div>
     <p class="text-xs text-amber-600 mt-1">
       <i class="fas fa-info-circle mr-1"></i>
-      New accrued: ${recalculated.toFixed(2)} days (was 5.25)
+      New accrued: ${recalculated.toFixed(2)} days (was ${prevAccrued.toFixed(2)})
     </p>
   `;
 
                         // Store the recalculated value for saving
-                        const form = document.getElementById('editStaffForm');
-                        form.dataset.recalculatedAccrued = recalculated;
-                        form.dataset.preservedDeficit = currentDeficit;
-
-                        // Also update the hidden deficit field if needed
-                        document.getElementById('editAnnualDeficit').value = currentDeficit;
+                        activeForm.dataset.recalculatedAccrued = recalculated;
+                        activeForm.dataset.preservedDeficit = projectedDeficit;
                     });
 
-                    document.getElementById('accruedDaysDisplay').after(recalcBtn);
+                    accruedDisplay.after(recalcBtn);
                 }
 
                 // Show/hide leave config section based on eligibility
@@ -13097,8 +13140,7 @@
                 const sickUsed = document.getElementById('editSickUsed').value || 0;
                 const annualUsed = document.getElementById('editAnnualUsed').value || 0;
                 const joinDate = document.getElementById('editJoinDate').value || 'Not set';
-                const workingHours = document.getEleme
-                ntById('editWorkingHours').value || 8;
+                const workingHours = document.getElementById('editWorkingHours').value || 8;
                 const originalEmail = document.getElementById('editOriginalEmail').value;
 
                 if (!name || !email || !role) {
@@ -17193,23 +17235,25 @@
                     const res = await callGoogleScriptFunction('apiDeleteGazettedHoliday', { id });
                     if (typeof hideLoading === 'function') hideLoading();
                     if (res && res.success) {
-                        if (typeof showToast === 'function') showToast('Gazetted holiday removed successfully', 'success');
+                        if (typeof showToast === 'function') showToast('success', 'Holiday Removed', 'Gazetted holiday removed successfully');
                         if (typeof ClientCache !== 'undefined') ClientCache.invalidate('gazetted_holidays');
                         if (typeof renderGazettedHolidaysList === 'function') renderGazettedHolidaysList();
                     } else {
-                        if (typeof showToast === 'function') showToast(res?.message || 'Failed to delete holiday', 'error');
+                        if (typeof showToast === 'function') showToast('error', 'Delete Failed', res?.error || res?.message || 'Failed to delete holiday');
                     }
                 } catch (e) {
                     if (typeof hideLoading === 'function') hideLoading();
-                    if (typeof showToast === 'function') showToast('Error deleting holiday: ' + e.message, 'error');
+                    if (typeof showToast === 'function') showToast('error', 'Error', 'Error deleting holiday: ' + e.message);
                 }
             }
 
             function handleRecalibrateHoliday(date) {
                 if (typeof openRecalibrateModal === 'function') openRecalibrateModal();
                 if (date && typeof handleScopeChange === 'function') {
+                    const singleRadio = document.querySelector('input[name="recalibrateScope"][value="single"]');
+                    if (singleRadio) singleRadio.checked = true;
                     handleScopeChange('single');
-                    const picker = document.getElementById('recalibrateSingleDatePicker');
+                    const picker = document.getElementById('recalibrateSpecificDateInput');
                     if (picker) picker.value = date;
                 }
             }
