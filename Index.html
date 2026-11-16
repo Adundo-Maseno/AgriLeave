@@ -4287,7 +4287,9 @@
                             clearTimeout(timeoutId);
                             console.log(`GAS ${functionName} success:`, result);
                             if (result && result.success === false) {
-                                reject(new Error(result.error || 'API error'));
+                                const err = new Error(result.error || 'API error');
+                                err.result = result;
+                                reject(err);
                             } else {
                                 resolve(result);
                             }
@@ -12318,7 +12320,7 @@
                     }
                 } catch (error) {
                     hideLoading();
-                    showToast('error', 'Submission Failed', 'Unable to submit leave application. Please try again.');
+                    showToast('error', 'Submission Failed', (error && error.message) || 'Unable to submit leave application. Please try again.');
                     return false;
                 }
             }
@@ -12393,7 +12395,11 @@
                     updateUI(result, duration, isHourly);
                 } catch (error) {
                     hideLoading();
-                    showToast('error', 'Balance Check Failed', 'Unable to check leave balance. Please try again.');
+                    if (error && (error.result || (error.message && !error.message.startsWith('Request timeout')))) {
+                        updateUI(error.result || { success: false, error: error.message }, duration, isHourly);
+                    } else {
+                        showToast('error', 'Balance Check Failed', 'Unable to check leave balance. Please try again.');
+                    }
                 }
             }
             // ── Modern Action Confirmation Dialog System ────────────────────────

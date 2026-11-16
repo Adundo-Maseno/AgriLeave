@@ -2527,7 +2527,7 @@ const AccrualManager = {
             currentAvailable: currentAvailable,
             currentDeficit: currentDeficit,
             projectedYearEnd: currentAvailable + futureAccrual,
-            canBorrow: futureAccrual,
+            canBorrow: Math.max(0, (monthlyRate * 6) + currentDeficit),
             nextAccrualDate: Utils.normalizeNextAccrualDate(staff.LeaveAccrual?.nextAccrualDate)
         };
     },
@@ -3202,10 +3202,14 @@ const ApplicationsManager = {
                     const maxYearBorrowable = monthsRemaining * monthlyRate;
                     const canBorrowCheck = AccrualManager.canTakeLeave(user, remainingRequired, deductions.annual || 0);
 
-                    if (canBorrowCheck.canTake && canBorrowCheck.willBorrow <= maxYearBorrowable) {
+                    if (canBorrowCheck.canTake) {
                         deductions.annual = (deductions.annual || 0) + remainingRequired;
                         const borrowDays = canBorrowCheck.willBorrow;
                         remainingRequired = 0;
+                        let warningMsg = 'Creating a deficit will reduce future monthly accruals until repaid.';
+                        if (borrowDays > maxYearBorrowable) {
+                            warningMsg += ` Because this exceeds the remaining current-year accrual (${maxYearBorrowable.toFixed(3)} days), the remaining deficit will carry over into next year.`;
+                        }
                         return Utils.createSuccessResponse({
                             hasSufficientBalance: true,
                             deductions,
@@ -3217,7 +3221,7 @@ const ApplicationsManager = {
                             },
                             willBorrow: borrowDays,
                             note: `Application eligible with borrowing of ${borrowDays.toFixed(3)} days ahead of accrual`,
-                            warning: 'Creating a deficit will reduce future monthly accruals until repaid.'
+                            warning: warningMsg
                         });
                     } else {
                         const availableTotal = availableAnnual + availableBroughtForward + availableCompensation;
@@ -3227,8 +3231,6 @@ const ApplicationsManager = {
                             `Annual: ${availableAnnual.toFixed(3)}), Required: ${duration} days.`;
                         if (!canBorrowCheck.canTake) {
                             errorMsg += ` ${canBorrowCheck.reason}`;
-                        } else if (canBorrowCheck.willBorrow > maxYearBorrowable) {
-                            errorMsg += ` Borrowing of ${canBorrowCheck.willBorrow.toFixed(3)} days exceeds current year limit of ${maxYearBorrowable.toFixed(3)} days (${monthsRemaining} months remaining in year).`;
                         }
                         return Utils.createErrorResponse(errorMsg);
                     }
