@@ -12411,7 +12411,7 @@
         <p class="text-sm font-semibold text-amber-800">Borrowing against future accruals</p>
         <p class="text-xs text-amber-700 mt-0.5">
           This request borrows <strong>${conv(data.willBorrow)} ${displayUnit}</strong> ahead of accrual.
-          A deficit will be recovered from future monthly accruals.
+          ${escapeHtml(data.warning || 'A deficit will be recovered from future monthly accruals.')}
         </p>
       </div>
     </div>`;

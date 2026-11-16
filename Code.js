@@ -1932,16 +1932,9 @@ const StaffManager = {
                     changes.push('accruedYearToDate (from recalculation)');
 
                     // Immediately recalculate available balance with new accrued
-                    const netPos = AccrualManager.calculateNetAnnualPosition(updatedStaff);
-                    if (!updatedStaff.LeaveAccrual.annualDeficit) {
-                        updatedStaff.LeaveAccrual.annualDeficit = { amount: 0, fromYear: null, recoveryHistory: [] };
-                    }
-                    updatedStaff.LeaveAccrual.annualDeficit.amount = Math.min(0, netPos);
-                    const broughtForward = updatedStaff.LeaveBroughtForward?.daysCarriedFromPreviousYear || 0;
-                    const newAvailable = Math.max(0, netPos) + broughtForward;
-
-                    if (Math.abs((updatedStaff.LeaveAccrual.availableBalance || 0) - newAvailable) > 0.01) {
-                        updatedStaff.LeaveAccrual.availableBalance = newAvailable;
+                    const prevAvail = updatedStaff.LeaveAccrual.availableBalance || 0;
+                    AccrualManager.syncAnnualPool(updatedStaff);
+                    if (Math.abs((updatedStaff.LeaveAccrual.availableBalance || 0) - prevAvail) > 0.01) {
                         changes.push('availableBalance (recalculated after accrual update)');
                     }
                 }
@@ -10427,6 +10420,8 @@ function apiGetStaffCompensation(emailOrParams) {
         const staff = StaffManager.getUserData(email);
         if (!staff) return Utils.createErrorResponse('Staff member not found');
 
+        AccrualManager.reconcileStoredCompensationDeficit(staff);
+
         const comp = staff.CompensationLeave || { balance: 0, used: 0, awards: [] };
 
         return Utils.createSuccessResponse({
@@ -10862,6 +10857,8 @@ function apiGetAccrualDetails(email = null) {
         const userEmail = email || Session.getActiveUser().getEmail();
         const user = StaffManager.getUserData(userEmail);
         if (!user) return Utils.createErrorResponse('User not found');
+
+        AccrualManager.reconcileStoredCompensationDeficit(user);
 
         const accrual = user.LeaveAccrual || {};
         const today = new Date();
@@ -11475,6 +11472,15 @@ function fixAccruedDaysForAllStaff() {
                 }
             }
 
+            let lifetimeAccrued = 0;
+            for (let year = joinYear; year <= currentYear; year++) {
+                const startMonth = (year === joinYear) ? joinMonth : 0;
+                const endMonth = (year === currentYear) ? currentMonth : 11;
+                for (let month = startMonth; month <= endMonth; month++) {
+                    lifetimeAccrued += rate;
+                }
+            }
+
             const currentAccrued = staff.LeaveAccrual.accruedYearToDate || 0;
 
             // Only update if different (allow small rounding difference)
@@ -11482,19 +11488,10 @@ function fixAccruedDaysForAllStaff() {
                 staff.LeaveAccrual.accruedYearToDate = correctAccrued;
 
                 // Recalculate net annual position and available balance cleanly (BF is a separate pool)
-                const netPos = AccrualManager.calculateNetAnnualPosition(staff);
-                if (!staff.LeaveAccrual.annualDeficit) {
-                    staff.LeaveAccrual.annualDeficit = { amount: 0, fromYear: null, recoveryHistory: [] };
-                }
-                staff.LeaveAccrual.annualDeficit.amount = Math.min(0, netPos);
-                const bfEaster = Utils.getEasterExpiryDate(staff.LeaveBroughtForward);
-                const isBfExpired = Boolean(staff.LeaveBroughtForward?.isExpired) || (new Date() > bfEaster);
-                const broughtForward = (!isBfExpired && staff.LeaveBroughtForward) ? (staff.LeaveBroughtForward.daysCarriedFromPreviousYear || 0) : 0;
+                AccrualManager.syncAnnualPool(staff);
 
-                staff.LeaveAccrual.availableBalance = Math.max(0, netPos) + broughtForward;
-
-                // Update total accrued since join (optional)
-                staff.LeaveAccrual.totalAccruedSinceJoin = correctAccrued;
+                // Update total accrued since join across all years
+                staff.LeaveAccrual.totalAccruedSinceJoin = lifetimeAccrued;
 
                 updatedCount++;
                 results.push({
