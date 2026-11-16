@@ -8564,7 +8564,7 @@
 
             function resetSystem() {
                 if (!confirm('⚠️ WARNING: This will completely reset the system and delete all data. This action cannot be undone. Are you absolutely sure?')) return;
-                if (!prompt('Type "RESET" to confirm:') === 'RESET') return;
+                if (prompt('Type "RESET" to confirm:') !== 'RESET') return;
 
                 showLoading('Resetting system...', { blocking: true });
                 callGoogleScriptFunction('resetSystem')
