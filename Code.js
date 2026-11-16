@@ -1792,6 +1792,9 @@ const StaffManager = {
                 newStaff.LeaveAccrual.availableBalance = 0;
                 newStaff.LeaveBroughtForward = null;
                 newStaff.SickLeave.used = 0;
+            } else {
+                AccrualManager.applyCompensationToDeficit(newStaff, 'Initial compensation leave applied to initial deficit');
+                AccrualManager.syncAnnualPool(newStaff);
             }
 
             const staffFile = DataManager.readDataFile(SYSTEM.DATA_FILES.STAFF);
@@ -2101,18 +2104,18 @@ const StaffManager = {
                 (updatedStaff.LeaveHistory[currentYear].broughtForwardUsed || 0);
 
             // =============================================
-            // RECALCULATE AVAILABLE BALANCE (includes prior-year deficit cleanly)
+            // RECALCULATE AVAILABLE BALANCE (covers deficit with compensation, preserves prior-year deficit cleanly)
             // =============================================
-            const netPos = AccrualManager.calculateNetAnnualPosition(updatedStaff);
-            if (!updatedStaff.LeaveAccrual.annualDeficit) {
-                updatedStaff.LeaveAccrual.annualDeficit = { amount: 0, fromYear: null, recoveryHistory: [] };
+            const compDeficitOffset = AccrualManager.applyCompensationToDeficit(
+                updatedStaff,
+                'Compensation balance applied to deficit on staff update'
+            );
+            if (compDeficitOffset.offset > 0) {
+                changes.push(`annualDeficit (covered ${compDeficitOffset.offset.toFixed(3)}d by compensation)`);
             }
-            updatedStaff.LeaveAccrual.annualDeficit.amount = Math.min(0, netPos);
-            const broughtForward = updatedStaff.LeaveBroughtForward?.daysCarriedFromPreviousYear || 0;
-            const correctAvailable = Math.max(0, netPos) + broughtForward;
-
-            if (Math.abs((updatedStaff.LeaveAccrual.availableBalance || 0) - correctAvailable) > 0.01) {
-                updatedStaff.LeaveAccrual.availableBalance = correctAvailable;
+            const oldAvailableSnapshot = updatedStaff.LeaveAccrual.availableBalance || 0;
+            AccrualManager.syncAnnualPool(updatedStaff);
+            if (Math.abs((updatedStaff.LeaveAccrual.availableBalance || 0) - oldAvailableSnapshot) > 0.01) {
                 changes.push('availableBalance');
             }
 
@@ -2541,6 +2544,134 @@ const AccrualManager = {
     },
 
     /**
+     * Automatically offset any existing annual leave deficit using available compensation days.
+     * Prior-year carried deficit (initialCarried) is paid down first, followed by current-year usedYearToDate.
+     */
+    applyCompensationToDeficit: function (staff, reason) {
+        if (!staff || !staff.EligibleForLeave || !staff.LeaveAccrual) {
+            return { offset: 0, remainingDeficit: 0, remainingCompensation: staff?.CompensationLeave?.balance || 0 };
+        }
+        if (staff.LeaveAccrual.annualDeficit?.fromYear && staff.LeaveAccrual.annualDeficit.initialCarried === undefined) {
+            staff.LeaveAccrual.annualDeficit.initialCarried = staff.LeaveAccrual.annualDeficit.amount || 0;
+        }
+
+        const netPosition = this.calculateNetAnnualPosition(staff);
+        const compAvailable = Math.max(0, staff.CompensationLeave?.balance || 0);
+        if (netPosition >= 0 || compAvailable <= 0) {
+            return {
+                offset: 0,
+                remainingDeficit: Math.min(0, netPosition),
+                remainingCompensation: compAvailable
+            };
+        }
+
+        const offset = Number(Math.min(compAvailable, Math.abs(netPosition)).toFixed(3));
+        if (offset <= 0) {
+            return {
+                offset: 0,
+                remainingDeficit: Math.min(0, netPosition),
+                remainingCompensation: compAvailable
+            };
+        }
+
+        if (!staff.CompensationLeave) staff.CompensationLeave = { balance: 0, used: 0, awards: [] };
+        staff.CompensationLeave.balance = Number(Math.max(0, compAvailable - offset).toFixed(3));
+        staff.CompensationLeave.used = Number(((staff.CompensationLeave.used || 0) + offset).toFixed(3));
+
+        const currentYear = Utils.getCurrentYear().toString();
+        if (!staff.LeaveHistory) staff.LeaveHistory = {};
+        if (!staff.LeaveHistory[currentYear]) {
+            staff.LeaveHistory[currentYear] = {
+                annualUsed: 0, sickUsed: 0, broughtForwardUsed: 0, compensationUsed: 0, totalUsed: 0
+            };
+        }
+        const yearHistory = staff.LeaveHistory[currentYear];
+        yearHistory.compensationUsed = Number(((yearHistory.compensationUsed || 0) + offset).toFixed(3));
+
+        if (!staff.LeaveAccrual.annualDeficit) {
+            staff.LeaveAccrual.annualDeficit = { amount: 0, initialCarried: 0, fromYear: null, recoveryHistory: [] };
+        }
+        if (!Array.isArray(staff.LeaveAccrual.annualDeficit.recoveryHistory)) {
+            staff.LeaveAccrual.annualDeficit.recoveryHistory = [];
+        }
+
+        let coverPrior = 0;
+        const priorYearDeficit = staff.LeaveAccrual.annualDeficit.initialCarried || 0;
+        if (priorYearDeficit < 0) {
+            coverPrior = Number(Math.min(offset, Math.abs(priorYearDeficit)).toFixed(3));
+            const nextInitial = Number((priorYearDeficit + coverPrior).toFixed(3));
+            if (Math.abs(nextInitial) < 0.001) {
+                staff.LeaveAccrual.annualDeficit.initialCarried = 0;
+                staff.LeaveAccrual.annualDeficit.fromYear = null;
+            } else {
+                staff.LeaveAccrual.annualDeficit.initialCarried = nextInitial;
+            }
+        }
+
+        const coverCurrent = Number((offset - coverPrior).toFixed(3));
+        if (coverCurrent > 0) {
+            staff.LeaveAccrual.usedYearToDate = Number(Math.max(0, (staff.LeaveAccrual.usedYearToDate || 0) - coverCurrent).toFixed(3));
+            yearHistory.annualUsed = Number(Math.max(0, (yearHistory.annualUsed || 0) - coverCurrent).toFixed(3));
+        }
+
+        yearHistory.totalUsed = Number((
+            (yearHistory.annualUsed || 0) +
+            (yearHistory.sickUsed || 0) +
+            (yearHistory.broughtForwardUsed || 0) +
+            (yearHistory.compensationUsed || 0)
+        ).toFixed(3));
+
+        const newNet = this.calculateNetAnnualPosition(staff);
+        staff.LeaveAccrual.annualDeficit.amount = Math.min(0, newNet);
+
+        staff.LeaveAccrual.annualDeficit.recoveryHistory.push({
+            date: new Date().toISOString().split('T')[0],
+            amount: offset,
+            remainingDeficit: Math.min(0, newNet),
+            source: 'CompensationLeave',
+            note: reason || `Covered ${offset.toFixed(3)} day(s) of annual deficit using compensation leave`
+        });
+
+        return {
+            offset: offset,
+            remainingDeficit: Math.min(0, newNet),
+            remainingCompensation: staff.CompensationLeave.balance
+        };
+    },
+
+    /**
+     * Reconcile a loaded staff object if it holds both compensation days and an annual deficit,
+     * and best-effort persist the reconciliation back to staff_data.json.
+     */
+    reconcileStoredCompensationDeficit: function (user) {
+        if (!user || (user.CompensationLeave?.balance || 0) <= 0 || this.calculateNetAnnualPosition(user) >= 0) {
+            return { offset: 0 };
+        }
+        const offsetRes = this.applyCompensationToDeficit(user, 'Auto-reconciled compensation leave against existing annual deficit');
+        this.syncAnnualPool(user);
+        if (offsetRes.offset > 0 && user.Email) {
+            try {
+                const staffFile = DataManager.readDataFile(SYSTEM.DATA_FILES.STAFF);
+                const idx = (staffFile?.data || []).findIndex(s =>
+                    s.Email && s.Email.toLowerCase().trim() === user.Email.toLowerCase().trim()
+                );
+                if (idx !== -1) {
+                    const stored = staffFile.data[idx];
+                    const storedOffset = this.applyCompensationToDeficit(stored, 'Auto-reconciled compensation leave against existing annual deficit');
+                    this.syncAnnualPool(stored);
+                    if (storedOffset.offset > 0) {
+                        DataManager.writeDataFile(SYSTEM.DATA_FILES.STAFF, staffFile);
+                        EnhancedCacheManager.clearBalance(user.Email);
+                    }
+                }
+            } catch (persistErr) {
+                console.warn('Non-fatal auto-reconciliation persistence skipped:', persistErr.message);
+            }
+        }
+        return offsetRes;
+    },
+
+    /**
      * Recompute availableBalance and annualDeficit from calculateNetAnnualPosition without double-counting
      * and without clearing prior-year initialCarried mid-year (which persists until processYearEnd).
      */
@@ -2548,6 +2679,9 @@ const AccrualManager = {
         if (!staff || !staff.LeaveAccrual) return staff;
         if (staff.LeaveAccrual.annualDeficit?.fromYear && staff.LeaveAccrual.annualDeficit.initialCarried === undefined) {
             staff.LeaveAccrual.annualDeficit.initialCarried = staff.LeaveAccrual.annualDeficit.amount || 0;
+        }
+        if ((staff.CompensationLeave?.balance || 0) > 0 && this.calculateNetAnnualPosition(staff) < 0) {
+            this.applyCompensationToDeficit(staff);
         }
         const netPosition = this.calculateNetAnnualPosition(staff);
         if (!staff.LeaveAccrual.annualDeficit) {
@@ -3098,6 +3232,8 @@ const ApplicationsManager = {
             if (!user) return Utils.createErrorResponse('User not found');
             if (!user.EligibleForLeave) return Utils.createErrorResponse('Staff is not eligible for leave');
 
+            AccrualManager.reconcileStoredCompensationDeficit(user);
+
             const currentYear = Utils.getCurrentYear();
             const yearHistory = user.LeaveHistory?.[currentYear.toString()] || {
                 annualUsed: 0, sickUsed: 0, broughtForwardUsed: 0, compensationUsed: 0, totalUsed: 0
@@ -3624,10 +3760,6 @@ const ApplicationsManager = {
             }
         }
 
-        if ((application.DeductFromAnnual > 0 || application.DeductFromBroughtForward > 0) && staff.LeaveAccrual) {
-            AccrualManager.syncAnnualPool(staff);
-        }
-
         if (application.DeductFromSick > 0) {
             yearHistory.sickUsed += application.DeductFromSick;
             if (staff.SickLeave) {
@@ -3635,7 +3767,7 @@ const ApplicationsManager = {
             }
         }
 
-        // Deduct from compensation leave pool
+        // Deduct from compensation leave pool before syncing annual pool
         if (application.DeductFromCompensation > 0) {
             yearHistory.compensationUsed = (yearHistory.compensationUsed || 0) + application.DeductFromCompensation;
             if (staff.CompensationLeave) {
@@ -3644,6 +3776,10 @@ const ApplicationsManager = {
                 );
                 staff.CompensationLeave.used = (staff.CompensationLeave.used || 0) + application.DeductFromCompensation;
             }
+        }
+
+        if ((application.DeductFromAnnual > 0 || application.DeductFromBroughtForward > 0 || application.DeductFromCompensation > 0) && staff.LeaveAccrual) {
+            AccrualManager.syncAnnualPool(staff);
         }
 
         yearHistory.totalUsed += application.Duration || 0;
@@ -3946,10 +4082,6 @@ const ApplicationsManager = {
                 }
             }
 
-            if ((application.DeductFromAnnual > 0 || application.DeductFromBroughtForward > 0) && staff.LeaveAccrual) {
-                AccrualManager.syncAnnualPool(staff);
-            }
-
             // Rollback sick leave
             if (application.DeductFromSick > 0) {
                 yearHistory.sickUsed = Math.max(0, (yearHistory.sickUsed || 0) - application.DeductFromSick);
@@ -3965,6 +4097,10 @@ const ApplicationsManager = {
                     staff.CompensationLeave.balance = (staff.CompensationLeave.balance || 0) + application.DeductFromCompensation;
                     staff.CompensationLeave.used = Math.max(0, (staff.CompensationLeave.used || 0) - application.DeductFromCompensation);
                 }
+            }
+
+            if ((application.DeductFromAnnual > 0 || application.DeductFromBroughtForward > 0 || application.DeductFromCompensation > 0) && staff.LeaveAccrual) {
+                AccrualManager.syncAnnualPool(staff);
             }
 
             yearHistory.totalUsed = Math.max(0, (yearHistory.totalUsed || 0) - (application.Duration || 0));
@@ -4262,6 +4398,8 @@ const DashboardManager = {
                 EnhancedCacheManager.setBalance(email, balanceData);
                 return balanceData;
             }
+
+            AccrualManager.reconcileStoredCompensationDeficit(user);
 
             const currentYear = Utils.getCurrentYear().toString();
             const yearHistory = user.LeaveHistory?.[currentYear] || {
@@ -4721,7 +4859,10 @@ const AdminManager = {
                     annualDeficit: { amount: 0 }
                 };
 
-                // ── 1. Annual leave carry-forward or deficit ───────────────────────
+                // ── 1. Net any unused compensation days against year-end annual deficit ─
+                AccrualManager.applyCompensationToDeficit(member, `Year-end (${sourceYear}) deficit offset from compensation leave`);
+
+                // ── 2. Annual leave carry-forward or deficit ───────────────────────
                 const netPosition = AccrualManager.calculateNetAnnualPosition(member);
 
                 let newBFDays = 0;
@@ -6672,6 +6813,7 @@ const CompensationManager = {
             claim.ProcessedBy = currentUser;
             claim.Comment = comment || '';
 
+            let deficitOffsetRes = { offset: 0 };
             if (isApproved) {
                 const staffFile = DataManager.readDataFile(SYSTEM.DATA_FILES.STAFF);
                 const sIdx = staffFile.data.findIndex(s => s.Email.toLowerCase() === claim.Email.toLowerCase());
@@ -6693,6 +6835,12 @@ const CompensationManager = {
                         awardedBy: currentUser
                     });
 
+                    deficitOffsetRes = AccrualManager.applyCompensationToDeficit(
+                        staff,
+                        `TOIL claim ${claim.ID} applied to annual deficit`
+                    );
+                    AccrualManager.syncAnnualPool(staff);
+
                     DataManager.writeDataFile(SYSTEM.DATA_FILES.STAFF, staffFile);
                     EnhancedCacheManager.clearBalance(claim.Email);
                     EnhancedCacheManager.buildIndexes();
@@ -6712,14 +6860,20 @@ const CompensationManager = {
                 decision,
                 processedBy: currentUser,
                 applicant: claim.Email,
-                daysEarned: claim.DaysEarned
+                daysEarned: claim.DaysEarned,
+                deficitOffset: deficitOffsetRes.offset || 0
             });
+
+            const offsetNote = (deficitOffsetRes.offset || 0) > 0
+                ? ` (${deficitOffsetRes.offset.toFixed(3)} day(s) applied to cover existing annual deficit)`
+                : '';
 
             return Utils.createSuccessResponse({
                 claimId,
                 status: claim.Status,
-                daysEarned: claim.DaysEarned
-            }, `Claim ${decision}d successfully`);
+                daysEarned: claim.DaysEarned,
+                deficitOffset: deficitOffsetRes.offset || 0
+            }, `Claim ${decision}d successfully${offsetNote}`);
 
         } catch (error) {
             console.error('Error processing compensation claim:', error);
@@ -10219,6 +10373,12 @@ function apiAwardCompensationLeave(params) {
             revoked: false
         });
 
+        const offsetRes = AccrualManager.applyCompensationToDeficit(
+            member,
+            `Compensation award (${awardDays}d) applied to existing annual deficit`
+        );
+        AccrualManager.syncAnnualPool(member);
+
         if (!member.Metadata) member.Metadata = {};
         member.Metadata.lastUpdated = new Date().toISOString();
         member.Metadata.updatedBy = currentUser;
@@ -10226,16 +10386,21 @@ function apiAwardCompensationLeave(params) {
         DataManager.writeDataFile(SYSTEM.DATA_FILES.STAFF, staffFile);
         EnhancedCacheManager.clearBalance(email);
 
-        Utils.logAction('AWARD_COMPENSATION_LEAVE', { 
-            email, days: awardDays, reason, date: awardDate, awardedBy: currentUser 
+        Utils.logAction('AWARD_COMPENSATION_LEAVE', {
+            email, days: awardDays, reason, date: awardDate, awardedBy: currentUser, deficitOffset: offsetRes.offset || 0
         });
 
+        const offsetNote = (offsetRes.offset || 0) > 0
+            ? ` (${offsetRes.offset.toFixed(3)} day(s) applied to cover existing annual deficit)`
+            : '';
+
         return Utils.createSuccessResponse({
-            email, 
+            email,
             daysAwarded: awardDays,
+            deficitOffset: offsetRes.offset || 0,
             newBalance: member.CompensationLeave.balance,
             awards: member.CompensationLeave.awards
-        }, `${awardDays} compensation day(s) awarded to ${member.Name}`);
+        }, `${awardDays} compensation day(s) awarded to ${member.Name}${offsetNote}`);
 
     } catch (error) {
         return Utils.createErrorResponse('Failed to award compensation leave: ' + error.message);
@@ -10324,6 +10489,12 @@ function apiAdjustCompensationLeave(params) {
             revoked: false
         });
 
+        const offsetRes = AccrualManager.applyCompensationToDeficit(
+            member,
+            `Adjusted compensation balance applied to existing annual deficit`
+        );
+        AccrualManager.syncAnnualPool(member);
+
         if (!member.Metadata) member.Metadata = {};
         member.Metadata.lastUpdated = new Date().toISOString();
         member.Metadata.updatedBy = currentUser;
@@ -10332,13 +10503,18 @@ function apiAdjustCompensationLeave(params) {
         EnhancedCacheManager.clearBalance(email);
 
         Utils.logAction('ADJUST_COMPENSATION_LEAVE', {
-            email, prevBalance, newBalance: targetBalance, delta, reason, adjustedBy: currentUser
+            email, prevBalance, newBalance: member.CompensationLeave.balance, delta, reason, adjustedBy: currentUser, deficitOffset: offsetRes.offset || 0
         });
 
+        const offsetNote = (offsetRes.offset || 0) > 0
+            ? ` (${offsetRes.offset.toFixed(3)} day(s) applied to cover existing annual deficit)`
+            : '';
+
         return Utils.createSuccessResponse({
-            email, prevBalance, previousBalance: prevBalance, newBalance: targetBalance, delta,
+            email, prevBalance, previousBalance: prevBalance, newBalance: member.CompensationLeave.balance, delta,
+            deficitOffset: offsetRes.offset || 0,
             awards: member.CompensationLeave.awards
-        }, `Compensation balance for ${member.Name} adjusted from ${prevBalance.toFixed(3)} to ${targetBalance.toFixed(3)} days`);
+        }, `Compensation balance for ${member.Name} adjusted from ${prevBalance.toFixed(3)} to ${targetBalance.toFixed(3)} days${offsetNote}`);
 
     } catch (error) {
         return Utils.createErrorResponse('Failed to adjust compensation leave: ' + error.message);
@@ -11411,7 +11587,18 @@ function fixStaffLeaveData(email) {
             }
         }
 
-        // 5. Recalculate available balance and annual deficit cleanly
+        // 5. Net any unused compensation days against annual deficit, then recalculate balances cleanly
+        const compDeficitOffset = AccrualManager.applyCompensationToDeficit(
+            staff,
+            'Ledger repair: compensation applied to deficit'
+        );
+        if (compDeficitOffset.offset > 0) {
+            changes.push({
+                field: 'CompensationLeave.deficitOffset',
+                old: 0,
+                new: compDeficitOffset.offset
+            });
+        }
         const netPos = AccrualManager.calculateNetAnnualPosition(staff);
         if (!staff.LeaveAccrual.annualDeficit) {
             staff.LeaveAccrual.annualDeficit = { amount: 0, fromYear: null, recoveryHistory: [] };
