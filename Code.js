@@ -2344,45 +2344,47 @@ const AccrualManager = {
                 // Check if we need to accrue for the current month
                 if (currentDate >= nextAccrualDate) {
                     const monthlyRate = staff.LeaveAccrual.monthlyRate || 1.75;
-                    let newAccrued = monthlyRate;
+                    const netBefore = AccrualManager.calculateNetAnnualPosition(staff);
 
-                    // Handle deficit recovery
-                    const deficitBefore = staff.LeaveAccrual.annualDeficit?.amount || 0;
+                    // Increment gross accrual for the month
+                    staff.LeaveAccrual.accruedYearToDate += monthlyRate;
+                    staff.LeaveAccrual.totalAccruedSinceJoin = (staff.LeaveAccrual.totalAccruedSinceJoin || 0) + monthlyRate;
+
+                    const netAfter = AccrualManager.calculateNetAnnualPosition(staff);
                     let deficitRecovery = 0;
 
-                    if (deficitBefore < 0) {
-                        deficitRecovery = Math.min(Math.abs(deficitBefore), monthlyRate);
-                        staff.LeaveAccrual.annualDeficit.amount += deficitRecovery;
-                        newAccrued -= deficitRecovery;
-
+                    // Handle deficit recovery if employee was in negative position
+                    if (netBefore < 0) {
+                        deficitRecovery = Math.min(Math.abs(netBefore), monthlyRate);
+                        if (!staff.LeaveAccrual.annualDeficit) {
+                            staff.LeaveAccrual.annualDeficit = { amount: 0, fromYear: null, recoveryHistory: [] };
+                        }
                         if (!staff.LeaveAccrual.annualDeficit.recoveryHistory) {
                             staff.LeaveAccrual.annualDeficit.recoveryHistory = [];
                         }
                         staff.LeaveAccrual.annualDeficit.recoveryHistory.push({
                             date: currentDate.toISOString().split('T')[0],
                             amount: deficitRecovery,
-                            remainingDeficit: staff.LeaveAccrual.annualDeficit.amount,
+                            remainingDeficit: Math.min(0, netAfter),
                             note: `Monthly accrual applied to deficit`
                         });
 
                         deficitRecovered += deficitRecovery;
-                        deficitRemaining += staff.LeaveAccrual.annualDeficit.amount;
+                        deficitRemaining += Math.abs(Math.min(0, netAfter));
                     }
 
-                    // Always increment accruedYearToDate by the full monthly rate.
-                    // Deficit recovery reduces the NET available balance via annualDeficit.amount,
-                    // but the gross accrual still happened — the YTD stat must reflect it.
-                    staff.LeaveAccrual.accruedYearToDate += monthlyRate;
-                    staff.LeaveAccrual.totalAccruedSinceJoin = (staff.LeaveAccrual.totalAccruedSinceJoin || 0) + monthlyRate;
+                    if (!staff.LeaveAccrual.annualDeficit) {
+                        staff.LeaveAccrual.annualDeficit = { amount: 0, fromYear: null, recoveryHistory: [] };
+                    }
+                    staff.LeaveAccrual.annualDeficit.amount = Math.min(0, netAfter);
+                    if (netAfter >= 0 && staff.LeaveAccrual.annualDeficit.fromYear) {
+                        staff.LeaveAccrual.annualDeficit.fromYear = null;
+                        staff.LeaveAccrual.annualDeficit.initialCarried = 0;
+                    }
 
                     // Calculate available balance — annual pool plus any remaining brought-forward days
-                    const deficitAmount = staff.LeaveAccrual.annualDeficit?.amount || 0;
-                    const usedYearToDate = staff.LeaveAccrual.usedYearToDate || 0;
-                    const accruedYearToDate = staff.LeaveAccrual.accruedYearToDate || 0;
                     const broughtForwardRemaining = staff.LeaveBroughtForward?.daysCarriedFromPreviousYear || 0;
-
-                    let availableBalance = accruedYearToDate - usedYearToDate + deficitAmount + broughtForwardRemaining;
-                    staff.LeaveAccrual.availableBalance = Math.max(0, availableBalance);
+                    staff.LeaveAccrual.availableBalance = Math.max(0, netAfter) + broughtForwardRemaining;
 
                     // CRITICAL FIX: Set next accrual date to the FIRST of NEXT month
                     // This ensures we accrue for each month as we enter it
@@ -2396,8 +2398,8 @@ const AccrualManager = {
                         amount: monthlyRate,
                         deficitRecovered: deficitRecovery,
                         availableAfter: staff.LeaveAccrual.availableBalance,
-                        deficitBefore: deficitBefore,
-                        deficitAfter: staff.LeaveAccrual.annualDeficit?.amount || 0
+                        deficitBefore: Math.min(0, netBefore),
+                        deficitAfter: staff.LeaveAccrual.annualDeficit.amount
                     };
 
                     accrualLog.push({
@@ -2448,22 +2450,29 @@ const AccrualManager = {
     },
     calculateAvailableBalance: function (staff) {
         if (!staff.EligibleForLeave || !staff.LeaveAccrual?.eligible) return 0;
+        const netPosition = this.calculateNetAnnualPosition(staff);
+        return Math.max(0, netPosition);
+    },
+
+    calculateNetAnnualPosition: function (staff) {
+        if (!staff.LeaveAccrual) return 0;
         const accrual = staff.LeaveAccrual;
         const accrued = accrual.accruedYearToDate || 0;
         const used = accrual.usedYearToDate || 0;
-        const deficit = accrual.annualDeficit?.amount || 0;
-        // Annual pool only. Brought-forward days are a separate expiring pool;
-        // callers that need the total combine this with availableBroughtForward explicitly.
-        const available = accrued - used + deficit;
-        return Math.max(0, available);
+        // Prior-year deficit carried over if any
+        const priorYearDeficit = accrual.annualDeficit?.initialCarried !== undefined
+            ? accrual.annualDeficit.initialCarried
+            : (accrual.annualDeficit?.fromYear ? (accrual.annualDeficit.amount || 0) : 0);
+        return accrued - used + priorYearDeficit;
     },
 
-    canTakeLeave: function (staff, daysRequested) {
+    canTakeLeave: function (staff, daysRequested, alreadyDeductedAnnual = 0) {
         if (!staff.EligibleForLeave || !staff.LeaveAccrual?.eligible) {
             return { canTake: false, reason: 'Staff is not eligible for leave' };
         }
 
-        const availableBalance = this.calculateAvailableBalance(staff);
+        const currentNet = this.calculateNetAnnualPosition(staff);
+        const availableBalance = Math.max(0, currentNet - alreadyDeductedAnnual);
 
         if (availableBalance >= daysRequested) {
             return {
@@ -2471,21 +2480,20 @@ const AccrualManager = {
                 available: availableBalance,
                 willBorrow: 0,
                 remaining: availableBalance - daysRequested,
-                deficitAfter: staff.LeaveAccrual?.annualDeficit?.amount || 0
+                deficitAfter: Math.min(0, currentNet - alreadyDeductedAnnual - daysRequested)
             };
         } else {
             const borrowAmount = daysRequested - availableBalance;
-            const currentDeficit = staff.LeaveAccrual?.annualDeficit?.amount || 0;
-            const newDeficit = currentDeficit - borrowAmount;
+            const projectedNet = currentNet - alreadyDeductedAnnual - daysRequested;
             const monthlyRate = staff.LeaveAccrual?.monthlyRate || 1.75;
             const maxReasonableBorrow = monthlyRate * 6;
 
-            if (Math.abs(newDeficit) > maxReasonableBorrow) {
+            if (Math.abs(projectedNet) > maxReasonableBorrow) {
                 return {
                     canTake: false,
                     available: availableBalance,
                     willBorrow: borrowAmount,
-                    reason: `Cannot borrow more than ${maxReasonableBorrow.toFixed(3)} days ahead (6 months)`
+                    reason: `Cannot borrow more than ${maxReasonableBorrow.toFixed(3)} days ahead (6 months). Current net position: ${currentNet.toFixed(3)} days.`
                 };
             }
 
@@ -2494,8 +2502,9 @@ const AccrualManager = {
                 available: availableBalance,
                 willBorrow: borrowAmount,
                 remaining: 0,
-                newDeficit: newDeficit,
-                monthsToRepay: Math.ceil(Math.abs(newDeficit) / monthlyRate),
+                newDeficit: projectedNet,
+                deficitAfter: projectedNet,
+                monthsToRepay: Math.ceil(Math.abs(projectedNet) / monthlyRate),
                 note: `${borrowAmount.toFixed(3)} days would be borrowed ahead, creating a deficit`
             };
         }
@@ -2510,7 +2519,8 @@ const AccrualManager = {
         const monthlyRate = staff.LeaveAccrual?.monthlyRate || 1.75;
         const futureAccrual = monthsRemaining * monthlyRate;
         const currentAvailable = this.calculateAvailableBalance(staff);
-        const currentDeficit = staff.LeaveAccrual?.annualDeficit?.amount || 0;
+        const netPosition = this.calculateNetAnnualPosition(staff);
+        const currentDeficit = Math.min(0, netPosition);
 
         return {
             currentMonth: currentMonth + 1,
@@ -2529,18 +2539,16 @@ const AccrualManager = {
         if (!staff.LeaveAccrual) return staff;
         const oldUsed = staff.LeaveAccrual.usedYearToDate || 0;
         staff.LeaveAccrual.usedYearToDate = oldUsed + daysTaken;
-        // Compute raw (pre-floor) annual balance to detect a true deficit
-        const accrued = staff.LeaveAccrual.accruedYearToDate || 0;
-        const used = staff.LeaveAccrual.usedYearToDate;
-        const deficit = staff.LeaveAccrual.annualDeficit?.amount || 0;
-        const rawBalance = accrued - used + deficit;
-        staff.LeaveAccrual.availableBalance = Math.max(0, rawBalance);
-        if (rawBalance < 0) {
-            if (!staff.LeaveAccrual.annualDeficit) {
-                staff.LeaveAccrual.annualDeficit = { amount: 0, fromYear: null, recoveryHistory: [] };
-            }
-            // rawBalance is negative — record as the deficit amount directly
-            staff.LeaveAccrual.annualDeficit.amount = rawBalance;
+        
+        const netPosition = this.calculateNetAnnualPosition(staff);
+        staff.LeaveAccrual.availableBalance = Math.max(0, netPosition);
+        if (!staff.LeaveAccrual.annualDeficit) {
+            staff.LeaveAccrual.annualDeficit = { amount: 0, fromYear: null, recoveryHistory: [] };
+        }
+        staff.LeaveAccrual.annualDeficit.amount = Math.min(0, netPosition);
+        if (netPosition >= 0 && staff.LeaveAccrual.annualDeficit.fromYear) {
+            staff.LeaveAccrual.annualDeficit.fromYear = null;
+            staff.LeaveAccrual.annualDeficit.initialCarried = 0;
         }
         return staff;
     }
@@ -2849,7 +2857,7 @@ const ApplicationsManager = {
 
             // Deficit check: total annual pool after this leave (BF deductions don't create a deficit
             // in the annual accrual — they draw from a separate expiring pool).
-            const availableAfter = AccrualManager.calculateAvailableBalance(user) - (deductions.annual || 0);
+            const availableAfter = AccrualManager.calculateNetAnnualPosition(user) - (deductions.annual || 0);
             const willHaveDeficit = availableAfter < 0;
 
             const holidaysExcluded = (applicationData.leaveMode !== 'Hourly' && startDate && endDate)
@@ -3058,33 +3066,38 @@ const ApplicationsManager = {
                 if (remainingRequired > 0) {
                     const monthsRemaining = 12 - today.getMonth() - 1;
                     const monthlyRate = user.LeaveAccrual?.monthlyRate || 1.75;
-                    const maxBorrowable = monthsRemaining * monthlyRate;
-                    const canBorrowCheck = AccrualManager.canTakeLeave(user, remainingRequired);
+                    const maxYearBorrowable = monthsRemaining * monthlyRate;
+                    const canBorrowCheck = AccrualManager.canTakeLeave(user, remainingRequired, deductions.annual || 0);
 
-                    if (canBorrowCheck.canTake && remainingRequired <= maxBorrowable) {
+                    if (canBorrowCheck.canTake && canBorrowCheck.willBorrow <= maxYearBorrowable) {
                         deductions.annual = (deductions.annual || 0) + remainingRequired;
+                        const borrowDays = canBorrowCheck.willBorrow;
                         remainingRequired = 0;
                         return Utils.createSuccessResponse({
                             hasSufficientBalance: true,
                             deductions,
                             remainingBalances: {
-                                annual: Math.max(0, availableAnnual - deductions.annual),
+                                annual: 0,
                                 broughtForward: Math.max(0, availableBroughtForward - deductions.broughtForward),
                                 compensation: Math.max(0, availableCompensation - deductions.compensation),
                                 sick: ConfigManager.getSickLeaveAllocation() - (user.SickLeave?.used || 0)
                             },
-                            willBorrow: canBorrowCheck.willBorrow,
-                            note: `Application approved with borrowing of ${canBorrowCheck.willBorrow.toFixed(3)} days ahead`,
-                            warning: 'Creating a deficit will reduce future accruals until repaid.'
+                            willBorrow: borrowDays,
+                            note: `Application eligible with borrowing of ${borrowDays.toFixed(3)} days ahead of accrual`,
+                            warning: 'Creating a deficit will reduce future monthly accruals until repaid.'
                         });
                     } else {
                         const availableTotal = availableAnnual + availableBroughtForward + availableCompensation;
-                        return Utils.createErrorResponse(
-                            `Insufficient leave balance. Available: ${availableTotal.toFixed(3)} days (` +
+                        let errorMsg = `Insufficient leave balance. Available: ${availableTotal.toFixed(3)} days (` +
                             `Compensation: ${availableCompensation.toFixed(3)}, ` +
                             `Brought Forward: ${availableBroughtForward.toFixed(3)}, ` +
-                            `Annual: ${availableAnnual.toFixed(3)}), Required: ${duration} days.`
-                        );
+                            `Annual: ${availableAnnual.toFixed(3)}), Required: ${duration} days.`;
+                        if (!canBorrowCheck.canTake) {
+                            errorMsg += ` ${canBorrowCheck.reason}`;
+                        } else if (canBorrowCheck.willBorrow > maxYearBorrowable) {
+                            errorMsg += ` Borrowing of ${canBorrowCheck.willBorrow.toFixed(3)} days exceeds current year limit of ${maxYearBorrowable.toFixed(3)} days (${monthsRemaining} months remaining in year).`;
+                        }
+                        return Utils.createErrorResponse(errorMsg);
                     }
                 }
             }
@@ -3460,17 +3473,15 @@ const ApplicationsManager = {
             yearHistory.annualUsed += application.DeductFromAnnual;
             if (staff.LeaveAccrual) {
                 staff.LeaveAccrual.usedYearToDate += application.DeductFromAnnual;
-                // Compute raw (pre-floor) annual balance so deficit can be detected and recorded
-                const accrued = staff.LeaveAccrual.accruedYearToDate || 0;
-                const used = staff.LeaveAccrual.usedYearToDate;
-                const existingDeficit = staff.LeaveAccrual.annualDeficit?.amount || 0;
-                const rawAnnualBalance = accrued - used + existingDeficit;
-                staff.LeaveAccrual.availableBalance = Math.max(0, rawAnnualBalance);
-                if (rawAnnualBalance < 0) {
-                    if (!staff.LeaveAccrual.annualDeficit) {
-                        staff.LeaveAccrual.annualDeficit = { amount: 0, fromYear: null, recoveryHistory: [] };
-                    }
-                    staff.LeaveAccrual.annualDeficit.amount = rawAnnualBalance;
+                const netPosition = AccrualManager.calculateNetAnnualPosition(staff);
+                staff.LeaveAccrual.availableBalance = Math.max(0, netPosition);
+                if (!staff.LeaveAccrual.annualDeficit) {
+                    staff.LeaveAccrual.annualDeficit = { amount: 0, fromYear: null, recoveryHistory: [] };
+                }
+                staff.LeaveAccrual.annualDeficit.amount = Math.min(0, netPosition);
+                if (netPosition >= 0 && staff.LeaveAccrual.annualDeficit.fromYear) {
+                    staff.LeaveAccrual.annualDeficit.fromYear = null;
+                    staff.LeaveAccrual.annualDeficit.initialCarried = 0;
                 }
             }
         }
@@ -3787,13 +3798,15 @@ const ApplicationsManager = {
                 yearHistory.annualUsed = Math.max(0, (yearHistory.annualUsed || 0) - application.DeductFromAnnual);
                 if (staff.LeaveAccrual) {
                     staff.LeaveAccrual.usedYearToDate = Math.max(0, (staff.LeaveAccrual.usedYearToDate || 0) - application.DeductFromAnnual);
-                    const accrued = staff.LeaveAccrual.accruedYearToDate || 0;
-                    const used = staff.LeaveAccrual.usedYearToDate;
-                    const deficit = staff.LeaveAccrual.annualDeficit?.amount || 0;
-                    staff.LeaveAccrual.availableBalance = Math.max(0, accrued - used + deficit);
-                    if (deficit < 0 && staff.LeaveAccrual.annualDeficit) {
-                        const rawAnnualBalance = accrued - used;
-                        staff.LeaveAccrual.annualDeficit.amount = Math.min(0, rawAnnualBalance);
+                    const netPosition = AccrualManager.calculateNetAnnualPosition(staff);
+                    staff.LeaveAccrual.availableBalance = Math.max(0, netPosition);
+                    if (!staff.LeaveAccrual.annualDeficit) {
+                        staff.LeaveAccrual.annualDeficit = { amount: 0, fromYear: null, recoveryHistory: [] };
+                    }
+                    staff.LeaveAccrual.annualDeficit.amount = Math.min(0, netPosition);
+                    if (netPosition >= 0 && staff.LeaveAccrual.annualDeficit.fromYear) {
+                        staff.LeaveAccrual.annualDeficit.fromYear = null;
+                        staff.LeaveAccrual.annualDeficit.initialCarried = 0;
                     }
                 }
             }
@@ -3985,13 +3998,15 @@ const ApplicationsManager = {
                 } else {
                     if (applicantUser.LeaveAccrual) {
                         applicantUser.LeaveAccrual.usedYearToDate = Math.max(0, (applicantUser.LeaveAccrual.usedYearToDate || 0) - refundDays);
-                        const accrued = applicantUser.LeaveAccrual.accruedYearToDate || 0;
-                        const used = applicantUser.LeaveAccrual.usedYearToDate;
-                        const deficit = applicantUser.LeaveAccrual.annualDeficit?.amount || 0;
-                        applicantUser.LeaveAccrual.availableBalance = Math.max(0, accrued - used + deficit);
-                        if (deficit < 0 && applicantUser.LeaveAccrual.annualDeficit) {
-                            const rawAnnualBalance = accrued - used;
-                            applicantUser.LeaveAccrual.annualDeficit.amount = Math.min(0, rawAnnualBalance);
+                        const netPosition = AccrualManager.calculateNetAnnualPosition(applicantUser);
+                        applicantUser.LeaveAccrual.availableBalance = Math.max(0, netPosition);
+                        if (!applicantUser.LeaveAccrual.annualDeficit) {
+                            applicantUser.LeaveAccrual.annualDeficit = { amount: 0, fromYear: null, recoveryHistory: [] };
+                        }
+                        applicantUser.LeaveAccrual.annualDeficit.amount = Math.min(0, netPosition);
+                        if (netPosition >= 0 && applicantUser.LeaveAccrual.annualDeficit.fromYear) {
+                            applicantUser.LeaveAccrual.annualDeficit.fromYear = null;
+                            applicantUser.LeaveAccrual.annualDeficit.initialCarried = 0;
                         }
                     }
                     app.DeductFromAnnual = Math.max(0, (app.DeductFromAnnual || 0) - refundDays);
@@ -4597,10 +4612,7 @@ const AdminManager = {
                 };
 
                 // ── 1. Annual leave carry-forward or deficit ───────────────────────
-                const accrued = accrual.accruedYearToDate || 0;
-                const used = accrual.usedYearToDate || 0;
-                const existingDeficit = accrual.annualDeficit?.amount || 0;
-                const netPosition = accrued - used + existingDeficit;
+                const netPosition = AccrualManager.calculateNetAnnualPosition(member);
 
                 let newBFDays = 0;
 
@@ -4614,7 +4626,7 @@ const AdminManager = {
                         isExpired: false,
                         note: `${newBFDays} days unused ${sourceYear} annual leave — expires Easter ${targetYear} (${Utils.formatLocalDate(expiryDate)})`
                     };
-                    member.LeaveAccrual.annualDeficit = { amount: 0, fromYear: null, recoveryHistory: [] };
+                    member.LeaveAccrual.annualDeficit = { amount: 0, initialCarried: 0, fromYear: null, recoveryHistory: [] };
 
                     carryForwardLog.push({
                         email: member.Email,
@@ -4628,6 +4640,7 @@ const AdminManager = {
                 } else if (netPosition < 0) {
                     member.LeaveAccrual.annualDeficit = {
                         amount: netPosition,
+                        initialCarried: netPosition,
                         fromYear: sourceYear,
                         recoveryHistory: [],
                         note: `Deficit from ${sourceYear} — recovered from ${targetYear} monthly accruals`
@@ -4639,7 +4652,7 @@ const AdminManager = {
 
                 } else {
                     member.LeaveBroughtForward = null;
-                    member.LeaveAccrual.annualDeficit = { amount: 0, fromYear: null, recoveryHistory: [] };
+                    member.LeaveAccrual.annualDeficit = { amount: 0, initialCarried: 0, fromYear: null, recoveryHistory: [] };
                 }
 
                 // ── 2. Compensation leave — accumulates, never reset ──────────────
@@ -5047,6 +5060,14 @@ const EmailService = {
                     <div class="value" style="font-weight: 500; font-size: 13.5px; margin-top: 4px;">${data.reason}</div>
                   </div>` : ''}
 
+                  ${data.willCreateDeficit ? `
+                  <div style="background-color: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; padding: 12px 14px; margin-top: 16px; text-align: left;">
+                    <div style="color: #92400e; font-weight: 700; font-size: 13px;">⚠️ DEFICIT BORROWING ADVISORY</div>
+                    <div style="color: #b45309; font-size: 12.5px; margin-top: 4px;">
+                      This application exceeds the applicant's accrued balance and will borrow <strong>${Number(data.deficitAmount || 0).toFixed(3)} day(s)</strong> ahead of monthly accruals. If approved, a deficit will be recorded on their ledger and recovered from future monthly credits (1.75 days/month).
+                    </div>
+                  </div>` : ''}
+
                   <div style="text-align: center; color: #64748b; font-size: 12.5px; margin-top: 16px;">
                     Kindly review and take action within 48 hours to ensure seamless team continuity.
                   </div>
@@ -5115,6 +5136,14 @@ const EmailService = {
                       </td>
                     </tr>
                   </table>
+
+                  ${data.willCreateDeficit ? `
+                  <div style="background-color: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; padding: 12px 14px; margin-top: 16px; text-align: left;">
+                    <div style="color: #92400e; font-weight: 700; font-size: 13px;">⚠️ DEFICIT RECOVERY NOTICE</div>
+                    <div style="color: #b45309; font-size: 12.5px; margin-top: 4px;">
+                      This approved leave borrowed <strong>${Number(data.deficitAmount || 0).toFixed(3)} day(s)</strong> ahead of your accrued leave balance. A deficit has been registered on your leave ledger and will be automatically paid down from your upcoming monthly accruals (1.75 days/month) until fully recovered.
+                    </div>
+                  </div>` : ''}
                 `
             })
         },
@@ -5250,6 +5279,9 @@ const NotificationManager = {
             const supervisor = StaffManager.getUserData(application.SupervisorEmail);
             if (!supervisor) return false;
 
+            const willCreateDeficit = application.Metadata?.willCreateDeficit || false;
+            const deficitAmount = application.Metadata?.deficitAmount || 0;
+
             const data = {
                 supervisorName: supervisor.Name,
                 staffName: application.Name,
@@ -5258,7 +5290,9 @@ const NotificationManager = {
                 endDate: Utils.formatDateForDisplay(application.EndDate),
                 duration: application.Duration,
                 reason: application.Reason || 'No reason provided',
-                department: application.Department
+                department: application.Department,
+                willCreateDeficit: willCreateDeficit,
+                deficitAmount: deficitAmount
             };
 
             EmailService.sendEmail('applicationSubmitted', application.SupervisorEmail, supervisor.Name, data);
@@ -5284,6 +5318,9 @@ const NotificationManager = {
                 console.log('Applicant status alerts disabled by governance');
                 return true;
             }
+            const willCreateDeficit = application.Metadata?.willCreateDeficit || false;
+            const deficitAmount = application.Metadata?.deficitAmount || 0;
+
             return EmailService.sendEmail('applicationApproved',
                 application.Email,
                 application.Name,
@@ -5299,7 +5336,9 @@ const NotificationManager = {
                     deductAnnual: application.DeductFromAnnual || 0,
                     deductBroughtForward: application.DeductFromBroughtForward || 0,
                     deductCompensation: application.DeductFromCompensation || 0,
-                    deductSick: application.DeductFromSick || 0
+                    deductSick: application.DeductFromSick || 0,
+                    willCreateDeficit: willCreateDeficit,
+                    deficitAmount: deficitAmount
                 }
             );
         } catch (error) {
