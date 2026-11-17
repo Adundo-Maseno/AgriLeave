@@ -5098,7 +5098,7 @@
             </div>
             <div class="flex justify-between items-center text-[11px] text-slate-500 mt-1.5">
               <span class="tabular-nums font-medium">${balance?.sick?.percentage || 0}% used</span>
-              <span class="text-blue-700 font-semibold bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100/80">${balance?.sick?.balance ? balance.sick.balance.toFixed(3) + ' left' : '7.0 left'}</span>
+              <span class="text-blue-700 font-semibold bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100/80">${balance?.sick?.balance !== undefined && balance?.sick?.balance !== null ? balance.sick.balance.toFixed(3) + ' left' : '7.0 left'}</span>
             </div>
           </div>
         </div>
@@ -16557,12 +16557,31 @@
                 }
             }
 
+            function restoreBlackoutDisabledSubmitBtn(submitBtn, submitBtnId) {
+                if (!submitBtn) return;
+                const wasBlackoutDisabled = submitBtn.dataset
+                    ? submitBtn.dataset.blackoutDisabled === 'true'
+                    : Boolean(submitBtn._blackoutDisabled);
+                if (!wasBlackoutDisabled) return;
+
+                if (submitBtn.dataset) {
+                    delete submitBtn.dataset.blackoutDisabled;
+                } else {
+                    delete submitBtn._blackoutDisabled;
+                }
+                const reasonId = submitBtnId === 'pageSubmitLeaveApplication' ? 'pageReason' : 'reason';
+                const reasonEl = document.getElementById(reasonId);
+                submitBtn.disabled = reasonEl ? (reasonEl.value || '').length < 10 : false;
+            }
+
             async function checkBlackoutNotice(startDate, endDate, containerId, submitBtnId) {
                 const container = document.getElementById(containerId);
                 if (!container) return;
+                const submitBtn = submitBtnId ? document.getElementById(submitBtnId) : null;
                 if (!startDate || !endDate) {
                     container.classList.add('hidden');
                     container.innerHTML = '';
+                    restoreBlackoutDisabledSubmitBtn(submitBtn, submitBtnId);
                     return;
                 }
                 try {
@@ -16574,16 +16593,20 @@
                         }
                     }
                     const periods = window.AppState?.blackoutPeriods || [];
-                    const userDept = AppState.currentUser?.Department || 'All';
+                    const userDept = (AppState.currentUser?.Department || 'All').toLowerCase().trim();
                     const start = parseLocalDate(startDate);
                     const end = parseLocalDate(endDate);
-                    if (!start || !end) return;
+                    if (!start || !end) {
+                        restoreBlackoutDisabledSubmitBtn(submitBtn, submitBtnId);
+                        return;
+                    }
 
                     let strictConflict = null;
                     let warningConflict = null;
 
                     for (const p of periods) {
-                        if (p.department && p.department !== 'All' && p.department !== userDept) continue;
+                        const pDept = (p.department || '').toLowerCase().trim();
+                        if (pDept && pDept !== 'all' && pDept !== userDept) continue;
                         const pStart = parseLocalDate(p.startDate);
                         const pEnd = parseLocalDate(p.endDate);
                         if (start <= pEnd && end >= pStart) {
@@ -16596,22 +16619,29 @@
                         }
                     }
 
-                    const submitBtn = submitBtnId ? document.getElementById(submitBtnId) : null;
-
                     if (strictConflict) {
-                        const isAdmin = AppState.userRole === 'admin';
+                        const isPrivileged = AppState.userRole === 'admin' || AppState.userRole === 'hr';
                         container.innerHTML = `
                         <div class="flex items-start space-x-2">
                             <i class="fas fa-ban text-rose-600 mt-0.5 flex-none"></i>
                             <div>
                                 <span class="font-bold text-rose-900">Blackout Period (${escapeHtml(strictConflict.name)}):</span>
-                                <span class="text-rose-800"> Leave is locked from ${strictConflict.startDate} to ${strictConflict.endDate}. Reason: "${escapeHtml(strictConflict.reason || 'Operational peak')}". ${isAdmin ? '<em>(Admin override enabled)</em>' : 'Applications cannot be submitted.'}</span>
+                                <span class="text-rose-800"> Leave is locked from ${strictConflict.startDate} to ${strictConflict.endDate}. Reason: "${escapeHtml(strictConflict.reason || 'Operational peak')}". ${isPrivileged ? '<em>(Admin/HR override enabled)</em>' : 'Applications cannot be submitted.'}</span>
                             </div>
                         </div>
                     `;
                         container.classList.remove('hidden');
-                        if (submitBtn && !isAdmin) {
-                            submitBtn.disabled = true;
+                        if (submitBtn) {
+                            if (!isPrivileged) {
+                                submitBtn.disabled = true;
+                                if (submitBtn.dataset) {
+                                    submitBtn.dataset.blackoutDisabled = 'true';
+                                } else {
+                                    submitBtn._blackoutDisabled = true;
+                                }
+                            } else {
+                                restoreBlackoutDisabledSubmitBtn(submitBtn, submitBtnId);
+                            }
                         }
                     } else if (warningConflict) {
                         container.innerHTML = `
@@ -16624,9 +16654,11 @@
                         </div>
                     `;
                         container.classList.remove('hidden');
+                        restoreBlackoutDisabledSubmitBtn(submitBtn, submitBtnId);
                     } else {
                         container.classList.add('hidden');
                         container.innerHTML = '';
+                        restoreBlackoutDisabledSubmitBtn(submitBtn, submitBtnId);
                     }
                 } catch (err) {
                     console.warn('Blackout check error:', err);

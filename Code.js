@@ -952,26 +952,7 @@ const EnhancedCacheManager = {
             : ApplicationsManager.getAllApplicationsData({ status: SYSTEM.STATUS.PENDING });
 
         // Include applications where supervisorEmail is direct supervisor OR acting supervisor
-        const delegatedSupervisors = new Set([supKey]);
-        try {
-            const staffData = StaffManager.getAllStaffData();
-            const today = Utils.parseLocalDate(new Date());
-
-            staffData.forEach(s => {
-                if (s.ActingSupervisor && s.ActingSupervisor.active) {
-                    const actEmail = (s.ActingSupervisor.actingEmail || s.ActingSupervisor.email || '').toLowerCase().trim();
-                    if (actEmail && actEmail === supKey) {
-                        const from = Utils.parseLocalDate(s.ActingSupervisor.startDate || s.ActingSupervisor.fromDate);
-                        const to = Utils.parseLocalDate(s.ActingSupervisor.endDate || s.ActingSupervisor.toDate);
-                        if (from && to && today >= from && today <= to) {
-                            if (s.Email) delegatedSupervisors.add(s.Email.toLowerCase().trim());
-                        }
-                    }
-                }
-            });
-        } catch (e) {
-            console.warn('Error evaluating acting supervisor delegations:', e.message);
-        }
+        const delegatedSupervisors = new Set([supKey, ...StaffManager.getDelegatedSupervisors(supervisorEmail)]);
 
         applications = allPending.filter(app =>
             app.SupervisorEmail && delegatedSupervisors.has(app.SupervisorEmail.toLowerCase().trim())
@@ -1591,6 +1572,48 @@ const StaffManager = {
             const mSup = member.Supervisor.toLowerCase().trim();
             return mSup === supEmail || (supName && mSup === supName);
         });
+    },
+
+    getDelegatedSupervisors: function (actingEmail) {
+        if (!actingEmail) return [];
+        const actKey = actingEmail.toLowerCase().trim();
+        const delegated = [];
+        try {
+            const staffData = this.getAllStaffData();
+            const today = Utils.parseLocalDate(new Date());
+
+            staffData.forEach(s => {
+                if (s.ActingSupervisor && s.ActingSupervisor.active) {
+                    const email = (s.ActingSupervisor.actingEmail || s.ActingSupervisor.email || '').toLowerCase().trim();
+                    if (email && email === actKey) {
+                        const from = Utils.parseLocalDate(s.ActingSupervisor.startDate || s.ActingSupervisor.fromDate);
+                        const to = Utils.parseLocalDate(s.ActingSupervisor.endDate || s.ActingSupervisor.toDate);
+                        if (from && to && today >= from && today <= to && s.Email) {
+                            delegated.push(s.Email.toLowerCase().trim());
+                        }
+                    }
+                }
+            });
+        } catch (e) {
+            console.warn('Error evaluating acting supervisor delegations:', e.message);
+        }
+        return delegated;
+    },
+
+    getTeamStaffIncludingDelegated: function (supervisorEmail, delegatedSupervisors) {
+        const delegated = delegatedSupervisors || this.getDelegatedSupervisors(supervisorEmail);
+        const byEmail = new Map();
+        const addStaffList = (list) => {
+            (list || []).forEach(staff => {
+                if (staff.Email) {
+                    const key = staff.Email.toLowerCase().trim();
+                    if (!byEmail.has(key)) byEmail.set(key, staff);
+                }
+            });
+        };
+        addStaffList(this.getStaffBySupervisor(supervisorEmail));
+        delegated.forEach(supEmail => addStaffList(this.getStaffBySupervisor(supEmail)));
+        return Array.from(byEmail.values());
     },
 
     createStaff: function (staffData) {
@@ -2301,9 +2324,12 @@ const StaffManager = {
             EnhancedCacheManager.clearAll();
             EnhancedCacheManager.buildIndexes();
 
+            const isClearing = !actingEmail;
             return Utils.createSuccessResponse(
                 supervisor.ActingSupervisor,
-                active ? `Approval delegation set to ${actingName || actingEmail} from ${fromDate} to ${toDate}` : 'Approval delegation deactivated'
+                supervisor.ActingSupervisor.active
+                    ? `Approval delegation set to ${resolvedName || actingEmail} from ${fromDate} to ${toDate}`
+                    : (isClearing ? 'Acting supervisor delegation cleared' : 'Approval delegation deactivated')
             );
         } catch (error) {
             console.error('Error in setActingSupervisor:', error);
@@ -2936,6 +2962,12 @@ const ApplicationsManager = {
                 const workingHoursPerDay = user.WorkingHoursPerDay || SYSTEM.LEAVE_POLICY.WORKING_HOURS_PER_DAY;
                 duration = hours / workingHoursPerDay;
                 startDate = applicationData.hourlyDate || applicationData.startDate;
+                if (!startDate) return Utils.createErrorResponse('Date is required for hourly leave');
+                const start = Utils.parseLocalDate(startDate);
+                if (!start) return Utils.createErrorResponse('Invalid date for hourly leave');
+                const today = Utils.parseLocalDate(new Date());
+                const isSickLeaveType = applicationData.leaveType === SYSTEM.LEAVE_TYPES.SICK;
+                if (!isSickLeaveType && start < today) return Utils.createErrorResponse('Start date cannot be in the past');
                 endDate = startDate;
                 businessDays = duration;
             } else {
@@ -4659,12 +4691,13 @@ const DashboardManager = {
         try {
             const supervisorEmail = Session.getActiveUser().getEmail();
             const supervisorRole = StaffManager.getUserRole(supervisorEmail);
+            const delegatedSupervisors = StaffManager.getDelegatedSupervisors(supervisorEmail);
 
-            if (supervisorRole !== SYSTEM.ROLES.SUPERVISOR && supervisorRole !== SYSTEM.ROLES.ADMIN) {
+            if (supervisorRole !== SYSTEM.ROLES.SUPERVISOR && supervisorRole !== SYSTEM.ROLES.ADMIN && delegatedSupervisors.length === 0) {
                 throw new Error('User is not a supervisor');
             }
 
-            const supervisedStaff = StaffManager.getStaffBySupervisor(supervisorEmail);
+            const supervisedStaff = StaffManager.getTeamStaffIncludingDelegated(supervisorEmail, delegatedSupervisors);
             const allApplications = ApplicationsManager.getAllApplicationsData({});
 
             let pendingCount = 0;
@@ -7089,15 +7122,26 @@ const BlackoutPeriodManager = {
 
             if (allStaff.length <= 1) return { permitted: true, breach: false };
 
-            const periods = this.getAll().filter(p => p.department === 'All' || p.department.toLowerCase() === department.toLowerCase());
+            const reqStart = Utils.parseLocalDate(startDate);
+            const reqEnd = Utils.parseLocalDate(endDate);
+            if (!reqStart || !reqEnd) {
+                return { permitted: true, breach: false };
+            }
+
+            const periods = this.getAll().filter(p => {
+                const matchDept = p.department === 'All' || (p.department && p.department.toLowerCase() === department.toLowerCase());
+                if (!matchDept) return false;
+                const pStart = Utils.parseLocalDate(p.startDate);
+                const pEnd = Utils.parseLocalDate(p.endDate);
+                return pStart && pEnd && reqStart <= pEnd && reqEnd >= pStart;
+            });
             let minRequired = 2;
-            if (periods.length && periods[0].minimumStaffing) {
-                minRequired = periods[0].minimumStaffing;
+            const periodWithMin = periods.find(p => p.minimumStaffing);
+            if (periodWithMin) {
+                minRequired = periodWithMin.minimumStaffing;
             }
 
             const appsFile = DataManager.readDataFile(SYSTEM.DATA_FILES.APPLICATIONS);
-            const reqStart = Utils.parseLocalDate(startDate);
-            const reqEnd = Utils.parseLocalDate(endDate);
             const appEmailStr = typeof applicantEmail === 'string' ? applicantEmail.toLowerCase() : '';
 
             const awayStaff = new Set();
@@ -8657,6 +8701,9 @@ const ArchiveManager = {
             });
             DataManager.writeDataFile(SYSTEM.DATA_FILES.APPLICATIONS, appsFile);
 
+            EnhancedCacheManager.clearAll();
+            EnhancedCacheManager.buildIndexes();
+
             return {
                 success: true,
                 archivedCount: toArchive.length,
@@ -10172,7 +10219,8 @@ function apiGetPendingApplications() {
         const user = StaffManager.getUserData(currentUser);
         if (!user) return Utils.createErrorResponse('User not found');
 
-        if (user.Role !== SYSTEM.ROLES.SUPERVISOR && user.Role !== SYSTEM.ROLES.ADMIN) {
+        const delegatedSupervisors = StaffManager.getDelegatedSupervisors(currentUser);
+        if (user.Role !== SYSTEM.ROLES.SUPERVISOR && user.Role !== SYSTEM.ROLES.ADMIN && delegatedSupervisors.length === 0) {
             return Utils.createErrorResponse('User is not a supervisor');
         }
 
@@ -10182,7 +10230,9 @@ function apiGetPendingApplications() {
 
         console.log('Total applications in system:', allApps.length);
 
-        // Filter to pending applications where this user is the supervisor
+        const allowedSupervisors = new Set([currentUser.toLowerCase().trim(), ...delegatedSupervisors]);
+
+        // Filter to pending applications where this user is the direct or acting supervisor
         const pendingApps = allApps.filter(app => {
             // Must be pending
             if (app.Status !== SYSTEM.STATUS.PENDING) return false;
@@ -10190,11 +10240,11 @@ function apiGetPendingApplications() {
             // If dual approval is awaiting HR endorsement, supervisor has already endorsed it
             if (app.ApprovalStage === 'pending_hr') return false;
 
-            // Must have this user as supervisor
+            // Must have this user as direct or acting supervisor
             const supervisorEmail = app.SupervisorEmail || app.supervisorEmail;
             if (!supervisorEmail) return false;
 
-            return supervisorEmail.toLowerCase().trim() === currentUser.toLowerCase().trim();
+            return allowedSupervisors.has(supervisorEmail.toLowerCase().trim());
         });
 
         console.log('Found pending apps for this supervisor:', pendingApps.length);
@@ -10222,10 +10272,11 @@ function apiGetTeamApplications() {
         const currentUser = Session.getActiveUser().getEmail();
         const user = StaffManager.getUserData(currentUser);
         if (!user) return Utils.createErrorResponse('User not found');
-        if (user.Role !== SYSTEM.ROLES.SUPERVISOR && user.Role !== SYSTEM.ROLES.ADMIN) {
+        const delegatedSupervisors = StaffManager.getDelegatedSupervisors(currentUser);
+        if (user.Role !== SYSTEM.ROLES.SUPERVISOR && user.Role !== SYSTEM.ROLES.ADMIN && delegatedSupervisors.length === 0) {
             return Utils.createErrorResponse('User is not a supervisor');
         }
-        const supervisedStaff = StaffManager.getStaffBySupervisor(currentUser);
+        const supervisedStaff = StaffManager.getTeamStaffIncludingDelegated(currentUser, delegatedSupervisors);
         const supervisedEmails = supervisedStaff.map(staff => staff.Email.toLowerCase());
         let teamApplications = [];
         supervisedEmails.forEach(email => {
