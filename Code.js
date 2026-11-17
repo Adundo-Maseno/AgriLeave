@@ -2299,6 +2299,20 @@ const StaffManager = {
                 note = notes || '';
             }
 
+            if (active && actingEmail) {
+                if (actingEmail.toLowerCase().trim() === supervisorEmail.toLowerCase().trim()) {
+                    return Utils.createErrorResponse('Cannot assign yourself as your own acting supervisor');
+                }
+                const parsedStart = Utils.parseLocalDate(fromDate);
+                const parsedEnd = Utils.parseLocalDate(toDate);
+                if (!parsedStart || isNaN(parsedStart.getTime()) || !parsedEnd || isNaN(parsedEnd.getTime())) {
+                    return Utils.createErrorResponse('Valid start and end dates are required for acting supervisor delegation');
+                }
+                if (parsedStart > parsedEnd) {
+                    return Utils.createErrorResponse('End date must be on or after start date');
+                }
+            }
+
             if (actingEmail && !resolvedName) {
                 const actingStaff = staffFile.data.find(s =>
                     s.Email && s.Email.toLowerCase().trim() === actingEmail.toLowerCase().trim()
@@ -2964,7 +2978,7 @@ const ApplicationsManager = {
                 startDate = applicationData.hourlyDate || applicationData.startDate;
                 if (!startDate) return Utils.createErrorResponse('Date is required for hourly leave');
                 const start = Utils.parseLocalDate(startDate);
-                if (!start) return Utils.createErrorResponse('Invalid date for hourly leave');
+                if (!start || isNaN(start.getTime())) return Utils.createErrorResponse('Invalid leave date provided');
                 const today = Utils.parseLocalDate(new Date());
                 const isSickLeaveType = applicationData.leaveType === SYSTEM.LEAVE_TYPES.SICK;
                 if (!isSickLeaveType && start < today) return Utils.createErrorResponse('Start date cannot be in the past');
@@ -2974,6 +2988,9 @@ const ApplicationsManager = {
                 if (!startDate || !endDate) return Utils.createErrorResponse('Start date and end date are required');
                 const start = Utils.parseLocalDate(startDate);
                 const end = Utils.parseLocalDate(endDate);
+                if (!start || isNaN(start.getTime()) || !end || isNaN(end.getTime())) {
+                    return Utils.createErrorResponse('Invalid leave date provided');
+                }
                 const today = Utils.parseLocalDate(new Date());
                 // Sick leave may be applied retroactively; only future-only restriction applies to other leave types
                 const isSickLeaveType = applicationData.leaveType === SYSTEM.LEAVE_TYPES.SICK;
@@ -3011,20 +3028,21 @@ const ApplicationsManager = {
             }
 
             // Blackout period check (seasonal peak dates)
-            if (applicationData.leaveMode !== 'Hourly' && startDate && endDate) {
-                const blackoutConflict = BlackoutPeriodManager.checkConflict(user.Department, startDate, endDate);
-                if (blackoutConflict.hasConflict) {
-                    if (ConfigManager.isFeatureEnabled('feature_blackout_periods') && blackoutConflict.isStrict && user.Role !== SYSTEM.ROLES.ADMIN && user.Role !== SYSTEM.ROLES.HR) {
-                        const firstStrict = blackoutConflict.conflicts.find(c => c.severity === 'strict') || blackoutConflict.conflicts[0];
-                        return Utils.createErrorResponse(
-                            `Leave blocked: Requested dates fall during a strict company blackout period: "${firstStrict.name}" (${firstStrict.reason || 'Operational peak period'})`
-                        );
-                    }
+            const checkEndDate = endDate || startDate;
+            const blackoutCheck = (startDate && checkEndDate)
+                ? BlackoutPeriodManager.checkConflict(user.Department, startDate, checkEndDate)
+                : { hasConflict: false };
+            if (blackoutCheck.hasConflict) {
+                if (ConfigManager.isFeatureEnabled('feature_blackout_periods') && blackoutCheck.isStrict && user.Role !== SYSTEM.ROLES.ADMIN && user.Role !== SYSTEM.ROLES.HR) {
+                    const firstStrict = blackoutCheck.conflicts.find(c => c.severity === 'strict') || blackoutCheck.conflicts[0];
+                    return Utils.createErrorResponse(
+                        `Leave blocked: Requested dates fall during a strict company blackout period: "${firstStrict.name}" (${firstStrict.reason || 'Operational peak period'})`
+                    );
                 }
             }
 
-            const staffingCheck = (ConfigManager.isFeatureEnabled('feature_minimum_staffing') && applicationData.leaveMode !== 'Hourly' && startDate && endDate)
-                ? BlackoutPeriodManager.checkMinimumStaffing(user.Department, startDate, endDate, userEmail)
+            const staffingCheck = (ConfigManager.isFeatureEnabled('feature_minimum_staffing') && startDate && checkEndDate)
+                ? BlackoutPeriodManager.checkMinimumStaffing(user.Department, startDate, checkEndDate, userEmail)
                 : { breach: false };
 
             const balanceCheck = this.checkLeaveBalanceWithPriority(userEmail, applicationData.leaveType, businessDays);
@@ -3132,10 +3150,6 @@ const ApplicationsManager = {
             const holidaysExcluded = (applicationData.leaveMode !== 'Hourly' && startDate && endDate)
                 ? Utils.getHolidaysInRange(startDate, endDate).filter(h => !h.isWeekend).map(h => h.name)
                 : [];
-
-            const blackoutCheck = (applicationData.leaveMode !== 'Hourly' && startDate && endDate)
-                ? BlackoutPeriodManager.checkConflict(user.Department, startDate, endDate)
-                : { hasConflict: false };
 
             // Multi-tier approval routing:
             // Standard routine leaves (<= 5 business days) need only supervisor approval.
@@ -7078,9 +7092,11 @@ const BlackoutPeriodManager = {
             const reqEnd = Utils.parseLocalDate(endDate);
             if (!reqStart || !reqEnd) return { hasConflict: false, conflicts: [] };
 
+            const normTargetDept = (department || '').toString().trim().toLowerCase();
             const conflicts = [];
             for (const p of periods) {
-                const matchDept = p.department === 'All' || !department || p.department.toLowerCase() === department.toLowerCase();
+                const pDept = (p.department || '').toString().trim().toLowerCase();
+                const matchDept = pDept === 'all' || !normTargetDept || pDept === normTargetDept;
                 if (!matchDept) continue;
 
                 const pStart = Utils.parseLocalDate(p.startDate);
@@ -7128,8 +7144,10 @@ const BlackoutPeriodManager = {
                 return { permitted: true, breach: false };
             }
 
+            const normTargetDept = (department || '').toString().trim().toLowerCase();
             const periods = this.getAll().filter(p => {
-                const matchDept = p.department === 'All' || (p.department && p.department.toLowerCase() === department.toLowerCase());
+                const pDept = (p.department || '').toString().trim().toLowerCase();
+                const matchDept = pDept === 'all' || (pDept && pDept === normTargetDept);
                 if (!matchDept) return false;
                 const pStart = Utils.parseLocalDate(p.startDate);
                 const pEnd = Utils.parseLocalDate(p.endDate);
@@ -9054,14 +9072,21 @@ const FinancialProvisionManager = {
         });
 
         rows.push([]);
-        rows.push(['--- DEPARTMENTAL SUMMARY ---', '', '', '', '', '', '', '', '', '', '', '']);
+        rows.push(['--- DEPARTMENTAL SUMMARY ---']);
         rows.push(['Department', 'Staff Count', 'Total Liability Days', 'Total Carried Forward', 'Total Provision (' + report.currency + ')']);
         report.departmentalSummary.forEach(d => {
             rows.push([d.department, d.staffCount, d.liabilityDays, d.carriedForwardDays, d.estimatedValue]);
         });
         rows.push(['TOTAL', report.activeStaffCount, report.totalLiabilityDays, report.totalCarriedForwardDays, report.totalEstimatedValue]);
 
-        sheet.getRange(1, 1, rows.length, headers.length).setValues(rows);
+        const colCount = headers.length;
+        const paddedRows = rows.map(r => {
+            const row = r.slice(0, colCount);
+            while (row.length < colCount) row.push('');
+            return row;
+        });
+
+        sheet.getRange(1, 1, paddedRows.length, colCount).setValues(paddedRows);
         sheet.getRange(1, 1, 1, headers.length)
             .setBackground('#059669')
             .setFontColor('#FFFFFF')
@@ -11853,19 +11878,29 @@ function apiGetActingSupervisor() {
         
         // Also find if current user is acting for any supervisors currently
         const allStaff = StaffManager.getAllStaffData();
-        const todayStr = Utils.formatLocalDate(new Date());
+        const today = Utils.parseLocalDate(new Date());
         const actingFor = allStaff.filter(s => {
             const act = s.ActingSupervisor;
-            if (!act || !act.actingEmail) return false;
-            if (act.actingEmail.toLowerCase().trim() !== currentUser.toLowerCase().trim()) return false;
-            if (act.startDate && act.startDate > todayStr) return false;
-            if (act.endDate && act.endDate < todayStr) return false;
+            if (!act || act.active === false) return false;
+            const actEmail = act.actingEmail || act.email;
+            if (!actEmail) return false;
+            if (actEmail.toLowerCase().trim() !== currentUser.toLowerCase().trim()) return false;
+            const rawStart = act.startDate || act.fromDate;
+            const rawEnd = act.endDate || act.toDate;
+            if (rawStart) {
+                const start = Utils.parseLocalDate(rawStart);
+                if (start && !isNaN(start.getTime()) && start > today) return false;
+            }
+            if (rawEnd) {
+                const end = Utils.parseLocalDate(rawEnd);
+                if (end && !isNaN(end.getTime()) && end < today) return false;
+            }
             return true;
         }).map(s => ({
             supervisorEmail: s.Email,
             supervisorName: s.Name,
-            startDate: s.ActingSupervisor.startDate,
-            endDate: s.ActingSupervisor.endDate,
+            startDate: s.ActingSupervisor.startDate || s.ActingSupervisor.fromDate || '',
+            endDate: s.ActingSupervisor.endDate || s.ActingSupervisor.toDate || '',
             notes: s.ActingSupervisor.notes
         }));
 

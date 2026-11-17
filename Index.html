@@ -13048,6 +13048,16 @@
                             hideLoading();
 
                             if (result.success) {
+                                if (typeof ClientCache !== 'undefined') {
+                                    ClientCache.invalidate('my_applications');
+                                    ClientCache.invalidate('team_applications');
+                                    ClientCache.invalidate('all_applications');
+                                    ClientCache.invalidate('user_balance');
+                                    ClientCache.invalidate('supervisor_stats');
+                                    ClientCache.invalidate('hr_dashboard');
+                                    ClientCache.invalidate('wallchart_');
+                                    ClientCache.invalidate('dashboard');
+                                }
                                 const msg = isApproved
                                     ? 'Approved application cancelled and leave balance restored successfully'
                                     : 'Your leave application has been cancelled';
@@ -13674,6 +13684,12 @@
                             const result = await callGoogleScriptFunction('apiDeleteStaff', { email: email, reason: reason });
                             hideLoading();
                             if (result && result.success) {
+                                if (typeof ClientCache !== 'undefined') {
+                                    ClientCache.invalidate('all_staff');
+                                    ClientCache.invalidate('hr_dashboard');
+                                    ClientCache.invalidate('supervisor_stats');
+                                    ClientCache.invalidate('wallchart_');
+                                }
                                 showToast('success', 'Staff Deactivated', `Successfully deactivated ${email}`);
                                 loadStaffList();
                             } else {
@@ -14967,6 +14983,13 @@
                     const res = await callGoogleScriptFunction('apiArchiveOldApplications');
                     hideLoading();
                     if (res.success) {
+                        if (typeof ClientCache !== 'undefined') {
+                            ClientCache.invalidate('hr_dashboard');
+                            ClientCache.invalidate('all_applications');
+                            ClientCache.invalidate('my_applications');
+                            ClientCache.invalidate('team_applications');
+                            ClientCache.invalidate('perf_stats');
+                        }
                         showToast('success', 'Archive Complete', res.message || 'Closed past-year applications archived');
                         loadHRDashboardPage();
                     } else {
@@ -16464,6 +16487,7 @@
                         showToast('success', 'Blackout Saved', res.message || 'Blackout period saved');
                         closeBlackoutModal();
                         if (window.AppState) window.AppState.blackoutPeriods = null;
+                        if (typeof ClientCache !== 'undefined') ClientCache.invalidate('blackout_periods');
                         if (AppState.currentPage === 'hrDashboard') {
                             loadHRDashboardPage();
                         }
@@ -16485,6 +16509,7 @@
                     if (res.success) {
                         showToast('success', 'Blackout Deleted', 'Period removed successfully');
                         if (window.AppState) window.AppState.blackoutPeriods = null;
+                        if (typeof ClientCache !== 'undefined') ClientCache.invalidate('blackout_periods');
                         if (AppState.currentPage === 'hrDashboard') {
                             loadHRDashboardPage();
                         }
@@ -16569,9 +16594,14 @@
                 } else {
                     delete submitBtn._blackoutDisabled;
                 }
-                const reasonId = submitBtnId === 'pageSubmitLeaveApplication' ? 'pageReason' : 'reason';
+                const isPage = submitBtnId === 'pageSubmitLeaveApplication';
+                const reasonId = isPage ? 'pageReason' : 'reason';
                 const reasonEl = document.getElementById(reasonId);
-                submitBtn.disabled = reasonEl ? (reasonEl.value || '').length < 10 : false;
+                const balanceMsgId = isPage ? 'pageBalanceCheckMessage' : 'balanceCheckMessage';
+                const balanceMsgEl = document.getElementById(balanceMsgId);
+                const insufficientBalance = Boolean(balanceMsgEl && (balanceMsgEl.textContent || '').includes('Insufficient leave balance'));
+                const reasonTooShort = Boolean(reasonEl && (reasonEl.value || '').trim().length < 10);
+                submitBtn.disabled = insufficientBalance || reasonTooShort;
             }
 
             async function checkBlackoutNotice(startDate, endDate, containerId, submitBtnId) {
@@ -16626,7 +16656,7 @@
                             <i class="fas fa-ban text-rose-600 mt-0.5 flex-none"></i>
                             <div>
                                 <span class="font-bold text-rose-900">Blackout Period (${escapeHtml(strictConflict.name)}):</span>
-                                <span class="text-rose-800"> Leave is locked from ${strictConflict.startDate} to ${strictConflict.endDate}. Reason: "${escapeHtml(strictConflict.reason || 'Operational peak')}". ${isPrivileged ? '<em>(Admin/HR override enabled)</em>' : 'Applications cannot be submitted.'}</span>
+                                <span class="text-rose-800"> Leave is locked from ${escapeHtml(strictConflict.startDate)} to ${escapeHtml(strictConflict.endDate)}. Reason: "${escapeHtml(strictConflict.reason || 'Operational peak')}". ${isPrivileged ? '<em>(Admin/HR override enabled)</em>' : 'Applications cannot be submitted.'}</span>
                             </div>
                         </div>
                     `;
@@ -16649,7 +16679,7 @@
                             <i class="fas fa-exclamation-circle text-rose-600 mt-0.5 flex-none"></i>
                             <div>
                                 <span class="font-bold text-rose-900">Peak Season Notice (${escapeHtml(warningConflict.name)}):</span>
-                                <span class="text-rose-800"> ${warningConflict.startDate} to ${warningConflict.endDate}. Operational coverage is critical during this period.</span>
+                                <span class="text-rose-800"> ${escapeHtml(warningConflict.startDate)} to ${escapeHtml(warningConflict.endDate)}. Operational coverage is critical during this period.</span>
                             </div>
                         </div>
                     `;
@@ -17793,6 +17823,11 @@
                     });
                     hideLoading();
                     if (res && res.success) {
+                        if (typeof ClientCache !== 'undefined') {
+                            ClientCache.invalidate('team_applications');
+                            ClientCache.invalidate('supervisor_stats');
+                            ClientCache.invalidate('all_staff');
+                        }
                         showToast('success', 'Delegation Active', `${actingName} is now designated as Acting Supervisor from ${startDate} to ${endDate}.`);
                         closeActingSupervisorModal();
                         loadDashboardData();
@@ -17817,6 +17852,11 @@
                     });
                     hideLoading();
                     if (res && res.success) {
+                        if (typeof ClientCache !== 'undefined') {
+                            ClientCache.invalidate('team_applications');
+                            ClientCache.invalidate('supervisor_stats');
+                            ClientCache.invalidate('all_staff');
+                        }
                         showToast('success', 'Delegation Revoked', 'Acting supervisor delegation has been cleared.');
                         closeActingSupervisorModal();
                         loadDashboardData();
